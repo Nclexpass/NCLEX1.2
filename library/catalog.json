@@ -1,0 +1,17 @@
+﻿[
+    {
+        "id":  "anatomia_y_fisiologia_humana",
+        "title":  {
+                      "es":  "Anatomia y Fisiologia Humana",
+                      "en":  "Anatomia y Fisiologia Humana"
+                  },
+        "author":  "",
+        "type":  "pdf",
+        "fileUrl":  "library/files/Anatomia y Fisiologia Humana.pdf",
+        "coverUrl":  "library/covers/anatomia_fisiologia_humana.jpg",
+        "tags":  [
+                     "NCLEX"
+                 ],
+        "addedAt":  1770246965008
+    }
+]
