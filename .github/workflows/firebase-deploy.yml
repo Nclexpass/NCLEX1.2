@@ -1,4 +1,4 @@
-name: Deploy Manual Seguro
+name: Deploy Manual Directo
 
 on:
   push:
@@ -8,80 +8,103 @@ on:
 jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
-      # 1. Descargar tu código
+      # 1. Bajar tu código
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Instalar Node.js
+      # 2. Preparar el entorno (Node.js)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 3. Generar el Catálogo (Script de Node simple)
+      # 3. GENERADOR DE CATÁLOGO (Script seguro que no rompe el deploy)
       - name: Generar Catalogo
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          node -e '
-            const fs = require("fs");
-            const path = require("path");
-            
-            async function run() {
-              console.log("🤖 Generando catálogo...");
-              const url = `https://api.github.com/repos/${process.env.REPO}/releases/tags/BOOKS`;
+          # Creamos el script JS en el momento para evitar errores de sintaxis YAML
+          cat << 'EOF' > generate_catalog.js
+          const fs = require('fs');
+          const path = require('path');
+          
+          async function run() {
+            try {
+              console.log("🤖 Buscando libros en GitHub Releases...");
+              const repo = process.env.REPO;
+              // Usamos la API pública si es posible, o con token
+              const headers = { 'User-Agent': 'NCLEX-Bot' };
+              if (process.env.GH_TOKEN) headers['Authorization'] = `Bearer ${process.env.GH_TOKEN}`;
               
-              try {
-                const res = await fetch(url, { headers: { "Authorization": `Bearer ${process.env.GH_TOKEN}`, "User-Agent": "NCLEX-Bot" } });
-                if(!res.ok) throw new Error("No se encontró el Release BOOKS");
-                
-                const data = await res.json();
-                const items = (data.assets || [])
-                  .filter(a => a.name.toLowerCase().endsWith(".pdf"))
-                  .map(a => {
-                     const name = a.name.replace(/_/g, " ").replace(/\.pdf$/i, "");
-                     return {
-                       id: name.replace(/[^a-zA-Z0-9]/g, "").substring(0,15),
-                       title: { es: name, en: name },
-                       type: "pdf",
-                       fileUrl: a.browser_download_url,
-                       coverUrl: "", 
-                       addedAt: new Date(a.created_at).getTime()
-                     };
-                  });
-                
-                const dir = "library";
-                if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-                fs.writeFileSync(`${dir}/catalog.json`, JSON.stringify(items, null, 2));
-                console.log(`✅ Catálogo creado con ${items.length} libros.`);
-              } catch (e) {
-                console.log("⚠️ Aviso: " + e.message);
-                // Si falla, creamos uno vacío para no romper la web
-                if (!fs.existsSync("library/catalog.json")) {
-                   fs.mkdirSync("library", {recursive:true});
-                   fs.writeFileSync("library/catalog.json", "[]");
-                }
+              const res = await fetch(`https://api.github.com/repos/${repo}/releases/tags/BOOKS`, { headers });
+              
+              if (!res.ok) {
+                console.log("⚠️ No se encontró el Release 'BOOKS'. Se creará catálogo vacío.");
+                writeCatalog([]);
+                return;
               }
+              
+              const data = await res.json();
+              const items = (data.assets || [])
+                .filter(a => a.name.toLowerCase().endsWith('.pdf'))
+                .map(a => {
+                  const cleanName = a.name.replace(/_/g, ' ').replace(/\.pdf$/i, '');
+                  // ID seguro solo letras y numeros
+                  const safeId = cleanName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+                  
+                  return {
+                    id: safeId,
+                    title: { es: cleanName, en: cleanName },
+                    type: 'pdf',
+                    fileUrl: a.browser_download_url,
+                    coverUrl: '', // El JS del frontend generará el arte
+                    addedAt: new Date(a.created_at).getTime()
+                  };
+                });
+                
+              writeCatalog(items);
+              console.log(`✅ Catálogo generado con ${items.length} libros.`);
+              
+            } catch (e) {
+              console.error("❌ Error generando catálogo:", e.message);
+              // En caso de error, creamos uno vacío para que la web no rompa
+              writeCatalog([]);
             }
-            run();
-          '
+          }
 
-      # 4. INSTALAR Y SUBIR A FIREBASE (Modo Directo)
+          function writeCatalog(items) {
+            const dir = 'library';
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(path.join(dir, 'catalog.json'), JSON.stringify(items, null, 2));
+          }
+
+          run();
+          EOF
+          
+          # Ejecutar el script que acabamos de crear
+          node generate_catalog.js
+
+      # 4. INSTALAR FIREBASE Y DESPLEGAR (Método Directo)
       - name: Deploy to Firebase
         env:
-          # Decodificamos tu llave secreta directamente
+          # Usamos tu secreto directamente
           SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
           PROJECT_ID: nclex-library-9e9e7
         run: |
-          # Instalar herramienta oficial
+          # Instalar CLI oficial
           npm install -g firebase-tools
           
-          # Crear archivo de credenciales temporal
+          # Autenticación manual con archivo de servicio
           echo "$SA_KEY" > service_account.json
-          export GOOGLE_APPLICATION_CREDENTIALS=service_account.json
+          export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/service_account.json"
           
-          # Subir SOLO el hosting (sin intentar compilar nada)
-          firebase deploy --only hosting --project $PROJECT_ID --json
+          # Despliegue forzado solo del hosting
+          # --non-interactive: evita que pregunte cosas
+          # --debug: nos dará más info si falla
+          firebase deploy --only hosting --project $PROJECT_ID --non-interactive
