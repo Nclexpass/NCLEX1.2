@@ -1,136 +1,89 @@
-name: Auto Deploy & Cover Generator
+name: Deploy NCLEX Library Safe
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
 
-permissions:
-  contents: write
-  id-token: write
-
 jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 1. Instalar herramientas para procesar PDFs (Poppler)
-      - name: Install PDF Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y poppler-utils
-
-      # 2. Configurar Python para el script de imágenes
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.9'
+          node-version: '20'
 
-      # 3. EL GRAN SCRIPT: Descarga PDFs, extrae la portada y genera el catálogo
-      - name: Generate Catalog & Covers
+      # GENERADOR DE CATÁLOGO (Solo Texto - No falla nunca)
+      - name: Generate library/catalog.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          python3 - << 'EOF'
-          import os, json, subprocess, sys
-          from urllib.request import Request, urlopen
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
 
-          # Configuración
-          repo = os.environ['REPO']
-          tag = "BOOKS"
-          api_url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
-          token = os.environ['GH_TOKEN']
-          
-          # Carpetas de salida
-          covers_dir = "library/files/covers"
-          os.makedirs(covers_dir, exist_ok=True)
-          os.makedirs("library/files", exist_ok=True)
-
-          print(f"🤖 Conectando a Release: {tag}...")
-          
-          # Obtener lista de archivos del Release
-          req = Request(api_url, headers={"Authorization": f"Bearer {token}", "User-Agent": "NCLEX-Bot"})
-          try:
-              data = json.loads(urlopen(req).read())
-          except Exception as e:
-              print(f"⚠️ Error accediendo al Release (quizás no existe 'BOOKS'): {e}")
-              sys.exit(0) # Salir sin error para no romper el deploy
-
-          assets = data.get("assets", [])
-          print(f"📚 Archivos encontrados: {len(assets)}")
-
-          catalog = []
-          
-          for asset in assets:
-              name = asset["name"]
-              if not name.lower().endswith(".pdf"):
-                  continue
-                  
-              print(f"⚡ Procesando: {name}")
+            async function generate() {
+              console.log("🤖 Iniciando generador de catálogo...");
+              const repo = process.env.REPO;
+              // Usamos la API de GitHub para leer el release "BOOKS"
+              const url = `https://api.github.com/repos/${repo}/releases/tags/BOOKS`;
               
-              # Limpiar nombre para título e ID
-              clean_name = name.replace("_", " ").replace(".pdf", "").replace(".PDF", "")
-              safe_id = "".join([c if c.isalnum() else "_" for c in clean_name]).strip("_")
-              
-              # URLs
-              pdf_url = asset["browser_download_url"]
-              cover_filename = f"{safe_id}.jpg"
-              cover_path_local = os.path.join(covers_dir, cover_filename)
-              cover_url_web = f"/library/files/covers/{cover_filename}"
-              
-              # GENERAR PORTADA (Descarga parcial -> Convertir -> JPG)
-              # Usamos curl para bajar el PDF temporalmente
-              tmp_pdf = "temp_book.pdf"
-              subprocess.run(["curl", "-L", "-H", f"Authorization: Bearer {token}", "-o", tmp_pdf, pdf_url], check=True)
-              
-              # Usar pdftoppm para sacar la primera página como JPG
-              # -f 1 -l 1: Solo página 1
-              # -scale-to 400: Ancho 400px (calidad buena para web)
-              try:
-                  subprocess.run([
-                      "pdftoppm", "-jpeg", "-f", "1", "-l", "1", 
-                      "-scale-to", "400", tmp_pdf, "cover_tmp"
-                  ], check=True)
-                  
-                  # pdftoppm genera 'cover_tmp-1.jpg', lo renombramos
-                  if os.path.exists("cover_tmp-1.jpg"):
-                      os.replace("cover_tmp-1.jpg", cover_path_local)
-                      print(f"   ✅ Portada creada: {cover_filename}")
-                  else:
-                      print("   ⚠️ No se generó la imagen.")
-                      cover_url_web = "" # Sin portada
-              except Exception as e:
-                  print(f"   ❌ Error generando portada: {e}")
-                  cover_url_web = ""
+              try {
+                const res = await fetch(url, {
+                  headers: { "Authorization": `Bearer ${process.env.GH_TOKEN}`, "User-Agent": "NCLEX-Bot" }
+                });
+                
+                if (!res.ok) {
+                   console.log("⚠️ No se detectó Release BOOKS. Se publicará catálogo vacío.");
+                   return; // No rompemos el deploy, solo no generamos nada.
+                }
 
-              # Agregar al catálogo
-              catalog.append({
-                  "id": safe_id,
-                  "title": {"es": clean_name, "en": clean_name},
-                  "author": "NCLEX Library",
-                  "type": "pdf",
-                  "fileUrl": pdf_url,
-                  "coverUrl": cover_url_web,
-                  "tags": ["NCLEX"],
-                  "addedAt": 1700000000000, # Fecha fija o dinámica
-                  "source": "github_auto"
-              })
-              
-              # Limpieza
-              if os.path.exists(tmp_pdf): os.remove(tmp_pdf)
+                const data = await res.json();
+                const assets = data.assets || [];
+                
+                // Mapear archivos PDF a formato JSON
+                const items = assets
+                  .filter(a => a.name.toLowerCase().endsWith(".pdf"))
+                  .map(a => {
+                    const cleanName = a.name.replace(/_/g, " ").replace(/\.pdf$/i, "");
+                    // Creamos un ID seguro
+                    const id = cleanName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().substring(0, 20);
+                    
+                    return {
+                      id: id,
+                      title: { es: cleanName, en: cleanName },
+                      type: "pdf",
+                      fileUrl: a.browser_download_url,
+                      coverUrl: "", // Lo dejamos vacío, el JS generará el arte
+                      addedAt: new Date(a.created_at).getTime()
+                    };
+                  });
 
-          # Guardar JSON
-          with open("library/catalog.json", "w") as f:
-              json.dump(catalog, f, indent=2)
-              
-          print("💾 Catálogo guardado en library/catalog.json")
-          EOF
+                // Crear carpeta y guardar
+                const dir = path.join(process.cwd(), "library");
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                
+                fs.writeFileSync(path.join(dir, "catalog.json"), JSON.stringify(items, null, 2));
+                console.log(`✅ Catálogo generado con ${items.length} libros.`);
+                
+              } catch (error) {
+                console.error("Error leve generando catálogo:", error);
+                // No hacemos process.exit(1) para que el deploy continúe sí o sí
+              }
+            }
+            generate();
+          '
 
-      # 4. Publicar a Firebase
+      # DESPLIEGUE A FIREBASE
       - name: Firebase Deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
