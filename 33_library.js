@@ -1,15 +1,15 @@
-// 33_library.js — Biblioteca Autónoma (Conexión Directa GitHub)
-// ✅ No requiere scripts de servidor (Zero-Config)
-// ✅ Genera portadas de colores automáticamente
+// 33_library.js — Biblioteca Cliente Directo (Sin Scripts de Servidor)
+// ✅ Conexión directa a la API de GitHub (Releases)
+// ✅ Portadas automáticas de colores
 // ✅ Lector Integrado
 
 (function () {
   'use strict';
   if (!window.NCLEX) return;
 
-  // CONFIGURACIÓN: Apunta directo a tus Releases
+  // CONFIGURACIÓN: Tu repositorio exacto
   const REPO = 'Nclexpass/NCLEX1.2'; 
-  const TAG = 'BOOKS';
+  const TAG = 'BOOKS'; // Asegúrate de que tus Releases tengan este tag exacto
   const API_URL = `https://api.github.com/repos/${REPO}/releases/tags/${TAG}`;
 
   const LibraryUI = {
@@ -21,21 +21,24 @@
       this.render();
       
       try {
-        // 1. Conexión Directa a GitHub
+        console.log("📚 Consultando libros en:", API_URL);
+        
+        // 1. Petición directa a GitHub
         const res = await fetch(API_URL);
         
         if (!res.ok) {
-           console.warn(`GitHub API: ${res.status}`); 
-           throw new Error("No se pudo conectar con los libros.");
+           console.warn("Error GitHub:", res.status);
+           if(res.status === 404) throw new Error("No existe el Release 'BOOKS' en GitHub.");
+           throw new Error("No se pudo conectar con la biblioteca.");
         }
 
         const data = await res.json();
         
-        // 2. Transformar archivos en libros
+        // 2. Procesar los archivos PDF
         this.items = (data.assets || [])
           .filter(asset => asset.name.toLowerCase().endsWith('.pdf'))
           .map(asset => {
-             // Limpieza de nombre
+             // Limpiar nombre del archivo
              const cleanName = asset.name
                .replace(/_/g, ' ')
                .replace(/-/g, ' ')
@@ -51,37 +54,34 @@
 
         // Ordenar alfabéticamente
         this.items.sort((a,b) => a.title.localeCompare(b.title));
+        console.log(`✅ ${this.items.length} libros cargados.`);
 
       } catch (e) {
         console.error(e);
-        // Si falla GitHub, intentamos cargar el local por si acaso
-        try {
-            const local = await fetch('/library/catalog.json');
-            if(local.ok) this.items = await local.json();
-        } catch(err) {}
+        this.error = e.message;
       } finally {
         this.loading = false;
         this.render();
       }
     },
 
-    // Generador de Portadas Estilo Apple
+    // Generador de Portadas (Gradientes)
     getCover(title) {
       const colors = [
-        ['from-blue-600 to-blue-400', 'text-blue-100'],
-        ['from-emerald-600 to-teal-400', 'text-emerald-100'],
-        ['from-rose-600 to-pink-500', 'text-rose-100'],
-        ['from-violet-600 to-purple-500', 'text-purple-100'],
-        ['from-slate-700 to-slate-500', 'text-gray-300']
+        ['from-blue-600 to-cyan-500', 'text-blue-200'],
+        ['from-emerald-600 to-teal-500', 'text-emerald-200'],
+        ['from-rose-600 to-pink-500', 'text-pink-200'],
+        ['from-violet-600 to-purple-500', 'text-purple-200'],
+        ['from-amber-500 to-orange-400', 'text-orange-100']
       ];
       const index = title.length % colors.length;
       const [bg, iconColor] = colors[index];
 
       return `
         <div class="w-full h-full bg-gradient-to-br ${bg} p-4 relative flex flex-col justify-between overflow-hidden shadow-inner">
-           <i class="fa-solid fa-book-medical absolute -right-6 -bottom-6 text-[5rem] opacity-20 rotate-12 ${iconColor}"></i>
-           <div class="relative z-10 font-serif font-bold text-white text-lg leading-tight tracking-tight drop-shadow-md line-clamp-4">${title}</div>
-           <div class="relative z-10 flex items-center gap-1 opacity-70"><i class="fa-solid fa-cloud text-white text-[10px]"></i><span class="text-[9px] font-bold text-white tracking-widest uppercase">CLOUD</span></div>
+           <i class="fa-solid fa-book-medical absolute -right-4 -bottom-4 text-[5rem] opacity-20 rotate-12 ${iconColor}"></i>
+           <div class="relative z-10 font-serif font-bold text-white text-lg leading-tight drop-shadow-md line-clamp-4">${title}</div>
+           <div class="relative z-10 flex items-center gap-1 opacity-80"><i class="fa-brands fa-github text-white text-xs"></i><span class="text-[9px] font-bold text-white tracking-widest uppercase">CLOUD</span></div>
         </div>
       `;
     },
@@ -89,6 +89,7 @@
     // Lector PDF Integrado
     openReader(item) {
       if (!item.fileUrl) return;
+      // Usamos Google Viewer embebido
       const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(item.fileUrl)}&embedded=true`;
 
       const modal = document.createElement('div');
@@ -102,7 +103,10 @@
            <button id="close-reader-btn" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-white text-xs font-bold transition uppercase tracking-wide">Cerrar</button>
         </div>
         <div class="flex-1 w-full bg-gray-900 relative">
-           <div class="absolute inset-0 flex items-center justify-center text-gray-500 flex-col gap-2"><i class="fa-solid fa-circle-notch fa-spin text-3xl"></i><p class="text-xs uppercase tracking-widest">Cargando PDF...</p></div>
+           <div class="absolute inset-0 flex items-center justify-center text-gray-500 flex-col gap-2">
+              <i class="fa-solid fa-circle-notch fa-spin text-3xl"></i>
+              <p class="text-xs uppercase tracking-widest">Cargando PDF...</p>
+           </div>
            <iframe src="${viewerUrl}" class="absolute inset-0 w-full h-full border-0 z-10 bg-transparent" allowfullscreen></iframe>
         </div>
       `;
@@ -124,6 +128,9 @@
     },
 
     getGrid() {
+      if (this.error) {
+         return `<div class="p-10 text-center text-red-400 border border-red-200 rounded-xl"><i class="fa-solid fa-triangle-exclamation mb-2 text-2xl"></i><p>${this.error}</p><p class="text-xs mt-2 text-gray-400">Verifica que el Release 'BOOKS' exista en GitHub.</p></div>`;
+      }
       if (!this.items || this.items.length === 0) return `<div class="flex flex-col items-center justify-center py-20 text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-3xl"><i class="fa-solid fa-cloud-arrow-down text-5xl mb-4 text-gray-300"></i><p class="font-medium">No se encontraron libros.</p></div>`;
       
       return `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">${this.items.map(item => {
@@ -149,6 +156,7 @@
     }
   };
 
+  // Cargar automáticamente
   window.NCLEX_LIBRARY = LibraryUI;
   NCLEX.registerTopic({ id: 'library', title: { es: 'Biblioteca', en: 'Library' }, icon: 'book-open', color: 'slate', render: () => LibraryUI.getShell(), onLoad: () => LibraryUI.init() });
 })();
