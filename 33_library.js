@@ -1,8 +1,7 @@
 // 33_library.js — Biblioteca (descarga simple + carátula automática placeholder)
-// ✅ Lee /library/catalog.json generado por GitHub Actions (Release BOOKS)
+// ✅ Lee /library/catalog.json generado manualmente o por script
 // ✅ Evita CORS del visor: Usa Google Viewer para evitar descarga forzada
 // ✅ Carátulas: si coverUrl está vacío o falla, usa placeholder bonito con título
-// ✅ Lupa alineada (sin glitch)
 
 (function () {
   'use strict';
@@ -89,21 +88,14 @@
         this._error =
           t('Estás abriendo el programa con doble click (file://).', 'You opened the app as a file (file://).') +
           '<br>' +
-          t('Para que la biblioteca funcione en local, abre con un servidor.', 'To use the library locally, run a server.') +
-          `<br><br>
-           <div class="text-left inline-block">
-             <div class="font-bold mb-1">PowerShell:</div>
-             <code class="block bg-black/5 dark:bg-white/10 p-3 rounded-xl text-xs">
-               cd "A:\\NCLEX SOFTWARE\\NCLEX1.2"<br>
-               firebase serve --only hosting
-             </code>
-           </div>`;
+          t('Para que la biblioteca funcione en local, abre con un servidor.', 'To use the library locally, run a server.');
         this.renderIntoDom();
         return;
       }
 
       try {
-        const res = await fetch(CATALOG_URL, { cache: 'no-store' });
+        // Cache busting para asegurar que lea el json nuevo
+        const res = await fetch(CATALOG_URL + '?t=' + Date.now(), { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
@@ -176,21 +168,20 @@
       this.renderGrid();
     },
 
-    // --- CORRECCIÓN IMPORTANTE: Visor de Google para PDFs de GitHub ---
+    // --- VISOR DE GOOGLE ---
     openInNewTab(item) {
       if (!item?.fileUrl) return;
 
-      // Si es un PDF alojado en GitHub, usamos el visor de Google para evitar la descarga forzada
+      // Si es un PDF alojado en GitHub, usamos el visor de Google
       if (item.fileUrl.includes('github.com') && item.fileUrl.toLowerCase().endsWith('.pdf')) {
           const viewerUrl = `https://docs.google.com/viewer?embedded=false&url=${encodeURIComponent(item.fileUrl)}`;
           window.open(viewerUrl, '_blank', 'noopener,noreferrer');
       } else {
-          // Comportamiento normal para otros archivos
           window.open(item.fileUrl, '_blank', 'noopener,noreferrer');
       }
     },
 
-    // Descargar (fuerte)
+    // Descargar directo
     download(item) {
       if (!item?.fileUrl) return;
       const a = document.createElement('a');
@@ -220,7 +211,7 @@
               <div class="flex items-center gap-2">
                 <a href="${escapeHTML(resolveUrl(CATALOG_URL))}" target="_blank" rel="noopener noreferrer"
                   class="px-4 py-2 rounded-xl bg-white/90 dark:bg-white/5 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:shadow-md transition backdrop-blur">
-                  <i class="fa-solid fa-code mr-2 text-brand-blue"></i>${t('Ver Catálogo', 'View Catalog')}
+                  <i class="fa-solid fa-code mr-2 text-brand-blue"></i>${t('Ver JSON', 'View JSON')}
                 </a>
               </div>
             </div>
@@ -229,12 +220,11 @@
               <div class="relative">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                 <input id="library-search" type="text"
-                  placeholder="Buscar por título, autor, tags..."
+                  placeholder="Buscar..."
                   class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500" />
               </div>
 
               <div class="flex items-center gap-2">
-                <span class="text-sm text-gray-500 dark:text-gray-400 font-semibold">${t('Orden:', 'Sort:')}</span>
                 <select id="library-sort"
                   class="flex-1 bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 px-3 text-base focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all">
                   <option value="recent">Más recientes</option>
@@ -243,28 +233,22 @@
                 </select>
               </div>
 
-              <div id="library-stats" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-slate-700 rounded-2xl p-4">
-                <div class="text-sm font-bold text-gray-700 dark:text-gray-200">${t('Cargando...', 'Loading...')}</div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${t('Preparando tu gabinete.', 'Preparing your cabinet.')}</div>
+              <div id="library-stats" class="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-slate-700 rounded-2xl p-4 flex items-center justify-between">
+                 <span class="text-xs text-gray-500">Estado</span>
+                 <span class="font-bold text-brand-blue">Activo</span>
               </div>
             </div>
           </header>
 
           <section class="rounded-3xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm bg-white dark:bg-slate-900/40">
             <div class="relative p-6 md:p-8 bg-gradient-to-b from-gray-50 to-white dark:from-slate-900 dark:to-black">
-              <div class="absolute inset-0 pointer-events-none opacity-70">
-                <div class="absolute inset-x-0 top-1/3 h-px bg-gray-200/70 dark:bg-white/10"></div>
-                <div class="absolute inset-x-0 top-2/3 h-px bg-gray-200/70 dark:bg-white/10"></div>
-              </div>
-
               <div class="flex items-center justify-between mb-4 relative z-10">
                 <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">${t('Colección', 'Collection')}</h2>
                 <button id="library-reload"
                   class="px-4 py-2 rounded-xl bg-brand-blue text-white font-bold shadow-sm hover:opacity-90 transition">
-                  <i class="fa-solid fa-rotate mr-2"></i>${t('Actualizar', 'Reload')}
+                  <i class="fa-solid fa-rotate mr-2"></i>${t('Recargar', 'Reload')}
                 </button>
               </div>
-
               <div id="library-grid" class="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-start">
                 ${this.skeletonCardsHTML()}
               </div>
@@ -275,25 +259,17 @@
     },
 
     skeletonCardsHTML() {
-      return `${Array.from({ length: 8 }).map(() => `
-        <div class="rounded-2xl border border-gray-200 dark:border-slate-700 bg-white/70 dark:bg-white/5 overflow-hidden shadow-sm max-w-[260px] w-full">
-          <div class="aspect-[3/4] bg-gray-100 dark:bg-white/10 animate-pulse"></div>
-          <div class="p-4 space-y-2">
-            <div class="h-4 bg-gray-100 dark:bg-white/10 rounded animate-pulse"></div>
-            <div class="h-3 bg-gray-100 dark:bg-white/10 rounded w-2/3 animate-pulse"></div>
-            <div class="h-9 bg-gray-100 dark:bg-white/10 rounded-xl animate-pulse mt-3"></div>
-          </div>
-        </div>
+      return `${Array.from({ length: 4 }).map(() => `
+        <div class="rounded-2xl border border-gray-200 dark:border-slate-700 bg-white/70 dark:bg-white/5 overflow-hidden shadow-sm max-w-[260px] w-full h-[320px] animate-pulse"></div>
       `).join('')}`;
     },
 
     emptyHTML() {
       return `
         <div class="col-span-full p-10 text-center text-gray-500 dark:text-gray-400">
-          <div class="mx-auto w-14 h-14 rounded-2xl bg-gray-100 dark:bg-white/10 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-books text-2xl"></i>
-          </div>
-          <p class="font-bold">${t('No hay libros que coincidan con tu búsqueda.', 'No books match your search.')}</p>
+          <i class="fa-solid fa-books text-4xl mb-4 text-gray-300"></i>
+          <p class="font-bold">${t('La biblioteca está vacía.', 'Library is empty.')}</p>
+          <p class="text-xs mt-2 opacity-70">Asegúrate de que 'library/catalog.json' tenga datos.</p>
         </div>
       `;
     },
@@ -305,7 +281,7 @@
             <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
           </div>
           <p class="font-extrabold text-slate-900 dark:text-white">${t('Error cargando biblioteca', 'Error loading library')}</p>
-          <p class="text-sm mt-2 text-gray-500 dark:text-gray-400 max-w-xl mx-auto">${this._error}</p>
+          <p class="text-xs mt-2 font-mono text-gray-500 max-w-xl mx-auto bg-gray-100 dark:bg-black/50 p-2 rounded">${this._error}</p>
           <button id="library-retry" class="mt-6 px-5 py-3 rounded-2xl bg-brand-blue text-white font-bold hover:opacity-90 transition">
             <i class="fa-solid fa-rotate mr-2"></i>${t('Reintentar', 'Retry')}
           </button>
@@ -313,7 +289,6 @@
       `;
     },
 
-    // Placeholder carátula (bonito)
     coverPlaceholderHTML(title, icon) {
       return `
         <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-black">
@@ -334,17 +309,8 @@
       const tags = (item.tags || []).slice(0, 3);
       const cover = item.coverUrl || '';
 
-      // Si hay coverUrl, intentamos cargarlo, si falla -> placeholder
       const coverNode = cover
-        ? `
-          <img
-            src="${escapeHTML(cover)}"
-            alt="${escapeHTML(title)}"
-            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-            loading="lazy"
-            onerror="this.outerHTML=${JSON.stringify(this.coverPlaceholderHTML(title, icon))}"
-          />
-        `
+        ? `<img src="${escapeHTML(cover)}" alt="${escapeHTML(title)}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" onerror="this.outerHTML=${JSON.stringify(this.coverPlaceholderHTML(title, icon))}" />`
         : this.coverPlaceholderHTML(title, icon);
 
       return `
@@ -352,43 +318,14 @@
           <div class="aspect-[3/4] relative overflow-hidden">
             ${coverNode}
             <div class="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/70 via-black/25 to-transparent">
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-xs px-2 py-1 rounded-full bg-white/15 text-white font-extrabold backdrop-blur border border-white/15">
-                  ${prettyType(item.type, item)}
-                </span>
-              </div>
+               <span class="text-xs px-2 py-1 rounded-full bg-white/15 text-white font-extrabold backdrop-blur border border-white/15">${prettyType(item.type, item)}</span>
             </div>
           </div>
-
           <div class="p-4">
-            <div class="min-w-0">
-              <div class="font-extrabold text-slate-900 dark:text-white truncate" title="${escapeHTML(title)}">
-                ${escapeHTML(title)}
-              </div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                ${author ? escapeHTML(author) : '&nbsp;'}
-              </div>
-            </div>
-
-            <div class="mt-3 flex flex-wrap gap-2">
-              ${tags.map(tag => `
-                <span class="text-[11px] px-2 py-1 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 font-bold">
-                  ${escapeHTML(tag)}
-                </span>
-              `).join('')}
-            </div>
-
+            <div class="font-extrabold text-slate-900 dark:text-white truncate" title="${escapeHTML(title)}">${escapeHTML(title)}</div>
             <div class="mt-4 flex items-center gap-2">
-              <button data-download="${escapeHTML(item.id)}"
-                class="flex-1 px-3 py-2 rounded-2xl bg-brand-blue text-white font-extrabold hover:opacity-90 transition">
-                <i class="fa-solid fa-download mr-2"></i>${t('Descargar', 'Download')}
-              </button>
-
-              <button data-open="${escapeHTML(item.id)}"
-                class="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 flex items-center justify-center transition"
-                title="Abrir en pestaña">
-                <i class="fa-solid fa-arrow-up-right-from-square"></i>
-              </button>
+              <button data-download="${escapeHTML(item.id)}" class="flex-1 px-3 py-2 rounded-2xl bg-brand-blue text-white font-extrabold hover:opacity-90 transition"><i class="fa-solid fa-download mr-2"></i>Descargar</button>
+              <button data-open="${escapeHTML(item.id)}" class="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-gray-700 dark:text-gray-200 flex items-center justify-center transition"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
             </div>
           </div>
         </div>
@@ -407,106 +344,48 @@
     renderStats() {
       const el = document.getElementById('library-stats');
       if (!el) return;
-
-      if (this._loading) {
-        el.innerHTML = `
-          <div class="text-sm font-bold text-gray-700 dark:text-gray-200">${t('Cargando...', 'Loading...')}</div>
-          <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">${t('Conectando...', 'Connecting...')}</div>
-        `;
-        return;
-      }
-
+      if (this._loading) { el.innerHTML = 'Cargando...'; return; }
       const total = this._itemsRaw.length;
-      const showing = this._items.length;
-      const pdfs = this._itemsRaw.filter(guessIsPDF).length;
-
-      el.innerHTML = `
-        <div class="flex items-center justify-between">
-          <div class="text-sm font-extrabold text-gray-700 dark:text-gray-200">${t('Mostrando', 'Showing')}</div>
-          <div class="text-sm font-extrabold text-brand-blue">${showing}/${total}</div>
-        </div>
-        <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
-          <div class="rounded-xl bg-gray-100 dark:bg-white/10 px-3 py-2 text-center">
-            <div class="font-bold text-gray-700 dark:text-gray-200">PDF</div>
-            <div class="text-gray-500 dark:text-gray-400">${pdfs}</div>
-          </div>
-          <div class="rounded-xl bg-gray-100 dark:bg-white/10 px-3 py-2 text-center">
-            <div class="font-bold text-gray-700 dark:text-gray-200">${t('Total', 'Total')}</div>
-            <div class="text-gray-500 dark:text-gray-400">${total}</div>
-          </div>
-          <div class="rounded-xl bg-gray-100 dark:bg-white/10 px-3 py-2 text-center">
-            <div class="font-bold text-gray-700 dark:text-gray-200">${t('Nube', 'Cloud')}</div>
-            <div class="text-gray-500 dark:text-gray-400">OK</div>
-          </div>
-        </div>
-      `;
+      el.innerHTML = `<span class="text-sm font-bold text-gray-500">Total:</span> <span class="font-extrabold text-brand-blue ml-2">${total}</span>`;
     },
 
     renderGrid() {
       const grid = document.getElementById('library-grid');
       if (!grid) return;
-
-      if (this._loading) {
-        grid.innerHTML = this.skeletonCardsHTML();
-        return;
-      }
-
-      if (this._error) {
-        grid.innerHTML = this.errorHTML();
-        const btn = document.getElementById('library-retry');
-        if (btn) btn.addEventListener('click', () => this.load());
-        return;
-      }
-
-      if (!this._items.length) {
-        grid.innerHTML = this.emptyHTML();
-        return;
-      }
-
+      if (this._loading) { grid.innerHTML = this.skeletonCardsHTML(); return; }
+      if (this._error) { grid.innerHTML = this.errorHTML(); this.bindRetry(); return; }
+      if (!this._items.length) { grid.innerHTML = this.emptyHTML(); return; }
+      
       grid.innerHTML = this._items.map(it => this.cardHTML(it)).join('');
+      
+      grid.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => {
+        const item = this._itemsRaw.find(x => x.id === btn.getAttribute('data-open'));
+        if (item) this.openInNewTab(item);
+      }));
+      
+      grid.querySelectorAll('[data-download]').forEach(btn => btn.addEventListener('click', () => {
+        const item = this._itemsRaw.find(x => x.id === btn.getAttribute('data-download'));
+        if (item) this.download(item);
+      }));
+    },
 
-      grid.querySelectorAll('[data-open]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = btn.getAttribute('data-open');
-          const item = this._itemsRaw.find(x => x.id === id);
-          if (item) this.openInNewTab(item);
-        });
-      });
-
-      grid.querySelectorAll('[data-download]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = btn.getAttribute('data-download');
-          const item = this._itemsRaw.find(x => x.id === id);
-          if (item) this.download(item);
-        });
-      });
+    bindRetry() {
+        const btn = document.getElementById('library-retry');
+        if(btn) btn.onclick = () => this.load();
     },
 
     bindShellEvents() {
       const search = document.getElementById('library-search');
       const sort = document.getElementById('library-sort');
       const reload = document.getElementById('library-reload');
-
       if (search) search.addEventListener('input', (e) => this.setFilter(e.target.value));
       if (sort) sort.addEventListener('change', (e) => this.setSort(e.target.value));
       if (reload) reload.addEventListener('click', () => this.load());
-
-      if (!this._escBound) {
-        this._escBound = true;
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape') {
-            // no modal now, but keep for future
-          }
-        });
-      }
     },
 
-    onLoad() {
-      this.load();
-    }
+    onLoad() { this.load(); }
   };
 
-  // Registrar topic
   NCLEX.registerTopic({
     id: 'library',
     title: { es: 'Biblioteca', en: 'Library' },
