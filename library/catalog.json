@@ -7,12 +7,13 @@
                   },
         "author":  "",
         "type":  "pdf",
-        "fileUrl":  "library/files/Anatomia_y_Fisiologia_Humana.pdf",
-        "coverUrl":  "library/covers/Anatomia_y_Fisiologia_Humana.jpg",
+        "fileUrl":  "https://github.com/Nclexpass/NCLEX1.2/releases/download/books/Anatomia_y_Fisiologia_Humana.pdf",
+        "coverUrl":  "library/files/covers/Anatomia_y_Fisiologia_Humana.jpg",
         "tags":  [
                      "NCLEX"
                  ],
-        "addedAt":  1770265280650
+        "addedAt":  1770266810501,
+        "source":  "github_release"
     },
     {
         "id":  "asistencia_de_enfermeria_materno_neonatal_towle_signed",
@@ -22,12 +23,13 @@
                   },
         "author":  "",
         "type":  "pdf",
-        "fileUrl":  "library/files/Asistencia de enfermeria materno neonatal towle-signed.pdf",
-        "coverUrl":  "library/covers/Asistencia de enfermeria materno neonatal towle-signed.jpg",
+        "fileUrl":  "https://github.com/Nclexpass/NCLEX1.2/releases/download/books/Asistencia%20de%20enfermeria%20materno%20neonatal%20towle-signed.pdf",
+        "coverUrl":  "library/files/covers/Asistencia de enfermeria materno neonatal towle-signed.jpg",
         "tags":  [
                      "NCLEX"
                  ],
-        "addedAt":  1770265280655
+        "addedAt":  1770266810506,
+        "source":  "github_release"
     },
     {
         "id":  "farmacologia_pearson",
@@ -37,12 +39,13 @@
                   },
         "author":  "",
         "type":  "pdf",
-        "fileUrl":  "library/files/Farmacologia_Pearson.pdf",
-        "coverUrl":  "library/covers/Farmacologia_Pearson.jpg",
+        "fileUrl":  "https://github.com/Nclexpass/NCLEX1.2/releases/download/books/Farmacologia_Pearson.pdf",
+        "coverUrl":  "library/files/covers/Farmacologia_Pearson.jpg",
         "tags":  [
                      "NCLEX"
                  ],
-        "addedAt":  1770265280656
+        "addedAt":  1770266810506,
+        "source":  "github_release"
     },
     {
         "id":  "prioritization_delegation_and_assignment_linda_a_lacharity",
@@ -52,11 +55,12 @@
                   },
         "author":  "",
         "type":  "pdf",
-        "fileUrl":  "library/files/Prioritization-Delegation-and-Assignment-Linda-A-LaCharity.pdf",
-        "coverUrl":  "library/covers/Prioritization-Delegation-and-Assignment-Linda-A-LaCharity.jpg",
+        "fileUrl":  "https://github.com/Nclexpass/NCLEX1.2/releases/download/books/Prioritization-Delegation-and-Assignment-Linda-A-LaCharity.pdf",
+        "coverUrl":  "library/files/covers/Prioritization-Delegation-and-Assignment-Linda-A-LaCharity.jpg",
         "tags":  [
                      "NCLEX"
                  ],
-        "addedAt":  1770265280656
+        "addedAt":  1770266810506,
+        "source":  "github_release"
     }
 ]
