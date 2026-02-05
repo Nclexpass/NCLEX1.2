@@ -1,16 +1,27 @@
 {
-  "hosting": [
-    {
-      "target": "main",
-      "public": ".",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "rewrites": [
-        { "source": "**", "destination": "/index.html" }
-      ]
-    }
-  ]
+  "hosting": {
+    "site": "passnclexnow",
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+
+      "**/*.bat",
+      "**/*.ps1",
+      "**/*.exe",
+      "**/*.msi",
+      "**/*.cmd",
+      "**/*.com",
+      "**/*.scr",
+      "**/*.dll",
+      "**/*.jar",
+      "**/*.zip",
+      "**/*.7z",
+      "**/*.rar"
+    ],
+    "rewrites": [
+      { "source": "**", "destination": "/index.html" }
+    ]
+  }
 }
