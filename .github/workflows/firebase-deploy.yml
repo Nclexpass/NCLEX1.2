@@ -1,4 +1,4 @@
-name: Deploy Simple y Seguro
+name: Deploy Blindado (Docker)
 
 on:
   push:
@@ -12,10 +12,14 @@ jobs:
       - name: Descargar Código
         uses: actions/checkout@v4
 
+      # Usamos w9jds/firebase-action que corre en Docker.
+      # Esto elimina el error de 'npx failed' porque no usa npx del sistema.
       - name: Publicar en Firebase
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: w9jds/firebase-action@master
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
-          channelId: live
-          projectId: nclex-library-9e9e7
+          args: deploy --only hosting
+        env:
+          # Usamos tu clave secreta existente
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
+          # Definimos el proyecto explícitamente
+          PROJECT_ID: nclex-library-9e9e7
