@@ -1,4 +1,4 @@
-name: Deploy Simple
+name: Deploy Forzado
 
 on:
   push:
@@ -8,20 +8,16 @@ on:
 jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
     steps:
-      - name: Checkout del codigo
+      - name: Descargar Código
         uses: actions/checkout@v4
 
-      # Despliegue directo usando la acción oficial
-      # Sin scripts intermedios que puedan fallar
-      - name: Firebase Deploy
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Publicar en Firebase (Modo Docker)
+        uses: w9jds/firebase-action@master
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
-          channelId: live
-          projectId: nclex-library-9e9e7
+          args: deploy --only hosting
+        env:
+          # Usamos tu clave secreta existente
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
+          # Especificamos el proyecto explícitamente para evitar confusiones
+          PROJECT_ID: nclex-library-9e9e7
