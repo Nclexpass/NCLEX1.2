@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: Auto Deploy & Catalog Generator
 
 on:
   push:
@@ -16,10 +16,87 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # HEMOS ELIMINADO EL SCRIPT QUE BORRABA EL CATÁLOGO.
-      # Ahora GitHub respetará fielmente los archivos que tú subas.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Firebase Deploy (Hosting)
+      # --- EL ROBOT GENERA EL CATÁLOGO AQUÍ ---
+      - name: Generate library/catalog.json automatically
+        env:
+          # Usamos el token automático de GitHub para leer tus Releases
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          REPO: ${{ github.repository }}
+          TAG: BOOKS
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+
+            async function generate() {
+              console.log("🤖 Iniciando generación automática del catálogo...");
+              
+              // 1. Obtener la lista de archivos del Release "BOOKS"
+              const apiUrl = `https://api.github.com/repos/${process.env.REPO}/releases/tags/${process.env.TAG}`;
+              console.log(`📡 Consultando: ${apiUrl}`);
+              
+              const res = await fetch(apiUrl, {
+                headers: { 
+                  "Authorization": `Bearer ${process.env.GH_TOKEN}`,
+                  "User-Agent": "NCLEX-Auto-Builder"
+                }
+              });
+
+              if (!res.ok) {
+                console.warn("⚠️ No se encontró el Release BOOKS o hubo un error. Se dejará el catálogo vacío.");
+                // Si falla, no rompemos el deploy, solo dejamos aviso.
+                return; 
+              }
+
+              const releaseData = await res.json();
+              const assets = releaseData.assets || [];
+              console.log(`📚 Encontrados ${assets.length} archivos en el Release.`);
+
+              // 2. Convertir archivos a formato NCLEX Catalog
+              const items = assets
+                .filter(a => a.name.toLowerCase().endsWith(".pdf")) // Solo PDFs
+                .map(a => {
+                  // Limpiar nombre para el título (quitar _ y .pdf)
+                  const simpleName = a.name.replace(/_/g, " ").replace(/\.pdf$/i, "");
+                  
+                  return {
+                    id: a.id.toString(),
+                    title: { es: simpleName, en: simpleName },
+                    author: "NCLEX Library",
+                    type: "pdf",
+                    // Usamos el link directo de descarga de GitHub
+                    fileUrl: a.browser_download_url, 
+                    coverUrl: "", // No hay carátula local, usará el diseño automático de colores
+                    tags: ["NCLEX"],
+                    addedAt: new Date(a.created_at).getTime(),
+                    source: "github_auto"
+                  };
+                });
+
+              // 3. Guardar el archivo catalog.json
+              const outDir = path.join(process.cwd(), "library");
+              if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+              
+              const outFile = path.join(outDir, "catalog.json");
+              fs.writeFileSync(outFile, JSON.stringify(items, null, 2));
+              
+              console.log(`✅ Catálogo generado con éxito en: ${outFile}`);
+              console.log(JSON.stringify(items, null, 2)); // Mostrar en log para debug
+            }
+
+            generate().catch(err => {
+              console.error("❌ Error fatal generando catálogo:", err);
+              process.exit(1);
+            });
+          '
+
+      # --- PUBLICAR A FIREBASE ---
+      - name: Firebase Deploy
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
