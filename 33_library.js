@@ -1,15 +1,15 @@
-// 33_library.js — Biblioteca Cliente Directo (Sin Scripts de Servidor)
-// ✅ Conexión directa a la API de GitHub (Releases)
-// ✅ Portadas automáticas de colores
+// 33_library.js — Biblioteca Cliente Directo (Versión Final)
+// ✅ Conexión directa a GitHub API
+// ✅ Portadas estilo Apple (colores)
 // ✅ Lector Integrado
 
 (function () {
   'use strict';
   if (!window.NCLEX) return;
 
-  // CONFIGURACIÓN: Tu repositorio exacto
+  // CONFIGURACIÓN: Tu repositorio
   const REPO = 'Nclexpass/NCLEX1.2'; 
-  const TAG = 'BOOKS'; // Asegúrate de que tus Releases tengan este tag exacto
+  const TAG = 'BOOKS'; // El Tag de tu Release en GitHub
   const API_URL = `https://api.github.com/repos/${REPO}/releases/tags/${TAG}`;
 
   const LibraryUI = {
@@ -21,24 +21,20 @@
       this.render();
       
       try {
-        console.log("📚 Consultando libros en:", API_URL);
-        
         // 1. Petición directa a GitHub
         const res = await fetch(API_URL);
         
         if (!res.ok) {
-           console.warn("Error GitHub:", res.status);
-           if(res.status === 404) throw new Error("No existe el Release 'BOOKS' en GitHub.");
-           throw new Error("No se pudo conectar con la biblioteca.");
+           if(res.status === 404) throw new Error("No existe el Release 'BOOKS'.");
+           throw new Error("Error de conexión con GitHub.");
         }
 
         const data = await res.json();
         
-        // 2. Procesar los archivos PDF
+        // 2. Procesar PDFs
         this.items = (data.assets || [])
           .filter(asset => asset.name.toLowerCase().endsWith('.pdf'))
           .map(asset => {
-             // Limpiar nombre del archivo
              const cleanName = asset.name
                .replace(/_/g, ' ')
                .replace(/-/g, ' ')
@@ -52,20 +48,18 @@
              };
           });
 
-        // Ordenar alfabéticamente
         this.items.sort((a,b) => a.title.localeCompare(b.title));
-        console.log(`✅ ${this.items.length} libros cargados.`);
 
       } catch (e) {
-        console.error(e);
-        this.error = e.message;
+        console.warn(e);
+        this.error = "No se pudieron cargar los libros de la nube.";
       } finally {
         this.loading = false;
         this.render();
       }
     },
 
-    // Generador de Portadas (Gradientes)
+    // Generador de Portadas de Colores
     getCover(title) {
       const colors = [
         ['from-blue-600 to-cyan-500', 'text-blue-200'],
@@ -89,7 +83,6 @@
     // Lector PDF Integrado
     openReader(item) {
       if (!item.fileUrl) return;
-      // Usamos Google Viewer embebido
       const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(item.fileUrl)}&embedded=true`;
 
       const modal = document.createElement('div');
@@ -128,9 +121,7 @@
     },
 
     getGrid() {
-      if (this.error) {
-         return `<div class="p-10 text-center text-red-400 border border-red-200 rounded-xl"><i class="fa-solid fa-triangle-exclamation mb-2 text-2xl"></i><p>${this.error}</p><p class="text-xs mt-2 text-gray-400">Verifica que el Release 'BOOKS' exista en GitHub.</p></div>`;
-      }
+      if (this.error) return `<div class="p-10 text-center text-gray-400 border border-gray-200 rounded-xl"><i class="fa-solid fa-triangle-exclamation mb-2 text-2xl"></i><p>${this.error}</p></div>`;
       if (!this.items || this.items.length === 0) return `<div class="flex flex-col items-center justify-center py-20 text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-3xl"><i class="fa-solid fa-cloud-arrow-down text-5xl mb-4 text-gray-300"></i><p class="font-medium">No se encontraron libros.</p></div>`;
       
       return `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">${this.items.map(item => {
@@ -156,7 +147,6 @@
     }
   };
 
-  // Cargar automáticamente
   window.NCLEX_LIBRARY = LibraryUI;
   NCLEX.registerTopic({ id: 'library', title: { es: 'Biblioteca', en: 'Library' }, icon: 'book-open', color: 'slate', render: () => LibraryUI.getShell(), onLoad: () => LibraryUI.init() });
 })();
