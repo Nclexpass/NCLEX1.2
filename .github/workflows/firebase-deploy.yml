@@ -1,4 +1,4 @@
-name: Deploy Blindado (Docker)
+name: Deploy Ultimate (Docker + AutoCatalog)
 
 on:
   push:
@@ -6,20 +6,97 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy_hosting:
+  build_and_deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
-      - name: Descargar Código
+      # 1. Preparar el terreno
+      - name: 📥 Descargar Código
         uses: actions/checkout@v4
 
-      # Usamos w9jds/firebase-action que corre en Docker.
-      # Esto elimina el error de 'npx failed' porque no usa npx del sistema.
-      - name: Publicar en Firebase
+      - name: ⚡ Configurar Motor Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 2. GENERADOR DE CATÁLOGO HÍBRIDO
+      # Este script crea el "Menú" de libros antes de subir la web para que cargue instantáneo.
+      - name: 📚 Generar Catálogo Inteligente
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+
+            async function buildCatalog() {
+              console.log("💎 Iniciando generador Premium...");
+              const repo = process.env.REPO;
+              // Usamos la API pública para máxima compatibilidad
+              const url = `https://api.github.com/repos/${repo}/releases/tags/BOOKS`;
+              
+              try {
+                // Header User-Agent es obligatorio para la API de GitHub
+                const headers = { "User-Agent": "NCLEX-Ultimate-Bot" };
+                if (process.env.GH_TOKEN) headers["Authorization"] = `Bearer ${process.env.GH_TOKEN}`;
+
+                const res = await fetch(url, { headers });
+                
+                if (!res.ok) {
+                   console.log(`⚠️ Aviso: API GitHub respondió ${res.status}. Se usará modo Cliente-Side.`);
+                   // Creamos array vacío, el JS del cliente se encargará del fallback
+                   save([]); 
+                   return;
+                }
+
+                const data = await res.json();
+                const items = (data.assets || [])
+                  .filter(a => a.name.toLowerCase().endsWith(".pdf"))
+                  .map(a => {
+                    // Limpieza de título profesional
+                    const cleanName = a.name
+                      .replace(/_/g, " ")
+                      .replace(/-/g, " ")
+                      .replace(/\.pdf$/i, "");
+                    
+                    return {
+                      id: String(a.id),
+                      title: cleanName,
+                      type: "pdf",
+                      fileUrl: a.browser_download_url,
+                      size: (a.size / 1024 / 1024).toFixed(2) + " MB",
+                      date: a.created_at
+                    };
+                  });
+
+                save(items);
+                console.log(`✅ Catálogo generado con ${items.length} obras maestras.`);
+
+              } catch (error) {
+                console.error("❌ Error en build (No crítico):", error.message);
+                save([]); // Fallback seguro
+              }
+            }
+
+            function save(data) {
+              const dir = "library";
+              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+              fs.writeFileSync(path.join(dir, "catalog.json"), JSON.stringify(data, null, 2));
+            }
+
+            buildCatalog();
+          '
+
+      # 3. DESPLIEGUE BLINDADO (Usando Docker)
+      # w9jds/firebase-action es la herramienta más robusta que existe para GitHub Actions.
+      - name: 🚀 Desplegar a Firebase (Docker)
         uses: w9jds/firebase-action@master
         with:
           args: deploy --only hosting
         env:
-          # Usamos tu clave secreta existente
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
-          # Definimos el proyecto explícitamente
           PROJECT_ID: nclex-library-9e9e7
