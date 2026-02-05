@@ -1,8 +1,8 @@
-name: Deploy Ultimate (Docker + AutoCatalog)
+name: Deploy Ultimate (Fixed & Robust)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -13,86 +13,103 @@ jobs:
       id-token: write
 
     steps:
-      # 1. Preparar el terreno
+      # 1. Descargar Código
       - name: 📥 Descargar Código
         uses: actions/checkout@v4
 
+      # 2. Configurar Node (Para ejecutar tu script generador)
       - name: ⚡ Configurar Motor Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
-      # 2. GENERADOR DE CATÁLOGO HÍBRIDO
-      # Este script crea el "Menú" de libros antes de subir la web para que cargue instantáneo.
+      # 3. Autenticar GitHub CLI (Ubuntu ya trae 'gh' instalado, solo hay que loguearse)
+      # ESTO DEBE IR ANTES DEL SCRIPT
+      - name: 🔐 Autenticar GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GH_TOKEN}" | gh auth login --with-token
+
+      # 4. TU SCRIPT GENERADOR (Ahora sí funcionará el 'gh release view')
       - name: 📚 Generar Catálogo Inteligente
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          node -e '
-            const fs = require("fs");
-            const path = require("path");
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const { promisify } = require('util');
+          const exec = promisify(require('child_process').exec);
 
-            async function buildCatalog() {
-              console.log("💎 Iniciando generador Premium...");
-              const repo = process.env.REPO;
-              // Usamos la API pública para máxima compatibilidad
-              const url = `https://api.github.com/repos/${repo}/releases/tags/BOOKS`;
+          async function buildCatalog() {
+            console.log('💎 Iniciando generador Premium...');
+            const repo = process.env.REPO;
+            
+            try {
+              const dir = 'library';
+              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+              // INTENTO 1: GitHub CLI (Ahora sí funcionará porque ya nos autenticamos arriba)
+              console.log('Tentativa 1: Usando GitHub CLI...');
+              const { stdout } = await exec('gh release view BOOKS --json assets,createdAt');
+              const release = JSON.parse(stdout);
               
+              const items = (release.assets || [])
+                .filter(a => a.name.toLowerCase().endsWith('.pdf'))
+                .map(a => ({
+                  id: String(a.id || Date.now()),
+                  title: a.name.replace(/_/g, ' ').replace(/-/g, ' ').replace(/\.pdf$/i, ''),
+                  type: 'pdf',
+                  fileUrl: a.url || a.downloadUrl,
+                  size: a.size ? (a.size / 1024 / 1024).toFixed(2) + ' MB' : 'N/A',
+                  date: release.createdAt
+                }));
+
+              console.log(\`✅ Catálogo generado con \${items.length} libros (Vía CLI)\`);
+              save(items);
+              
+            } catch (ghError) {
+              console.log('⚠️ CLI falló o no encontró release, probando API directa...');
+              // INTENTO 2: API Directa (Fallback)
               try {
-                // Header User-Agent es obligatorio para la API de GitHub
-                const headers = { "User-Agent": "NCLEX-Ultimate-Bot" };
-                if (process.env.GH_TOKEN) headers["Authorization"] = `Bearer ${process.env.GH_TOKEN}`;
+                const url = \`https://api.github.com/repos/\${repo}/releases/tags/BOOKS\`;
+                const headers = { 'User-Agent': 'NCLEX-Bot' };
+                if (process.env.GH_TOKEN) headers['Authorization'] = \`Bearer \${process.env.GH_TOKEN}\`;
 
-                const res = await fetch(url, { headers });
-                
-                if (!res.ok) {
-                   console.log(`⚠️ Aviso: API GitHub respondió ${res.status}. Se usará modo Cliente-Side.`);
-                   // Creamos array vacío, el JS del cliente se encargará del fallback
-                   save([]); 
-                   return;
-                }
+                const response = await fetch(url, { headers });
+                if (!response.ok) throw new Error(\`API Status \${response.status}\`);
 
-                const data = await res.json();
+                const data = await response.json();
                 const items = (data.assets || [])
-                  .filter(a => a.name.toLowerCase().endsWith(".pdf"))
-                  .map(a => {
-                    // Limpieza de título profesional
-                    const cleanName = a.name
-                      .replace(/_/g, " ")
-                      .replace(/-/g, " ")
-                      .replace(/\.pdf$/i, "");
-                    
-                    return {
-                      id: String(a.id),
-                      title: cleanName,
-                      type: "pdf",
-                      fileUrl: a.browser_download_url,
-                      size: (a.size / 1024 / 1024).toFixed(2) + " MB",
-                      date: a.created_at
-                    };
-                  });
+                  .filter(a => a.name.toLowerCase().endsWith('.pdf'))
+                  .map(a => ({
+                    id: String(a.id),
+                    title: a.name.replace(/_/g, ' ').replace(/-/g, ' ').replace(/\.pdf$/i, ''),
+                    fileUrl: a.browser_download_url,
+                    size: (a.size / 1024 / 1024).toFixed(2) + ' MB',
+                    date: a.created_at
+                  }));
 
+                console.log(\`✅ Catálogo generado con \${items.length} libros (Vía API)\`);
                 save(items);
-                console.log(`✅ Catálogo generado con ${items.length} obras maestras.`);
-
-              } catch (error) {
-                console.error("❌ Error en build (No crítico):", error.message);
-                save([]); // Fallback seguro
+              } catch (apiError) {
+                 console.error('❌ Todo falló. Se genera catálogo vacío.');
+                 save([]);
               }
             }
+          }
 
-            function save(data) {
-              const dir = "library";
-              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-              fs.writeFileSync(path.join(dir, "catalog.json"), JSON.stringify(data, null, 2));
-            }
+          function save(data) {
+            const filePath = path.join('library', 'catalog.json');
+            fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+          }
 
-            buildCatalog();
-          '
+          buildCatalog();
+          "
 
-      # 3. DESPLIEGUE BLINDADO (Usando Docker)
-      # w9jds/firebase-action es la herramienta más robusta que existe para GitHub Actions.
+      # 5. DESPLIEGUE BLINDADO (Usamos Docker para evitar el error 'exit code 1')
       - name: 🚀 Desplegar a Firebase (Docker)
         uses: w9jds/firebase-action@master
         with:
