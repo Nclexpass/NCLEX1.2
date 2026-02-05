@@ -1,10 +1,13 @@
-// 33_library.js — Biblioteca en la nube (GRATIS con Firebase Hosting)
+// 33_library.js — Biblioteca AUTO desde GitHub Releases (BOOKS)
 // ✅ Funciona en LOCAL (con servidor) y cuando lo subas (Firebase/Netlify/etc).
-// ✅ Lee /library/catalog.json (catálogo público) y muestra carátulas + abrir PDF + pantalla completa.
-// ✅ Para agregar libros: copia PDF a /library/files, carátula JPG/PNG a /library/covers, corre make_catalog.ps1, y listo.
+// ✅ Carga AUTOMÁTICO desde GitHub Release tag "BOOKS" (assets .pdf).
+// ✅ Cache (6 horas) para no pegar rate limit.
+// ✅ Fallback: si existe /library/catalog.json lo intenta primero (opcional).
 //
 // IMPORTANTE:
 // - NO abras index.html con doble click (file://) porque el navegador bloquea fetch(). Usa un servidor local.
+// - Para carátulas automáticas: sube también al Release "BOOKS" un .jpg/.png/.webp con el MISMO nombre base del PDF.
+//   Ej: Farmacologia_Pearson.pdf  +  Farmacologia_Pearson.jpg
 
 (function () {
   'use strict';
@@ -13,10 +16,17 @@
 
   const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-  // ✅ ROOT path para que no falle si estás en /topic/library o cualquier ruta
-  // Si algún día tu catálogo está en otro dominio, puedes setear:
-  // window.NCLEX_LIBRARY_CATALOG_URL = "https://tu-dominio.com/library/catalog.json"
+  // ✅ Fallback local (si lo quieres mantener)
   const CATALOG_URL = window.NCLEX_LIBRARY_CATALOG_URL || '/library/catalog.json';
+
+  // ✅ GitHub Releases (AUTO)
+  const GH_OWNER = 'Nclexpass';
+  const GH_REPO = 'NCLEX1.2';
+  const GH_TAG = 'BOOKS';
+
+  // Cache para evitar rate-limit / latencia
+  const GH_CACHE_KEY = 'nclex_gh_books_cache_v1';
+  const GH_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
   // -------- helpers
   const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({
@@ -73,6 +83,130 @@
     return n;
   };
 
+  const titleFromFilename = (name) => {
+    const base = String(name || '').replace(/\.[^/.]+$/, '');
+    return base.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
+  const idFromFilename = (name) => {
+    const base = String(name || '').replace(/\.[^/.]+$/, '');
+    return base.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  };
+
+  const tryReadCache = () => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(GH_CACHE_KEY) || 'null');
+      if (cached && cached.ts && Array.isArray(cached.items)) {
+        if ((Date.now() - cached.ts) < GH_CACHE_TTL_MS) return cached.items;
+      }
+    } catch (_) {}
+    return null;
+  };
+
+  const writeCache = (items) => {
+    try {
+      localStorage.setItem(GH_CACHE_KEY, JSON.stringify({ ts: Date.now(), items }));
+    } catch (_) {}
+  };
+
+  async function fetchBooksFromGitHubRelease() {
+    const cached = tryReadCache();
+    if (cached) return cached;
+
+    const apiUrl = `https://api.github.com/repos/${encodeURIComponent(GH_OWNER)}/${encodeURIComponent(GH_REPO)}/releases/tags/${encodeURIComponent(GH_TAG)}`;
+    const res = await fetch(apiUrl, {
+      headers: { 'Accept': 'application/vnd.github+json' },
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error(`GitHub release fetch failed: HTTP ${res.status}`);
+
+    const release = await res.json();
+    const assets = Array.isArray(release.assets) ? release.assets : [];
+
+    // PDFs
+    const pdfs = assets.filter(a => a && /\.pdf$/i.test(a.name || ''));
+    // Covers (map por nombre base)
+    const coverMap = new Map(
+      assets
+        .filter(a => a && /\.(jpg|jpeg|png|webp)$/i.test(a.name || ''))
+        .map(a => [String(a.name).replace(/\.(jpg|jpeg|png|webp)$/i, '').toLowerCase(), a.browser_download_url])
+    );
+
+    const items = pdfs.map(a => {
+      const pdfName = String(a.name || '');
+      const title = titleFromFilename(pdfName);
+      const id = idFromFilename(pdfName);
+
+      const baseKey = pdfName.replace(/\.pdf$/i, '').toLowerCase();
+      const coverUrl = coverMap.get(baseKey) || '';
+
+      return {
+        id,
+        title: { es: title, en: title },
+        author: '',
+        type: 'pdf',
+        fileUrl: String(a.browser_download_url || ''),
+        coverUrl: coverUrl ? String(coverUrl) : '',
+        tags: ['NCLEX'],
+        addedAt: Date.now(),
+        source: 'github_release_live'
+      };
+    });
+
+    writeCache(items);
+    return items;
+  }
+
+  async function loadCatalogFallback() {
+    const res = await fetch(CATALOG_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    let list = [];
+    if (Array.isArray(data)) list = data;
+    else if (Array.isArray(data?.items)) list = data.items;
+    else if (data && typeof data === 'object') list = [data];
+
+    return list.map((x) => {
+      const titleObj = (x && typeof x.title === 'object') ? x.title : null;
+      const titleEs = titleObj?.es || x.titleEs || x.title || '';
+      const titleEn = titleObj?.en || x.titleEn || x.title || '';
+      const added = safeTime(x.addedAt) ?? Date.now();
+
+      return {
+        id: String(x.id || titleEs || titleEn || Math.random().toString(16).slice(2)),
+        title: { es: String(titleEs || ''), en: String(titleEn || '') },
+        author: String(x.author || ''),
+        type: String(x.type || ''),
+        fileUrl: resolveUrl(x.fileUrl || x.filePath || ''),
+        coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''),
+        tags: Array.isArray(x.tags) ? x.tags.map(String) : [],
+        addedAt: added,
+        source: String(x.source || 'catalog_fallback')
+      };
+    });
+  }
+
+  async function loadLibraryCatalogSmart() {
+    // 1) Intentar GitHub (lo que tú quieres)
+    try {
+      const ghItems = await fetchBooksFromGitHubRelease();
+      if (Array.isArray(ghItems) && ghItems.length) return ghItems;
+    } catch (e) {
+      console.warn('[Library] GitHub load failed:', e);
+    }
+
+    // 2) Fallback: catalog.json (si existe)
+    try {
+      const fb = await loadCatalogFallback();
+      if (Array.isArray(fb)) return fb;
+    } catch (e) {
+      console.warn('[Library] Catalog fallback failed:', e);
+    }
+
+    return [];
+  }
+
   // -------- UI / state
   const LibraryCloud = {
     _itemsRaw: [],
@@ -109,18 +243,9 @@
       }
 
       try {
-        const res = await fetch(CATALOG_URL, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const list = await loadLibraryCatalogSmart();
 
-        const data = await res.json();
-
-        // Acepta: [..], {items:[..]}, o un objeto suelto {..}
-        let list = [];
-        if (Array.isArray(data)) list = data;
-        else if (Array.isArray(data?.items)) list = data.items;
-        else if (data && typeof data === 'object') list = [data];
-
-        this._itemsRaw = list.map((x) => {
+        this._itemsRaw = (list || []).map((x) => {
           const titleObj = (x && typeof x.title === 'object') ? x.title : null;
           const titleEs = titleObj?.es || x.titleEs || x.title || '';
           const titleEn = titleObj?.en || x.titleEn || x.title || '';
@@ -134,14 +259,15 @@
             fileUrl: resolveUrl(x.fileUrl || x.filePath || ''),
             coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''),
             tags: Array.isArray(x.tags) ? x.tags.map(String) : [],
-            addedAt: added
+            addedAt: added,
+            source: String(x.source || 'auto')
           };
         });
 
         this.applyFilterSort();
       } catch (e) {
         console.error(e);
-        this._error = `${t('No pude cargar el catálogo de la biblioteca.', 'Could not load the library catalog.')} (${escapeHTML(e.message || String(e))})`;
+        this._error = `${t('No pude cargar la biblioteca desde GitHub Releases.', 'Could not load the library from GitHub Releases.')} (${escapeHTML(e.message || String(e))})`;
       } finally {
         this._loading = false;
         this.renderIntoDom();
@@ -261,6 +387,12 @@
               </div>
 
               <div class="flex items-center gap-2">
+                <a href="https://github.com/${escapeHTML(GH_OWNER)}/${escapeHTML(GH_REPO)}/releases/tag/${escapeHTML(GH_TAG)}"
+                   target="_blank" rel="noopener noreferrer"
+                  class="px-4 py-2 rounded-xl bg-white/90 dark:bg-white/5 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:shadow-md transition backdrop-blur">
+                  <i class="fa-brands fa-github mr-2 text-slate-800 dark:text-slate-200"></i>${t('Ver BOOKS', 'View BOOKS')}
+                </a>
+
                 <a href="${escapeHTML(resolveUrl(CATALOG_URL))}" target="_blank" rel="noopener noreferrer"
                   class="px-4 py-2 rounded-xl bg-white/90 dark:bg-white/5 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:shadow-md transition backdrop-blur">
                   <i class="fa-solid fa-code mr-2 text-brand-blue"></i>${t('Ver Catálogo', 'View Catalog')}
@@ -440,7 +572,6 @@
                 <i class="fa-solid fa-eye mr-2"></i>${t('Abrir', 'Open')}
               </button>
 
-              <!-- ✅ NO usamos t() en atributos (title) porque rompe el HTML -->
               <a href="${escapeHTML(item.fileUrl)}" download
                 class="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 flex items-center justify-center transition"
                 title="Descargar">
@@ -540,7 +671,11 @@
 
       if (search) search.addEventListener('input', (e) => this.setFilter(e.target.value));
       if (sort) sort.addEventListener('change', (e) => this.setSort(e.target.value));
-      if (reload) reload.addEventListener('click', () => this.load());
+      if (reload) reload.addEventListener('click', () => {
+        // limpiar cache para forzar refresh
+        try { localStorage.removeItem(GH_CACHE_KEY); } catch (_) {}
+        this.load();
+      });
       if (closeBtn) closeBtn.addEventListener('click', () => this.closeViewer());
       if (backdrop) backdrop.addEventListener('click', () => this.closeViewer());
       if (fsBtn) fsBtn.addEventListener('click', () => this.toggleFullscreen());
