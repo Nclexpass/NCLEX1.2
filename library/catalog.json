@@ -8,11 +8,11 @@
         "author":  "",
         "type":  "pdf",
         "fileUrl":  "library/files/Anatomia y Fisiologia Humana.pdf",
-        "coverUrl":  "",
+        "coverUrl":  "library/covers/Anatomia y Fisiologia Humana.jpg",
         "tags":  [
                      "NCLEX"
                  ],
-        "addedAt":  1770260835385
+        "addedAt":  1770260880017
     },
     {
         "id":  "farmacologia_pearson",
@@ -27,6 +27,6 @@
         "tags":  [
                      "NCLEX"
                  ],
-        "addedAt":  1770260835391
+        "addedAt":  1770260880022
     }
 ]
