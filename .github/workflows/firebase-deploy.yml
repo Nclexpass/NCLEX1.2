@@ -5,27 +5,20 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Deploy to Firebase Hosting (LIVE)
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          node-version: '18'
-
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-      - name: Decode Firebase service account
-        run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > serviceAccount.json
-
-      - name: Deploy to Firebase
-        run: firebase deploy --only hosting
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: serviceAccount.json
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
+          projectId: nclex-library-9e9e7
+          channelId: live
