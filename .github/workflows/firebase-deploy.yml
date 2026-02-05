@@ -1,4 +1,4 @@
-name: Deploy NCLEX Library Safe
+name: Deploy Manual Seguro
 
 on:
   push:
@@ -8,21 +8,20 @@ on:
 jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
 
     steps:
-      - name: Checkout repo
+      # 1. Descargar tu código
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      # 2. Instalar Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # GENERADOR DE CATÁLOGO (Solo Texto - No falla nunca)
-      - name: Generate library/catalog.json
+      # 3. Generar el Catálogo (Script de Node simple)
+      - name: Generar Catalogo
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -30,64 +29,59 @@ jobs:
           node -e '
             const fs = require("fs");
             const path = require("path");
-
-            async function generate() {
-              console.log("🤖 Iniciando generador de catálogo...");
-              const repo = process.env.REPO;
-              // Usamos la API de GitHub para leer el release "BOOKS"
-              const url = `https://api.github.com/repos/${repo}/releases/tags/BOOKS`;
+            
+            async function run() {
+              console.log("🤖 Generando catálogo...");
+              const url = `https://api.github.com/repos/${process.env.REPO}/releases/tags/BOOKS`;
               
               try {
-                const res = await fetch(url, {
-                  headers: { "Authorization": `Bearer ${process.env.GH_TOKEN}`, "User-Agent": "NCLEX-Bot" }
-                });
+                const res = await fetch(url, { headers: { "Authorization": `Bearer ${process.env.GH_TOKEN}`, "User-Agent": "NCLEX-Bot" } });
+                if(!res.ok) throw new Error("No se encontró el Release BOOKS");
                 
-                if (!res.ok) {
-                   console.log("⚠️ No se detectó Release BOOKS. Se publicará catálogo vacío.");
-                   return; // No rompemos el deploy, solo no generamos nada.
-                }
-
                 const data = await res.json();
-                const assets = data.assets || [];
-                
-                // Mapear archivos PDF a formato JSON
-                const items = assets
+                const items = (data.assets || [])
                   .filter(a => a.name.toLowerCase().endsWith(".pdf"))
                   .map(a => {
-                    const cleanName = a.name.replace(/_/g, " ").replace(/\.pdf$/i, "");
-                    // Creamos un ID seguro
-                    const id = cleanName.replace(/[^a-zA-Z0-9]/g, "").toLowerCase().substring(0, 20);
-                    
-                    return {
-                      id: id,
-                      title: { es: cleanName, en: cleanName },
-                      type: "pdf",
-                      fileUrl: a.browser_download_url,
-                      coverUrl: "", // Lo dejamos vacío, el JS generará el arte
-                      addedAt: new Date(a.created_at).getTime()
-                    };
+                     const name = a.name.replace(/_/g, " ").replace(/\.pdf$/i, "");
+                     return {
+                       id: name.replace(/[^a-zA-Z0-9]/g, "").substring(0,15),
+                       title: { es: name, en: name },
+                       type: "pdf",
+                       fileUrl: a.browser_download_url,
+                       coverUrl: "", 
+                       addedAt: new Date(a.created_at).getTime()
+                     };
                   });
-
-                // Crear carpeta y guardar
-                const dir = path.join(process.cwd(), "library");
-                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
                 
-                fs.writeFileSync(path.join(dir, "catalog.json"), JSON.stringify(items, null, 2));
-                console.log(`✅ Catálogo generado con ${items.length} libros.`);
-                
-              } catch (error) {
-                console.error("Error leve generando catálogo:", error);
-                // No hacemos process.exit(1) para que el deploy continúe sí o sí
+                const dir = "library";
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+                fs.writeFileSync(`${dir}/catalog.json`, JSON.stringify(items, null, 2));
+                console.log(`✅ Catálogo creado con ${items.length} libros.`);
+              } catch (e) {
+                console.log("⚠️ Aviso: " + e.message);
+                // Si falla, creamos uno vacío para no romper la web
+                if (!fs.existsSync("library/catalog.json")) {
+                   fs.mkdirSync("library", {recursive:true});
+                   fs.writeFileSync("library/catalog.json", "[]");
+                }
               }
             }
-            generate();
+            run();
           '
 
-      # DESPLIEGUE A FIREBASE
-      - name: Firebase Deploy
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
-          channelId: live
-          projectId: nclex-library-9e9e7
+      # 4. INSTALAR Y SUBIR A FIREBASE (Modo Directo)
+      - name: Deploy to Firebase
+        env:
+          # Decodificamos tu llave secreta directamente
+          SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
+          PROJECT_ID: nclex-library-9e9e7
+        run: |
+          # Instalar herramienta oficial
+          npm install -g firebase-tools
+          
+          # Crear archivo de credenciales temporal
+          echo "$SA_KEY" > service_account.json
+          export GOOGLE_APPLICATION_CREDENTIALS=service_account.json
+          
+          # Subir SOLO el hosting (sin intentar compilar nada)
+          firebase deploy --only hosting --project $PROJECT_ID --json
