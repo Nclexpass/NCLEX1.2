@@ -1,11 +1,13 @@
-// 33_library.js — Biblioteca AUTO desde GitHub Releases (BOOKS) + Carátulas automáticas (PDF.js)
+// 33_library.js — Biblioteca AUTO desde GitHub Releases (BOOKS) + Carátulas automáticas (PDF.js) + Lazy (Apple-like)
+//
 // ✅ Solo subes PDFs a GitHub Release tag "BOOKS" y aparecen automáticamente.
 // ✅ Carátula automática: renderiza 1ra página del PDF con PDF.js y la guarda en cache (IndexedDB).
-// ✅ Cache (lista + carátulas) para no chocar con rate limits y para cargar rápido.
+// ✅ Lazy covers: genera solo las carátulas visibles y va generando las demás mientras scrolleas.
+// ✅ Cache lista (6 horas) para no chocar con rate limits.
 //
 // IMPORTANTE:
 // - NO abras index.html con doble click (file://). Usa servidor local.
-// - Tu Release BOOKS debe ser PUBLIC y el tag debe ser exactamente "BOOKS".
+// - El Release BOOKS debe ser público y el tag debe ser EXACTAMENTE "BOOKS".
 
 (function () {
   'use strict';
@@ -13,7 +15,7 @@
 
   const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-  // (Opcional) fallback local
+  // (Opcional) fallback local si existe
   const CATALOG_URL = window.NCLEX_LIBRARY_CATALOG_URL || '/library/catalog.json';
 
   // GitHub Release (AUTO)
@@ -22,7 +24,7 @@
   const GH_TAG = 'BOOKS';
 
   // Cache lista GitHub
-  const GH_CACHE_KEY = 'nclex_gh_books_cache_v2';
+  const GH_CACHE_KEY = 'nclex_gh_books_cache_v3';
   const GH_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
   // PDF.js (CDN)
@@ -165,9 +167,7 @@
 
     _pdfjsReady = new Promise((resolve, reject) => {
       if (window.pdfjsLib && window.pdfjsLib.getDocument) {
-        try {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
-        } catch (_) {}
+        try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN; } catch (_) {}
         return resolve(window.pdfjsLib);
       }
 
@@ -179,9 +179,7 @@
           reject(new Error('PDF.js failed to load'));
           return;
         }
-        try {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
-        } catch (_) {}
+        try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN; } catch (_) {}
         resolve(window.pdfjsLib);
       };
       s.onerror = () => reject(new Error('PDF.js CDN load error'));
@@ -191,22 +189,19 @@
     return _pdfjsReady;
   }
 
-  // Generate thumbnail (first page)
   async function generatePdfThumbDataUrl(pdfUrl) {
     const pdfjsLib = await ensurePdfJsLoaded();
 
     const doc = await pdfjsLib.getDocument({
       url: pdfUrl,
       withCredentials: false,
-      // reduce memory a bit
       disableAutoFetch: true,
       disableStream: false
     }).promise;
 
     const page = await doc.getPage(1);
 
-    // target width (px) for cover
-    const TARGET_W = 360; // looks good in your card aspect
+    const TARGET_W = 360;
     const viewport0 = page.getViewport({ scale: 1 });
     const scale = TARGET_W / viewport0.width;
     const viewport = page.getViewport({ scale });
@@ -217,33 +212,26 @@
     canvas.width = Math.max(1, Math.floor(viewport.width));
     canvas.height = Math.max(1, Math.floor(viewport.height));
 
-    // white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     await page.render({ canvasContext: ctx, viewport }).promise;
 
-    // compress to jpeg to save space (fast + small)
     const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
 
-    // cleanup
     try { page.cleanup(); } catch (_) {}
     try { await doc.destroy(); } catch (_) {}
 
     return dataUrl;
   }
 
-  // One-flight per URL
   const _thumbInflight = new Map();
 
   async function getOrCreateThumb(pdfUrl) {
     const key = `pdfthumb:${pdfUrl}`;
-
-    // cache hit
     const cached = await thumbGet(key);
     if (cached && cached.dataUrl) return cached.dataUrl;
 
-    // inflight
     if (_thumbInflight.has(key)) return _thumbInflight.get(key);
 
     const p = (async () => {
@@ -268,9 +256,7 @@
   };
 
   const writeListCache = (items) => {
-    try {
-      localStorage.setItem(GH_CACHE_KEY, JSON.stringify({ ts: Date.now(), items }));
-    } catch (_) {}
+    try { localStorage.setItem(GH_CACHE_KEY, JSON.stringify({ ts: Date.now(), items })); } catch (_) {}
   };
 
   async function fetchBooksFromGitHubRelease() {
@@ -295,12 +281,9 @@
         createdAt: String(a.created_at || '')
       }));
 
-    // build items from PDFs only (covers auto-generated)
     const items = pdfs.map(a => {
       const title = titleFromFilename(a.name);
       const id = idFromFilename(a.name);
-
-      // prefer GitHub timestamp when available
       const addedAt = (() => {
         const ts = Date.parse(a.createdAt);
         return Number.isFinite(ts) ? ts : Date.now();
@@ -312,7 +295,7 @@
         author: '',
         type: 'pdf',
         fileUrl: a.url,
-        coverUrl: '', // auto
+        coverUrl: '',
         tags: ['NCLEX'],
         addedAt,
         source: 'github_release_live'
@@ -354,7 +337,6 @@
   }
 
   async function loadLibraryCatalogSmart() {
-    // 1) GitHub (primary)
     try {
       const ghItems = await fetchBooksFromGitHubRelease();
       if (Array.isArray(ghItems) && ghItems.length) return ghItems;
@@ -362,7 +344,6 @@
       console.warn('[Library] GitHub load failed:', e);
     }
 
-    // 2) Fallback catalog.json
     try {
       const fb = await loadCatalogFallback();
       if (Array.isArray(fb) && fb.length) return fb;
@@ -383,6 +364,12 @@
     _error: '',
     _viewerUrl: null,
     _escBound: false,
+
+    // Lazy cover engine
+    _coverObserver: null,
+    _coverQueue: [],
+    _coverWorking: 0,
+    _coverMaxWorkers: 2,
 
     async load() {
       this._loading = true;
@@ -422,7 +409,7 @@
             author: String(x.author || ''),
             type: String(x.type || ''),
             fileUrl: resolveUrl(x.fileUrl || x.filePath || ''),
-            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''), // usually empty (auto)
+            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''),
             tags: Array.isArray(x.tags) ? x.tags.map(String) : [],
             addedAt: added,
             source: String(x.source || 'auto')
@@ -534,6 +521,85 @@
         ? `<i class="fa-solid fa-compress"></i>`
         : `<i class="fa-solid fa-expand"></i>`;
       btn.title = document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa';
+    },
+
+    // ----- Lazy covers (Apple-like)
+    setupLazyCovers() {
+      const grid = document.getElementById('library-grid');
+      if (!grid) return;
+
+      if (this._coverObserver) {
+        try { this._coverObserver.disconnect(); } catch (_) {}
+        this._coverObserver = null;
+      }
+
+      this._coverQueue = [];
+      this._coverWorking = 0;
+
+      const placeholders = Array.from(grid.querySelectorAll('img[data-auto-cover="1"]'));
+      if (!placeholders.length) return;
+
+      const rootScroll = document.querySelector('#main-content') || null;
+
+      this._coverObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const img = entry.target;
+          this._coverObserver.unobserve(img);
+          this._coverQueue.push(img);
+          this.processCoverQueue();
+        }
+      }, {
+        root: rootScroll,
+        rootMargin: '260px 0px',
+        threshold: 0.01
+      });
+
+      placeholders.forEach(img => this._coverObserver.observe(img));
+
+      this.processCoverQueue();
+    },
+
+    processCoverQueue() {
+      if (this._coverWorking >= this._coverMaxWorkers) return;
+      if (!this._coverQueue.length) return;
+
+      while (this._coverWorking < this._coverMaxWorkers && this._coverQueue.length) {
+        const img = this._coverQueue.shift();
+        if (!img || !document.body.contains(img)) continue;
+
+        this._coverWorking++;
+        this.renderOneCover(img)
+          .catch(() => {})
+          .finally(() => {
+            this._coverWorking--;
+            setTimeout(() => this.processCoverQueue(), 0);
+          });
+      }
+    },
+
+    async renderOneCover(img) {
+      const pdfUrl = img.getAttribute('data-pdf') || '';
+      if (!pdfUrl) return;
+
+      const coverContainer = img.closest('.aspect-\\[3\\/4\\]');
+      if (!coverContainer) return;
+
+      if (coverContainer.querySelector('img.__real_cover')) return;
+
+      const dataUrl = await getOrCreateThumb(pdfUrl);
+
+      const overlay = coverContainer.querySelector('.absolute.inset-x-0.bottom-0');
+
+      const real = document.createElement('img');
+      real.className = '__real_cover w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]';
+      real.loading = 'lazy';
+      real.alt = img.getAttribute('data-title') || 'Cover';
+      real.src = dataUrl;
+
+      coverContainer.innerHTML = '';
+      coverContainer.appendChild(real);
+      if (overlay) coverContainer.appendChild(overlay);
     },
 
     // ----- render
@@ -688,6 +754,7 @@
       const tags = (item.tags || []).slice(0, 3);
       const cover = item.coverUrl || '';
 
+      // Si coverUrl existe, úsalo; si no, placeholder + img hidden para lazy thumb
       const coverNode = cover
         ? `<img src="${escapeHTML(cover)}" alt="${escapeHTML(title)}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />`
         : `
@@ -696,7 +763,7 @@
               <i class="fa-solid ${icon.color} fa-${icon.fa} text-2xl"></i>
             </div>
             <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200 px-6 text-center line-clamp-2">${escapeHTML(title)}</div>
-            <div class="text-[11px] mt-2 text-gray-500 dark:text-gray-400 font-bold">${t('Generando carátula…', 'Generating cover…')}</div>
+            <div class="text-[11px] mt-2 text-gray-500 dark:text-gray-400 font-bold">${t('Carátula automática…', 'Auto cover…')}</div>
             <img data-auto-cover="1"
                  data-pdf="${escapeHTML(item.fileUrl)}"
                  data-title="${escapeHTML(title)}"
@@ -795,56 +862,6 @@
       `;
     },
 
-    async hydrateAutoCovers() {
-      const grid = document.getElementById('library-grid');
-      if (!grid) return;
-
-      const nodes = Array.from(grid.querySelectorAll('img[data-auto-cover="1"]'));
-      if (!nodes.length) return;
-
-      // generate thumbnails in small batches to keep UI smooth
-      const BATCH = 2;
-      for (let i = 0; i < nodes.length; i += BATCH) {
-        const batch = nodes.slice(i, i + BATCH);
-
-        await Promise.allSettled(batch.map(async (img) => {
-          const pdfUrl = img.getAttribute('data-pdf') || '';
-          if (!pdfUrl) return;
-
-          try {
-            const dataUrl = await getOrCreateThumb(pdfUrl);
-
-            // Replace parent placeholder content with real <img>
-            // We find the closest cover container (the outer aspect div)
-            const coverContainer = img.closest('.aspect-\\[3\\/4\\]');
-            if (!coverContainer) return;
-
-            // If cover already exists (maybe changed), skip
-            if (coverContainer.querySelector('img.__real_cover')) return;
-
-            const real = document.createElement('img');
-            real.className = '.__real_cover w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]';
-            real.loading = 'lazy';
-            real.alt = img.getAttribute('data-title') || 'Cover';
-            real.src = dataUrl;
-
-            // Clear coverContainer inner content except the bottom gradient badge
-            // We'll preserve badge overlay (last child is overlay div).
-            const overlay = coverContainer.querySelector('.absolute.inset-x-0.bottom-0');
-            coverContainer.innerHTML = '';
-            coverContainer.appendChild(real);
-            if (overlay) coverContainer.appendChild(overlay);
-          } catch (e) {
-            // leave placeholder
-            console.warn('Thumb gen failed:', e);
-          }
-        }));
-
-        // little pause between batches
-        await new Promise(r => setTimeout(r, 30));
-      }
-    },
-
     renderGrid() {
       const grid = document.getElementById('library-grid');
       if (!grid) return;
@@ -867,6 +884,7 @@
       }
 
       grid.innerHTML = this._items.map(it => this.cardHTML(it)).join('');
+
       grid.querySelectorAll('[data-open]').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-open');
@@ -875,8 +893,8 @@
         });
       });
 
-      // generate covers after paint
-      setTimeout(() => this.hydrateAutoCovers(), 0);
+      // Lazy cover engine
+      setTimeout(() => this.setupLazyCovers(), 0);
     },
 
     bindShellEvents() {
@@ -891,11 +909,10 @@
       if (sort) sort.addEventListener('change', (e) => this.setSort(e.target.value));
 
       if (reload) reload.addEventListener('click', async () => {
-        // clear list cache + reload
+        // Forzar refresh del listado
         try { localStorage.removeItem(GH_CACHE_KEY); } catch (_) {}
 
-        // optional: keep thumbnails cache (faster)
-        // If you want to clear thumbnails too, uncomment:
+        // Si quieres borrar TODAS las carátulas cacheadas también, descomenta:
         // await thumbClearAll();
 
         this.load();
