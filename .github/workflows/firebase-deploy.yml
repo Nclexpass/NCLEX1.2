@@ -1,4 +1,4 @@
-name: Deploy Blindado (Solo Subida)
+name: Deploy Blindado (Solo Hosting)
 
 on:
   push:
@@ -9,12 +9,13 @@ jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
     steps:
-      # 1. Descargar tus archivos
+      # 1. Descargar tus archivos del repositorio
       - name: 📥 Descargar Código
         uses: actions/checkout@v4
 
       # 2. Subir a Firebase usando Docker (Aislado y Seguro)
-      # Al usar w9jds/firebase-action, evitamos errores de npx o node versions.
+      # Usamos w9jds/firebase-action que es el estándar militar.
+      # No intenta compilar nada, solo sube los archivos.
       - name: 🚀 Subir a Firebase
         uses: w9jds/firebase-action@master
         with:
