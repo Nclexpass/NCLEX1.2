@@ -1,12 +1,17 @@
-// 33_library.js — Biblioteca Premium (Auto-Covers + Lector)
-// ✅ Genera portadas CSS automáticamente (Estilo Apple Books)
-// ✅ Lector de PDF integrado (sin descargar)
+// 33_library.js — Biblioteca Premium (Cliente Directo)
+// ✅ Conexión directa a GitHub API (Sin necesidad de catalog.json)
+// ✅ Portadas estilo Apple Books automáticas
+// ✅ Lector integrado (Sin descargas)
 
 (function () {
   'use strict';
   if (!window.NCLEX) return;
 
-  const CATALOG_URL = '/library/catalog.json';
+  // CONFIGURACIÓN: Tu repositorio y tag
+  const REPO = 'Nclexpass/NCLEX1.2'; 
+  const TAG = 'BOOKS';
+  // URL directa a la API de GitHub
+  const API_URL = `https://api.github.com/repos/${REPO}/releases/tags/${TAG}`;
 
   const LibraryUI = {
     items: [],
@@ -14,86 +19,123 @@
 
     async init() {
       this.loading = true;
-      this.render();
+      this.render(); // Mostrar esqueleto de carga
+      
       try {
-        // Truco ?t=... para evitar caché antigua
-        const res = await fetch(CATALOG_URL + '?t=' + Date.now());
-        if (res.ok) {
-           this.items = await res.json();
-           // Ordenar alfabéticamente
-           this.items.sort((a,b) => a.title.es.localeCompare(b.title.es));
+        // 1. Intentamos leer la API de GitHub directamente
+        const res = await fetch(API_URL);
+        
+        if (!res.ok) {
+           if(res.status === 404) throw new Error("No se encontró el Release 'BOOKS' en GitHub.");
+           if(res.status === 403) throw new Error("Límite de acceso a GitHub temporal.");
+           throw new Error(`Error GitHub: ${res.status}`);
         }
+
+        const data = await res.json();
+        
+        // 2. Convertimos los archivos del Release en "Libros"
+        this.items = (data.assets || [])
+          .filter(asset => asset.name.toLowerCase().endsWith('.pdf'))
+          .map(asset => {
+             // Limpiar nombre: "Medical_Surgical.pdf" -> "Medical Surgical"
+             const cleanName = asset.name
+               .replace(/_/g, ' ')
+               .replace(/-/g, ' ')
+               .replace(/\.pdf$/i, '');
+               
+             return {
+               id: String(asset.id),
+               title: cleanName,
+               fileUrl: asset.browser_download_url, // Enlace directo
+               size: (asset.size / 1024 / 1024).toFixed(1) + ' MB'
+             };
+          });
+
+        // Ordenar A-Z
+        this.items.sort((a,b) => a.title.localeCompare(b.title));
+
       } catch (e) {
-        console.warn("Catálogo no disponible aún", e);
+        console.warn("Fallo conexión GitHub API:", e);
+        // Fallback silencioso: intentar leer catalog.json local si existe
+        try {
+           const localRes = await fetch('/library/catalog.json');
+           if(localRes.ok) this.items = await localRes.json();
+        } catch(err2) {
+           this.error = "No se pudo conectar con la biblioteca.";
+        }
       } finally {
         this.loading = false;
         this.render();
       }
     },
 
-    // --- GENERADOR DE PORTADAS AUTOMÁTICO ---
-    getCoverArt(title) {
-      // Paletas de colores estilo Apple (Gradientes)
-      const gradients = [
-        'from-blue-500 to-cyan-400',
-        'from-emerald-500 to-teal-400',
-        'from-orange-500 to-amber-400',
-        'from-rose-500 to-pink-400',
-        'from-indigo-500 to-purple-400',
-        'from-slate-600 to-slate-800'
+    // --- GENERADOR DE PORTADAS (ESTILO APPLE) ---
+    getCover(title) {
+      // Algoritmo para elegir siempre el mismo color para el mismo título
+      const colors = [
+        ['from-blue-600 to-blue-400', 'text-blue-100'],
+        ['from-emerald-600 to-teal-400', 'text-emerald-100'],
+        ['from-rose-600 to-pink-500', 'text-rose-100'],
+        ['from-violet-600 to-purple-500', 'text-purple-100'],
+        ['from-amber-500 to-orange-400', 'text-orange-100'],
+        ['from-slate-700 to-slate-500', 'text-gray-300']
       ];
-      
-      const index = title.length % gradients.length;
-      const grad = gradients[index];
+      const index = title.length % colors.length;
+      const [bg, iconColor] = colors[index];
 
       return `
-        <div class="w-full h-full bg-gradient-to-br ${grad} flex flex-col justify-between p-4 relative overflow-hidden shadow-inner">
-           <i class="fa-solid fa-book-medical absolute -bottom-4 -right-4 text-6xl text-white/10 rotate-12"></i>
-           <div class="font-serif font-bold text-white text-lg leading-tight line-clamp-4 drop-shadow-md z-10">
-             ${title}
+        <div class="w-full h-full bg-gradient-to-br ${bg} p-4 relative flex flex-col justify-between overflow-hidden shadow-inner">
+           <i class="fa-solid fa-book-medical absolute -right-6 -bottom-6 text-[5rem] opacity-20 rotate-12 ${iconColor}"></i>
+           
+           <div class="relative z-10">
+             <div class="font-serif font-bold text-white text-lg leading-tight tracking-tight drop-shadow-md line-clamp-4">
+               ${title}
+             </div>
            </div>
-           <div class="text-[10px] uppercase tracking-widest text-white/60 font-medium z-10 mt-2">
-             NCLEX Library
+           
+           <div class="relative z-10 flex items-center gap-1 opacity-70">
+             <i class="fa-brands fa-apple text-white text-xs"></i>
+             <span class="text-[9px] font-bold text-white tracking-widest uppercase">iBOOKS</span>
            </div>
         </div>
       `;
     },
 
-    // --- LECTOR INTEGRADO ---
+    // --- LECTOR (GOOGLE VIEWER) ---
     openReader(item) {
       if (!item.fileUrl) return;
 
+      // URL del visor
       const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(item.fileUrl)}&embedded=true`;
 
+      // Crear Modal
       const modal = document.createElement('div');
-      modal.className = "fixed inset-0 z-[60] bg-black/95 backdrop-blur animate-fade-in flex flex-col";
+      modal.className = "fixed inset-0 z-[100] bg-black/95 backdrop-blur-md animate-fade-in flex flex-col";
       modal.innerHTML = `
-        <div class="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10">
-           <div class="flex items-center gap-3">
-             <div class="w-8 h-8 rounded bg-brand-blue flex items-center justify-center text-white">
-               <i class="fa-solid fa-book-open text-sm"></i>
+        <div class="flex items-center justify-between px-4 py-3 bg-white/10 border-b border-white/10 shadow-lg">
+           <div class="flex items-center gap-3 overflow-hidden">
+             <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+               <i class="fa-solid fa-book-open text-white text-sm"></i>
              </div>
-             <span class="text-white font-bold truncate max-w-xs md:max-w-md">${item.title.es}</span>
+             <span class="text-white font-bold truncate text-sm md:text-base">${item.title}</span>
            </div>
-           <button id="close-reader" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm font-bold transition">
-             Cerrar / Close
+           <button id="close-reader-btn" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-white text-xs font-bold transition uppercase tracking-wide">
+             Hecho / Done
            </button>
         </div>
         <div class="flex-1 w-full bg-gray-900 relative">
-           <div class="absolute inset-0 flex items-center justify-center text-gray-500">
-              <div class="text-center">
-                 <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-2"></i>
-                 <p>Cargando documento...</p>
-              </div>
+           <div class="absolute inset-0 flex items-center justify-center text-gray-500 flex-col gap-2">
+              <i class="fa-solid fa-circle-notch fa-spin text-3xl"></i>
+              <p class="text-xs uppercase tracking-widest">Cargando PDF...</p>
            </div>
-           <iframe src="${viewerUrl}" class="absolute inset-0 w-full h-full border-0 z-10" allowfullscreen></iframe>
+           <iframe src="${viewerUrl}" class="absolute inset-0 w-full h-full border-0 z-10 bg-transparent" allowfullscreen></iframe>
         </div>
       `;
       
       document.body.appendChild(modal);
-      document.body.style.overflow = 'hidden'; 
+      document.body.style.overflow = 'hidden'; // Bloquear scroll
 
-      document.getElementById('close-reader').onclick = () => {
+      document.getElementById('close-reader-btn').onclick = () => {
         modal.remove();
         document.body.style.overflow = '';
       };
@@ -102,15 +144,15 @@
     // --- RENDERIZADO ---
     getShell() {
       return `
-        <div class="animate-fade-in pb-20">
-          <div class="flex items-center justify-between mb-8 px-1">
+        <div class="animate-fade-in pb-24 px-2">
+          <div class="flex items-center justify-between mb-8 mt-2">
             <div>
-              <h1 class="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                <i class="fa-solid fa-layer-group text-brand-blue mr-2"></i>Biblioteca
+              <h1 class="text-3xl font-black tracking-tighter text-slate-900 dark:text-white">
+                Biblioteca
               </h1>
-              <p class="text-gray-500 dark:text-gray-400 text-sm mt-1 ml-1">Colección oficial de estudio</p>
+              <p class="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-widest mt-1">Colección Digital</p>
             </div>
-            <button onclick="window.NCLEX_LIBRARY.init()" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-brand-blue hover:text-white transition flex items-center justify-center text-gray-500">
+            <button onclick="window.NCLEX_LIBRARY.init()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 hover:bg-brand-blue hover:text-white transition flex items-center justify-center text-gray-500">
               <i class="fa-solid fa-rotate"></i>
             </button>
           </div>
@@ -121,47 +163,45 @@
     },
 
     getGrid() {
-      if (this.items.length === 0) {
+      if (!this.items || this.items.length === 0) {
         return `
-          <div class="flex flex-col items-center justify-center py-20 text-gray-400">
-            <i class="fa-solid fa-book-bookmark text-5xl mb-4 text-gray-200 dark:text-gray-700"></i>
-            <p>Conectando con la nube...</p>
-            <p class="text-xs mt-2">Si es la primera vez, espera unos minutos.</p>
+          <div class="flex flex-col items-center justify-center py-20 text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-3xl">
+            <i class="fa-solid fa-cloud-arrow-down text-5xl mb-4 text-gray-300"></i>
+            <p class="font-medium">No se encontraron libros.</p>
+            <p class="text-xs mt-2 opacity-70 max-w-xs text-center">Asegúrate de que existe el Release "BOOKS" en GitHub con archivos PDF.</p>
           </div>`;
       }
 
       return `
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 gap-y-10">
-          ${this.items.map(item => this.getItemCard(item)).join('')}
-        </div>
-      `;
-    },
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
+          ${this.items.map(item => {
+            // Preparamos el objeto para pasarlo al click (escapando comillas)
+            const jsonItem = JSON.stringify(item).replace(/"/g, '&quot;');
+            
+            return `
+            <div class="group relative flex flex-col gap-3 cursor-pointer select-none perspective-1000" onclick="window.NCLEX_LIBRARY.openReader(${jsonItem})">
+              
+              <div class="relative aspect-[2/3] w-full rounded-r-md rounded-l-sm bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 group-hover:-translate-y-2 group-hover:shadow-2xl overflow-hidden transform-gpu">
+                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-black/10 z-20"></div>
+                 <div class="absolute left-1 top-0 bottom-0 w-[1px] bg-white/20 z-20"></div>
+                 
+                 ${this.getCover(item.title)}
+                 
+                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px] z-30">
+                   <div class="w-12 h-12 rounded-full bg-white text-brand-blue flex items-center justify-center shadow-lg transform scale-50 group-hover:scale-100 transition-transform duration-300">
+                     <i class="fa-solid fa-book-open text-lg"></i>
+                   </div>
+                 </div>
+              </div>
 
-    getItemCard(item) {
-      const coverArt = this.getCoverArt(item.title.es);
-      const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
-
-      return `
-        <div class="group relative flex flex-col gap-3 cursor-pointer select-none" onclick="window.NCLEX_LIBRARY.openReader(${itemJson})">
-          <div class="relative aspect-[2/3] w-full rounded-r-lg rounded-l-sm overflow-hidden shadow-[5px_5px_15px_-5px_rgba(0,0,0,0.3)] group-hover:shadow-[8px_8px_25px_-5px_rgba(0,0,0,0.4)] group-hover:-translate-y-2 transition-all duration-300 bg-white dark:bg-gray-800 transform preserve-3d">
-             <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-black/20 z-20"></div>
-             <div class="absolute left-1.5 top-0 bottom-0 w-px bg-white/20 z-20"></div>
-             ${coverArt}
-             <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px] z-30">
-               <span class="bg-white text-black px-4 py-2 rounded-full font-bold text-xs transform scale-90 group-hover:scale-100 transition-transform">
-                 <i class="fa-solid fa-book-open mr-1"></i> LEER
-               </span>
-             </div>
-          </div>
-          <div class="space-y-1 px-1">
-            <h3 class="font-bold text-slate-800 dark:text-gray-200 text-sm leading-tight line-clamp-2 group-hover:text-brand-blue transition-colors">
-              ${item.title.es}
-            </h3>
-            <div class="flex items-center justify-between">
-              <p class="text-[10px] text-gray-400 font-bold tracking-wide">PDF</p>
-              <i class="fa-solid fa-circle-arrow-right text-gray-300 group-hover:text-brand-blue text-xs transition-colors"></i>
-            </div>
-          </div>
+              <div class="space-y-0.5 px-1">
+                <h3 class="font-bold text-slate-800 dark:text-gray-100 text-xs md:text-sm leading-tight line-clamp-2 group-hover:text-brand-blue transition-colors">
+                  ${item.title}
+                </h3>
+                <p class="text-[10px] text-gray-400 font-bold tracking-wide uppercase">${item.size}</p>
+              </div>
+            </div>`;
+          }).join('')}
         </div>
       `;
     },
@@ -169,7 +209,13 @@
     getSkeleton() {
       return `
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          ${[1,2,3,4].map(() => `<div class="animate-pulse flex flex-col gap-3"><div class="aspect-[2/3] bg-gray-200 dark:bg-gray-800 rounded-lg"></div><div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-2/3"></div></div>`).join('')}
+          ${[1,2,3,4,5].map(() => `
+            <div class="animate-pulse flex flex-col gap-3">
+              <div class="aspect-[2/3] bg-gray-200 dark:bg-gray-800 rounded-md"></div>
+              <div class="h-3 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
+              <div class="h-2 bg-gray-200 dark:bg-gray-800 rounded w-1/4"></div>
+            </div>
+          `).join('')}
         </div>
       `;
     },
@@ -180,12 +226,12 @@
     }
   };
 
+  // Exponer y registrar
   window.NCLEX_LIBRARY = LibraryUI;
-
   NCLEX.registerTopic({
     id: 'library',
     title: { es: 'Biblioteca', en: 'Library' },
-    subtitle: { es: 'Libros Digitales', en: 'Digital Books' },
+    subtitle: { es: 'Cloud Books', en: 'Cloud Books' },
     icon: 'book-open',
     color: 'slate',
     render: () => LibraryUI.getShell(),
