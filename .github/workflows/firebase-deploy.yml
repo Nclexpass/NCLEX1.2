@@ -1,8 +1,8 @@
-name: Auto Deploy (GitHub -> Firebase) + Auto Catalog (BOOKS)
+name: Auto Deploy (GitHub -> Firebase) + Auto Catalog (Release BOOKS)
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -18,7 +18,8 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Generate library/catalog.json from Release BOOKS (paginated)
+      # 1) Genera /library/catalog.json leyendo TODOS los assets del release BOOKS (paginado)
+      - name: Generate library/catalog.json from Release BOOKS (all assets)
         env:
           REPO: Nclexpass/NCLEX1.2
           TAG: BOOKS
@@ -30,23 +31,7 @@ jobs:
           const REPO = process.env.REPO;
           const TAG  = process.env.TAG;
 
-          function normalizeId(name) {
-            return String(name || '')
-              .toLowerCase()
-              .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, '_')
-              .replace(/^_+|_+$/g, '');
-          }
-
-          function beautifyTitle(base) {
-            return String(base || '')
-              .replace(/[_]+/g, ' ')
-              .replace(/[.]+/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim();
-          }
-
-          async function ghFetchJson(url) {
+          async function fetchJson(url) {
             const res = await fetch(url, {
               headers: {
                 'Accept': 'application/vnd.github+json',
@@ -60,60 +45,71 @@ jobs:
             return res.json();
           }
 
+          function prettifyTitle(filename) {
+            return String(filename || '')
+              .replace(/\.pdf$/i, '')
+              .replace(/[_]+/g, ' ')
+              .replace(/[.]+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+          }
+
+          function makeId(filename) {
+            const base = String(filename || '').replace(/\.pdf$/i, '');
+            return base
+              .toLowerCase()
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^a-z0-9]+/g, '_')
+              .replace(/^_+|_+$/g, '');
+          }
+
           async function main() {
-            // 1) Buscar el release por tag
             const releaseApi = `https://api.github.com/repos/${REPO}/releases/tags/${encodeURIComponent(TAG)}`;
-            const release = await ghFetchJson(releaseApi);
+            const release = await fetchJson(releaseApi);
 
-            // 2) Leer assets paginando (esto evita que solo salgan 4, 30, etc.)
+            // IMPORTANTE: assets puede venir limitado, por eso usamos assets_url con paginación
             const assetsUrl = release.assets_url;
-            if (!assetsUrl) throw new Error("No assets_url found in release response.");
+            if (!assetsUrl) throw new Error('Release assets_url missing');
 
-            let allAssets = [];
             let page = 1;
-
+            let allAssets = [];
             while (true) {
               const url = `${assetsUrl}?per_page=100&page=${page}`;
-              const chunk = await ghFetchJson(url);
-              if (!Array.isArray(chunk) || chunk.length === 0) break;
-              allAssets = allAssets.concat(chunk);
+              const batch = await fetchJson(url);
+              if (!Array.isArray(batch) || batch.length === 0) break;
+              allAssets = allAssets.concat(batch);
+              if (batch.length < 100) break;
               page++;
               if (page > 50) break; // seguridad
             }
 
-            // 3) Filtrar solo PDFs
+            // Solo PDFs
             const pdfs = allAssets.filter(a => {
               const ct = String(a.content_type || '').toLowerCase();
               const nm = String(a.name || '').toLowerCase();
               return ct.includes('pdf') || nm.endsWith('.pdf');
             });
 
-            // 4) Ordenar por nombre (opcional) para que sea estable
-            pdfs.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'en'));
+            // Orden estable por nombre
+            pdfs.sort((a,b) => String(a.name||'').localeCompare(String(b.name||'')));
 
-            // 5) Construir catálogo
             const now = Date.now();
             const items = pdfs.map((a, idx) => {
-              const fileName = String(a.name || `book_${idx}.pdf`);
-              const base = fileName.replace(/\.pdf$/i, '');
-
-              const id = normalizeId(base);
-              const title = beautifyTitle(base);
-
+              const name = String(a.name || `book_${idx}.pdf`);
+              const title = prettifyTitle(name);
               return {
-                id,
+                id: makeId(name) || `book_${idx}`,
                 title: { es: title, en: title },
                 author: "",
                 type: "pdf",
-                fileUrl: a.browser_download_url,
-                coverUrl: "",                // carátulas auto se generan en el front (PDF.js) o placeholder
+                fileUrl: a.browser_download_url,  // link directo del asset
+                coverUrl: "",                     // carátula placeholder (por ahora)
                 tags: ["NCLEX"],
                 addedAt: now + idx,
                 source: "github_release_books"
               };
             });
 
-            // 6) Guardar archivo
             const outDir  = path.join(process.cwd(), 'library');
             const outFile = path.join(outDir, 'catalog.json');
             if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
@@ -128,11 +124,12 @@ jobs:
           });
           NODE
 
-      # Deploy REAL a Firebase Hosting (sin trucos, sin "|| true")
-      - name: Deploy to Firebase Hosting
+      # 2) Deploy REAL a Firebase Hosting (sin ocultar errores)
+      - name: Firebase Deploy (Hosting)
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
-          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
-          projectId: "nclex-library-9e9e7"
-          channelId: "live"
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: nclex-library-9e9e7
+          channelId: live
+          target: main
