@@ -1,20 +1,5 @@
 # make_catalog.ps1 — Genera library/catalog.json (Windows PowerShell 5.1)
-# MODO: GitHub Releases para PDFs (alto tráfico)
-#
-# IMPORTANTE:
-# - PDFs se suben como "Release assets" en GitHub (tag: books)
-# - Covers (jpg/png) van en: library\files\covers\   (ruta actual del proyecto)
-#   (También soporta la ruta vieja library\covers\ si existe)
-#
-# Este script:
-# - Lee PDFs/EPUBs desde library/files (solo para nombres y títulos)
-# - Busca carátulas en:
-#     1) library/files/covers
-#     2) library/covers  (legacy)
-# - Escribe coverUrl como:
-#     library/files/covers/<imagen>
-# - Escribe fileUrl apuntando a GitHub Releases
-# - SIEMPRE escribe un ARRAY [ ... ]
+# CORREGIDO: Genera rutas absolutas (con / inicial) para que las imágenes carguen siempre.
 
 $ErrorActionPreference = "Stop"
 
@@ -66,13 +51,15 @@ foreach ($b in $books) {
     $candidateOld2 = Join-Path $coversDirOld ($id + $ext)
     if (Test-Path $candidateOld2) {
       $cover = Split-Path -Leaf $candidateOld2
+      # moverla a la nueva para mantener todo ordenado
       try { Move-Item -Force $candidateOld2 (Join-Path $coversDirNew $cover) } catch {}
       break
     }
   }
 
   $coverUrl = ""
-  if ($cover) { $coverUrl = ("library/files/covers/" + $cover) }
+  # CORRECCIÓN: Agregamos "/" al inicio para ruta absoluta
+  if ($cover) { $coverUrl = ("/library/files/covers/" + $cover) }
 
   # URL de GitHub Release asset (escapa espacios)
   $escapedName = [System.Uri]::EscapeDataString($b.Name)
