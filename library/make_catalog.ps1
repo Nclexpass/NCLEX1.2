@@ -26,7 +26,7 @@ $coversDirOld  = Join-Path $project "library\covers"          # legacy
 $outFile       = Join-Path $project "library\catalog.json"
 
 # ✅ Cambia esto solo si tu repo/tag cambian
-$RELEASE_BASE = "https://github.com/Nclexpass/NCLEX1.2/releases/download/books/"
+$RELEASE_BASE = "https://github.com/Nclexpass/NCLEX1.2/releases/download/BOOKS/"
 
 if (!(Test-Path $filesDir)) { Write-Host "ERROR: No existe: $filesDir" -ForegroundColor Red; exit 1 }
 
