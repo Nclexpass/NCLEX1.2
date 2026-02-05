@@ -1,32 +1,34 @@
-// 33_library.js — Biblioteca AUTO desde GitHub Releases (BOOKS)
-// ✅ Funciona en LOCAL (con servidor) y cuando lo subas (Firebase/Netlify/etc).
-// ✅ Carga AUTOMÁTICO desde GitHub Release tag "BOOKS" (assets .pdf).
-// ✅ Cache (6 horas) para no pegar rate limit.
-// ✅ Fallback: si existe /library/catalog.json lo intenta primero (opcional).
+// 33_library.js — Biblioteca AUTO desde GitHub Releases (BOOKS) + Carátulas automáticas (PDF.js)
+// ✅ Solo subes PDFs a GitHub Release tag "BOOKS" y aparecen automáticamente.
+// ✅ Carátula automática: renderiza 1ra página del PDF con PDF.js y la guarda en cache (IndexedDB).
+// ✅ Cache (lista + carátulas) para no chocar con rate limits y para cargar rápido.
 //
 // IMPORTANTE:
-// - NO abras index.html con doble click (file://) porque el navegador bloquea fetch(). Usa un servidor local.
-// - Para carátulas automáticas: sube también al Release "BOOKS" un .jpg/.png/.webp con el MISMO nombre base del PDF.
-//   Ej: Farmacologia_Pearson.pdf  +  Farmacologia_Pearson.jpg
+// - NO abras index.html con doble click (file://). Usa servidor local.
+// - Tu Release BOOKS debe ser PUBLIC y el tag debe ser exactamente "BOOKS".
 
 (function () {
   'use strict';
-
   if (!window.NCLEX) return;
 
   const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-  // ✅ Fallback local (si lo quieres mantener)
+  // (Opcional) fallback local
   const CATALOG_URL = window.NCLEX_LIBRARY_CATALOG_URL || '/library/catalog.json';
 
-  // ✅ GitHub Releases (AUTO)
+  // GitHub Release (AUTO)
   const GH_OWNER = 'Nclexpass';
   const GH_REPO = 'NCLEX1.2';
   const GH_TAG = 'BOOKS';
 
-  // Cache para evitar rate-limit / latencia
-  const GH_CACHE_KEY = 'nclex_gh_books_cache_v1';
+  // Cache lista GitHub
+  const GH_CACHE_KEY = 'nclex_gh_books_cache_v2';
   const GH_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
+
+  // PDF.js (CDN)
+  const PDFJS_VERSION = '3.11.174';
+  const PDFJS_CDN = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.js`;
+  const PDFJS_WORKER_CDN = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`;
 
   // -------- helpers
   const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({
@@ -35,7 +37,6 @@
 
   const isAbsoluteUrl = (u) => /^https?:\/\//i.test(String(u || ''));
 
-  // ✅ Siempre resuelve assets desde raíz del dominio
   const resolveUrl = (maybeRelative) => {
     if (!maybeRelative) return '';
     let raw = String(maybeRelative);
@@ -93,7 +94,170 @@
     return base.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   };
 
-  const tryReadCache = () => {
+  // -------- IndexedDB cache (thumbnails)
+  const TH_DB = 'nclex_library_thumbs_db_v1';
+  const TH_STORE = 'thumbs';
+
+  function openThumbDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(TH_DB, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(TH_STORE)) {
+          db.createObjectStore(TH_STORE, { keyPath: 'key' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function thumbGet(key) {
+    try {
+      const db = await openThumbDB();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(TH_STORE, 'readonly');
+        const store = tx.objectStore(TH_STORE);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  async function thumbSet(key, dataUrl) {
+    try {
+      const db = await openThumbDB();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(TH_STORE, 'readwrite');
+        const store = tx.objectStore(TH_STORE);
+        store.put({ key, dataUrl, ts: Date.now() });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  async function thumbClearAll() {
+    try {
+      const db = await openThumbDB();
+      return await new Promise((resolve) => {
+        const tx = db.transaction(TH_STORE, 'readwrite');
+        const store = tx.objectStore(TH_STORE);
+        const req = store.clear();
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  // -------- PDF.js loader
+  let _pdfjsReady = null;
+
+  function ensurePdfJsLoaded() {
+    if (_pdfjsReady) return _pdfjsReady;
+
+    _pdfjsReady = new Promise((resolve, reject) => {
+      if (window.pdfjsLib && window.pdfjsLib.getDocument) {
+        try {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+        } catch (_) {}
+        return resolve(window.pdfjsLib);
+      }
+
+      const s = document.createElement('script');
+      s.src = PDFJS_CDN;
+      s.async = true;
+      s.onload = () => {
+        if (!window.pdfjsLib || !window.pdfjsLib.getDocument) {
+          reject(new Error('PDF.js failed to load'));
+          return;
+        }
+        try {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_CDN;
+        } catch (_) {}
+        resolve(window.pdfjsLib);
+      };
+      s.onerror = () => reject(new Error('PDF.js CDN load error'));
+      document.head.appendChild(s);
+    });
+
+    return _pdfjsReady;
+  }
+
+  // Generate thumbnail (first page)
+  async function generatePdfThumbDataUrl(pdfUrl) {
+    const pdfjsLib = await ensurePdfJsLoaded();
+
+    const doc = await pdfjsLib.getDocument({
+      url: pdfUrl,
+      withCredentials: false,
+      // reduce memory a bit
+      disableAutoFetch: true,
+      disableStream: false
+    }).promise;
+
+    const page = await doc.getPage(1);
+
+    // target width (px) for cover
+    const TARGET_W = 360; // looks good in your card aspect
+    const viewport0 = page.getViewport({ scale: 1 });
+    const scale = TARGET_W / viewport0.width;
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+
+    canvas.width = Math.max(1, Math.floor(viewport.width));
+    canvas.height = Math.max(1, Math.floor(viewport.height));
+
+    // white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    // compress to jpeg to save space (fast + small)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+
+    // cleanup
+    try { page.cleanup(); } catch (_) {}
+    try { await doc.destroy(); } catch (_) {}
+
+    return dataUrl;
+  }
+
+  // One-flight per URL
+  const _thumbInflight = new Map();
+
+  async function getOrCreateThumb(pdfUrl) {
+    const key = `pdfthumb:${pdfUrl}`;
+
+    // cache hit
+    const cached = await thumbGet(key);
+    if (cached && cached.dataUrl) return cached.dataUrl;
+
+    // inflight
+    if (_thumbInflight.has(key)) return _thumbInflight.get(key);
+
+    const p = (async () => {
+      const dataUrl = await generatePdfThumbDataUrl(pdfUrl);
+      await thumbSet(key, dataUrl);
+      return dataUrl;
+    })().finally(() => _thumbInflight.delete(key));
+
+    _thumbInflight.set(key, p);
+    return p;
+  }
+
+  // -------- GitHub list cache
+  const tryReadListCache = () => {
     try {
       const cached = JSON.parse(localStorage.getItem(GH_CACHE_KEY) || 'null');
       if (cached && cached.ts && Array.isArray(cached.items)) {
@@ -103,14 +267,14 @@
     return null;
   };
 
-  const writeCache = (items) => {
+  const writeListCache = (items) => {
     try {
       localStorage.setItem(GH_CACHE_KEY, JSON.stringify({ ts: Date.now(), items }));
     } catch (_) {}
   };
 
   async function fetchBooksFromGitHubRelease() {
-    const cached = tryReadCache();
+    const cached = tryReadListCache();
     if (cached) return cached;
 
     const apiUrl = `https://api.github.com/repos/${encodeURIComponent(GH_OWNER)}/${encodeURIComponent(GH_REPO)}/releases/tags/${encodeURIComponent(GH_TAG)}`;
@@ -123,37 +287,39 @@
     const release = await res.json();
     const assets = Array.isArray(release.assets) ? release.assets : [];
 
-    // PDFs
-    const pdfs = assets.filter(a => a && /\.pdf$/i.test(a.name || ''));
-    // Covers (map por nombre base)
-    const coverMap = new Map(
-      assets
-        .filter(a => a && /\.(jpg|jpeg|png|webp)$/i.test(a.name || ''))
-        .map(a => [String(a.name).replace(/\.(jpg|jpeg|png|webp)$/i, '').toLowerCase(), a.browser_download_url])
-    );
+    const pdfs = assets
+      .filter(a => a && /\.pdf$/i.test(a.name || ''))
+      .map(a => ({
+        name: String(a.name || ''),
+        url: String(a.browser_download_url || ''),
+        createdAt: String(a.created_at || '')
+      }));
 
+    // build items from PDFs only (covers auto-generated)
     const items = pdfs.map(a => {
-      const pdfName = String(a.name || '');
-      const title = titleFromFilename(pdfName);
-      const id = idFromFilename(pdfName);
+      const title = titleFromFilename(a.name);
+      const id = idFromFilename(a.name);
 
-      const baseKey = pdfName.replace(/\.pdf$/i, '').toLowerCase();
-      const coverUrl = coverMap.get(baseKey) || '';
+      // prefer GitHub timestamp when available
+      const addedAt = (() => {
+        const ts = Date.parse(a.createdAt);
+        return Number.isFinite(ts) ? ts : Date.now();
+      })();
 
       return {
         id,
         title: { es: title, en: title },
         author: '',
         type: 'pdf',
-        fileUrl: String(a.browser_download_url || ''),
-        coverUrl: coverUrl ? String(coverUrl) : '',
+        fileUrl: a.url,
+        coverUrl: '', // auto
         tags: ['NCLEX'],
-        addedAt: Date.now(),
+        addedAt,
         source: 'github_release_live'
       };
     });
 
-    writeCache(items);
+    writeListCache(items);
     return items;
   }
 
@@ -188,7 +354,7 @@
   }
 
   async function loadLibraryCatalogSmart() {
-    // 1) Intentar GitHub (lo que tú quieres)
+    // 1) GitHub (primary)
     try {
       const ghItems = await fetchBooksFromGitHubRelease();
       if (Array.isArray(ghItems) && ghItems.length) return ghItems;
@@ -196,10 +362,10 @@
       console.warn('[Library] GitHub load failed:', e);
     }
 
-    // 2) Fallback: catalog.json (si existe)
+    // 2) Fallback catalog.json
     try {
       const fb = await loadCatalogFallback();
-      if (Array.isArray(fb)) return fb;
+      if (Array.isArray(fb) && fb.length) return fb;
     } catch (e) {
       console.warn('[Library] Catalog fallback failed:', e);
     }
@@ -223,7 +389,6 @@
       this._error = '';
       this.renderIntoDom();
 
-      // Si abres con doble click (file://) fetch no funciona.
       if (window.location.protocol === 'file:') {
         this._loading = false;
         this._error =
@@ -257,7 +422,7 @@
             author: String(x.author || ''),
             type: String(x.type || ''),
             fileUrl: resolveUrl(x.fileUrl || x.filePath || ''),
-            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''),
+            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''), // usually empty (auto)
             tags: Array.isArray(x.tags) ? x.tags.map(String) : [],
             addedAt: added,
             source: String(x.source || 'auto')
@@ -267,7 +432,7 @@
         this.applyFilterSort();
       } catch (e) {
         console.error(e);
-        this._error = `${t('No pude cargar la biblioteca desde GitHub Releases.', 'Could not load the library from GitHub Releases.')} (${escapeHTML(e.message || String(e))})`;
+        this._error = `${t('No pude cargar la biblioteca.', 'Could not load the library.')} (${escapeHTML(e.message || String(e))})`;
       } finally {
         this._loading = false;
         this.renderIntoDom();
@@ -391,11 +556,6 @@
                    target="_blank" rel="noopener noreferrer"
                   class="px-4 py-2 rounded-xl bg-white/90 dark:bg-white/5 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:shadow-md transition backdrop-blur">
                   <i class="fa-brands fa-github mr-2 text-slate-800 dark:text-slate-200"></i>${t('Ver BOOKS', 'View BOOKS')}
-                </a>
-
-                <a href="${escapeHTML(resolveUrl(CATALOG_URL))}" target="_blank" rel="noopener noreferrer"
-                  class="px-4 py-2 rounded-xl bg-white/90 dark:bg-white/5 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:shadow-md transition backdrop-blur">
-                  <i class="fa-solid fa-code mr-2 text-brand-blue"></i>${t('Ver Catálogo', 'View Catalog')}
                 </a>
               </div>
             </div>
@@ -536,6 +696,11 @@
               <i class="fa-solid ${icon.color} fa-${icon.fa} text-2xl"></i>
             </div>
             <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200 px-6 text-center line-clamp-2">${escapeHTML(title)}</div>
+            <div class="text-[11px] mt-2 text-gray-500 dark:text-gray-400 font-bold">${t('Generando carátula…', 'Generating cover…')}</div>
+            <img data-auto-cover="1"
+                 data-pdf="${escapeHTML(item.fileUrl)}"
+                 data-title="${escapeHTML(title)}"
+                 class="hidden" alt="${escapeHTML(title)}"/>
           </div>
         `;
 
@@ -630,6 +795,56 @@
       `;
     },
 
+    async hydrateAutoCovers() {
+      const grid = document.getElementById('library-grid');
+      if (!grid) return;
+
+      const nodes = Array.from(grid.querySelectorAll('img[data-auto-cover="1"]'));
+      if (!nodes.length) return;
+
+      // generate thumbnails in small batches to keep UI smooth
+      const BATCH = 2;
+      for (let i = 0; i < nodes.length; i += BATCH) {
+        const batch = nodes.slice(i, i + BATCH);
+
+        await Promise.allSettled(batch.map(async (img) => {
+          const pdfUrl = img.getAttribute('data-pdf') || '';
+          if (!pdfUrl) return;
+
+          try {
+            const dataUrl = await getOrCreateThumb(pdfUrl);
+
+            // Replace parent placeholder content with real <img>
+            // We find the closest cover container (the outer aspect div)
+            const coverContainer = img.closest('.aspect-\\[3\\/4\\]');
+            if (!coverContainer) return;
+
+            // If cover already exists (maybe changed), skip
+            if (coverContainer.querySelector('img.__real_cover')) return;
+
+            const real = document.createElement('img');
+            real.className = '.__real_cover w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]';
+            real.loading = 'lazy';
+            real.alt = img.getAttribute('data-title') || 'Cover';
+            real.src = dataUrl;
+
+            // Clear coverContainer inner content except the bottom gradient badge
+            // We'll preserve badge overlay (last child is overlay div).
+            const overlay = coverContainer.querySelector('.absolute.inset-x-0.bottom-0');
+            coverContainer.innerHTML = '';
+            coverContainer.appendChild(real);
+            if (overlay) coverContainer.appendChild(overlay);
+          } catch (e) {
+            // leave placeholder
+            console.warn('Thumb gen failed:', e);
+          }
+        }));
+
+        // little pause between batches
+        await new Promise(r => setTimeout(r, 30));
+      }
+    },
+
     renderGrid() {
       const grid = document.getElementById('library-grid');
       if (!grid) return;
@@ -659,6 +874,9 @@
           if (item) this.openViewer(item);
         });
       });
+
+      // generate covers after paint
+      setTimeout(() => this.hydrateAutoCovers(), 0);
     },
 
     bindShellEvents() {
@@ -671,11 +889,18 @@
 
       if (search) search.addEventListener('input', (e) => this.setFilter(e.target.value));
       if (sort) sort.addEventListener('change', (e) => this.setSort(e.target.value));
-      if (reload) reload.addEventListener('click', () => {
-        // limpiar cache para forzar refresh
+
+      if (reload) reload.addEventListener('click', async () => {
+        // clear list cache + reload
         try { localStorage.removeItem(GH_CACHE_KEY); } catch (_) {}
+
+        // optional: keep thumbnails cache (faster)
+        // If you want to clear thumbnails too, uncomment:
+        // await thumbClearAll();
+
         this.load();
       });
+
       if (closeBtn) closeBtn.addEventListener('click', () => this.closeViewer());
       if (backdrop) backdrop.addEventListener('click', () => this.closeViewer());
       if (fsBtn) fsBtn.addEventListener('click', () => this.toggleFullscreen());
