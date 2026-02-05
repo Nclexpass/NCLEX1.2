@@ -1,6 +1,6 @@
 // 33_library.js — Biblioteca (descarga simple + carátula automática placeholder)
 // ✅ Lee /library/catalog.json generado por GitHub Actions (Release BOOKS)
-// ✅ Evita CORS del visor: por defecto DESCARGA el PDF
+// ✅ Evita CORS del visor: Usa Google Viewer para evitar descarga forzada
 // ✅ Carátulas: si coverUrl está vacío o falla, usa placeholder bonito con título
 // ✅ Lupa alineada (sin glitch)
 
@@ -23,6 +23,7 @@
   const resolveUrl = (maybeRelative) => {
     if (!maybeRelative) return '';
     let raw = String(maybeRelative);
+    // Asegura que empiece con / si es relativa
     if (!isAbsoluteUrl(raw) && !raw.startsWith('/')) raw = '/' + raw;
 
     try {
@@ -175,10 +176,18 @@
       this.renderGrid();
     },
 
-    // Abrir en pestaña nueva (sin visor embebido)
+    // --- CORRECCIÓN IMPORTANTE: Visor de Google para PDFs de GitHub ---
     openInNewTab(item) {
       if (!item?.fileUrl) return;
-      window.open(item.fileUrl, '_blank', 'noopener,noreferrer');
+
+      // Si es un PDF alojado en GitHub, usamos el visor de Google para evitar la descarga forzada
+      if (item.fileUrl.includes('github.com') && item.fileUrl.toLowerCase().endsWith('.pdf')) {
+          const viewerUrl = `https://docs.google.com/viewer?embedded=false&url=${encodeURIComponent(item.fileUrl)}`;
+          window.open(viewerUrl, '_blank', 'noopener,noreferrer');
+      } else {
+          // Comportamiento normal para otros archivos
+          window.open(item.fileUrl, '_blank', 'noopener,noreferrer');
+      }
     },
 
     // Descargar (fuerte)
@@ -217,7 +226,6 @@
             </div>
 
             <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <!-- FIX lupa: contenedor relative + icono centrado -->
               <div class="relative">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                 <input id="library-search" type="text"
@@ -371,13 +379,11 @@
             </div>
 
             <div class="mt-4 flex items-center gap-2">
-              <!-- Principal: Descargar -->
               <button data-download="${escapeHTML(item.id)}"
                 class="flex-1 px-3 py-2 rounded-2xl bg-brand-blue text-white font-extrabold hover:opacity-90 transition">
                 <i class="fa-solid fa-download mr-2"></i>${t('Descargar', 'Download')}
               </button>
 
-              <!-- Secundario: Abrir en pestaña -->
               <button data-open="${escapeHTML(item.id)}"
                 class="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 flex items-center justify-center transition"
                 title="Abrir en pestaña">
