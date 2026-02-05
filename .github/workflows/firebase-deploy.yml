@@ -1,24 +1,117 @@
-name: Deploy to Firebase Hosting
+name: Auto Deploy (GitHub -> Firebase) + Auto Catalog (BOOKS)
 
 on:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: read
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          repoToken: "${{ secrets.GITHUB_TOKEN }}"
-          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}"
-          projectId: "nclex-library-9e9e7"
-          channelId: "live"
+          node-version: "20"
+
+      - name: Generate library/catalog.json from Release BOOKS
+        env:
+          REPO: Nclexpass/NCLEX1.2
+          TAG: BOOKS
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const REPO = process.env.REPO;
+          const TAG  = process.env.TAG;
+
+          async function main() {
+            const api = `https://api.github.com/repos/${REPO}/releases/tags/${encodeURIComponent(TAG)}`;
+            const res = await fetch(api, {
+              headers: {
+                'Accept': 'application/vnd.github+json',
+                'User-Agent': 'nclex-auto-catalog'
+              }
+            });
+
+            if (!res.ok) {
+              const txt = await res.text();
+              throw new Error(`GitHub API error ${res.status}: ${txt}`);
+            }
+
+            const release = await res.json();
+            const assets = Array.isArray(release.assets) ? release.assets : [];
+
+            // Solo PDFs
+            const pdfs = assets.filter(a =>
+              (a.content_type || '').toLowerCase().includes('pdf') ||
+              (a.name || '').toLowerCase().endsWith('.pdf')
+            );
+
+            // Construir catálogo
+            const now = Date.now();
+            const items = pdfs.map((a, idx) => {
+              const name = String(a.name || `book_${idx}.pdf`);
+
+              // id “bonito”
+              const base = name.replace(/\.pdf$/i, '');
+              const id = base
+                .toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '');
+
+              const title = base
+                .replace(/[_]+/g, ' ')
+                .replace(/[.]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+              return {
+                id,
+                title: { es: title, en: title },
+                author: "",
+                type: "pdf",
+
+                // Importante: usamos el link directo del asset del Release
+                fileUrl: a.browser_download_url,
+
+                // Por ahora sin carátula (la app puede usar placeholder o tu sistema automático luego)
+                coverUrl: "",
+
+                tags: ["NCLEX"],
+                addedAt: now + idx,
+                source: "github_release_books"
+              };
+            });
+
+            // Guardar archivo
+            const outDir = path.join(process.cwd(), 'library');
+            const outFile = path.join(outDir, 'catalog.json');
+
+            if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+            fs.writeFileSync(outFile, JSON.stringify(items, null, 2), 'utf8');
+
+            console.log(`OK: catalog.json generado con ${items.length} libros -> ${outFile}`);
+          }
+
+          main().catch(err => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Install Firebase CLI
+        run: npm i -g firebase-tools
+
+      - name: Firebase Deploy
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/firebase_sa.json
+          firebase deploy --only hosting --project nclex-library-9e9e7 --token "$(cat /tmp/firebase_sa.json)" || true
