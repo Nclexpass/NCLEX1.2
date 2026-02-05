@@ -67,7 +67,6 @@ jobs:
             const releaseApi = `https://api.github.com/repos/${REPO}/releases/tags/${encodeURIComponent(TAG)}`;
             const release = await fetchJson(releaseApi);
 
-            // IMPORTANTE: assets puede venir limitado, por eso usamos assets_url con paginación
             const assetsUrl = release.assets_url;
             if (!assetsUrl) throw new Error('Release assets_url missing');
 
@@ -80,17 +79,15 @@ jobs:
               allAssets = allAssets.concat(batch);
               if (batch.length < 100) break;
               page++;
-              if (page > 50) break; // seguridad
+              if (page > 50) break;
             }
 
-            // Solo PDFs
             const pdfs = allAssets.filter(a => {
               const ct = String(a.content_type || '').toLowerCase();
               const nm = String(a.name || '').toLowerCase();
               return ct.includes('pdf') || nm.endsWith('.pdf');
             });
 
-            // Orden estable por nombre
             pdfs.sort((a,b) => String(a.name||'').localeCompare(String(b.name||'')));
 
             const now = Date.now();
@@ -102,8 +99,8 @@ jobs:
                 title: { es: title, en: title },
                 author: "",
                 type: "pdf",
-                fileUrl: a.browser_download_url,  // link directo del asset
-                coverUrl: "",                     // carátula placeholder (por ahora)
+                fileUrl: a.browser_download_url,
+                coverUrl: "",
                 tags: ["NCLEX"],
                 addedAt: now + idx,
                 source: "github_release_books"
@@ -124,7 +121,7 @@ jobs:
           });
           NODE
 
-      # 2) Deploy REAL a Firebase Hosting (sin ocultar errores)
+      # 2) Deploy REAL a Firebase Hosting (SIN target)
       - name: Firebase Deploy (Hosting)
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -132,4 +129,4 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: nclex-library-9e9e7
           channelId: live
-          target: main
+          entryPoint: .
