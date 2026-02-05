@@ -1,7 +1,8 @@
-// 33_library.js — Biblioteca en la nube (GRATIS con Firebase Hosting)
-// ✅ Funciona en LOCAL (con servidor) y cuando lo subas (Firebase/Netlify/etc).
-// ✅ AUTO: Lee GitHub Release BOOKS (assets PDF) y los muestra.
-// ✅ Fallback: si GitHub falla, lee /library/catalog.json
+// 33_library.js — Biblioteca en la nube (GitHub Releases + Firebase Hosting)
+// ✅ Lee /library/catalog.json
+// ✅ Abre PDFs (sin descarga forzada) con visor embebido
+// ✅ Carátulas AUTOMÁTICAS desde la 1ra página (PDF.js) — lazy + cache
+// ✅ Funciona en LOCAL (con servidor) y en Hosting.
 //
 // IMPORTANTE:
 // - NO abras index.html con doble click (file://) porque el navegador bloquea fetch(). Usa un servidor local.
@@ -11,36 +12,23 @@
 
   if (!window.NCLEX) return;
 
-  const t = (es, en) =>
-    `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
+  const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-  // ✅ Catálogo fallback (si GitHub falla)
-  // Si algún día tu catálogo está en otro dominio, puedes setear:
-  // window.NCLEX_LIBRARY_CATALOG_URL = "https://tu-dominio.com/library/catalog.json"
+  // Catálogo
   const CATALOG_URL = window.NCLEX_LIBRARY_CATALOG_URL || '/library/catalog.json';
 
-  // ✅ GitHub Release API (AUTO)
-  // Puedes sobrescribirlo si quieres:
-  // window.NCLEX_GH_RELEASE_API = "https://api.github.com/repos/OWNER/REPO/releases/tags/BOOKS"
-  const GH_RELEASE_API =
-    window.NCLEX_GH_RELEASE_API ||
-    'https://api.github.com/repos/Nclexpass/NCLEX1.2/releases/tags/BOOKS';
+  // ----- PDF.js (para generar thumbnails)
+  // Usamos CDN para no meter build ni instalar nada.
+  const PDFJS_LIB_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+  const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-  // -------- helpers
-  const escapeHTML = (s) =>
-    String(s ?? '').replace(/[&<>"']/g, (ch) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      }[ch])
-    );
+  // ----- helpers
+  const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
 
   const isAbsoluteUrl = (u) => /^https?:\/\//i.test(String(u || ''));
 
-  // ✅ Siempre resuelve assets desde raíz del dominio
   const resolveUrl = (maybeRelative) => {
     if (!maybeRelative) return '';
     let raw = String(maybeRelative);
@@ -54,11 +42,10 @@
     }
   };
 
-  const normalize = (s) =>
-    String(s || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
+  const normalize = (s) => String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
   const guessIsPDF = (item) => {
     const type = String(item.type || '').toLowerCase();
@@ -76,64 +63,33 @@
   const guessIcon = (item) => {
     if (guessIsPDF(item)) return { fa: 'file-pdf', color: 'text-red-500' };
     const url = String(item.fileUrl || '').toLowerCase();
-    if (String(item.type || '').toLowerCase() === 'epub' || url.endsWith('.epub'))
-      return { fa: 'book-open', color: 'text-emerald-500' };
+    if (String(item.type || '').toLowerCase() === 'epub' || url.endsWith('.epub')) return { fa: 'book-open', color: 'text-emerald-500' };
     return { fa: 'file', color: 'text-slate-500' };
   };
 
   const safeTime = (ms) => {
     const n = Number(ms);
     if (!Number.isFinite(n)) return null;
-    const min = 946684800000; // 2000-01-01
-    const max = 4102444800000; // 2100-01-01
+    const min = 946684800000;        // 2000-01-01
+    const max = 4102444800000;       // 2100-01-01
     if (n < min || n > max) return null;
     return n;
   };
 
-  // -------- GitHub mapping helpers
-  const titleFromFilename = (name) => {
-    const base = String(name || '').replace(/\.pdf$/i, '');
-    return base
-      .replace(/[_\-]+/g, ' ')
-      .replace(/\.+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+  const isProbablyDownloadForced = (url) => {
+    // GitHub Releases a veces manda Content-Disposition attachment => descarga.
+    // Así que lo tratamos como "forzado" si viene de github releases.
+    const u = String(url || '');
+    return /github\.com\/.+\/releases\/download\//i.test(u) || /githubusercontent\.com/i.test(u);
   };
 
-  const makeIdFromFilename = (name) =>
-    String(name || '')
-      .toLowerCase()
-      .replace(/\.pdf$/i, '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
-
-  const mapGitHubAssetsToItems = (assets) => {
-    const pdfs = (assets || []).filter((a) => {
-      const ct = String(a?.content_type || '').toLowerCase();
-      const nm = String(a?.name || '').toLowerCase();
-      return ct === 'application/pdf' || nm.endsWith('.pdf');
-    });
-
-    return pdfs.map((a) => {
-      const name = a.name || '';
-      const title = titleFromFilename(name);
-      return {
-        id: makeIdFromFilename(name),
-        title: { es: title, en: title },
-        author: '',
-        type: 'pdf',
-        fileUrl: a.browser_download_url || '',
-        coverUrl: '', // ✅ por ahora sin carátula (luego podemos auto-generarla con PDF.js)
-        tags: ['NCLEX'],
-        addedAt: Date.now(),
-        source: 'github_release'
-      };
-    });
+  const makeEmbeddedViewerUrl = (pdfUrl) => {
+    const u = String(pdfUrl || '');
+    // Google viewer suele renderizar aunque el server fuerce download
+    return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(u)}`;
   };
 
-  // -------- UI / state
+  // ----- UI / state
   const LibraryCloud = {
     _itemsRaw: [],
     _items: [],
@@ -144,21 +100,24 @@
     _viewerUrl: null,
     _escBound: false,
 
+    // Carátulas automáticas
+    _pdfjsReady: false,
+    _pdfjsLoading: null,
+    _coverObs: null,
+    _coverInFlight: new Set(),
+    _coverCachePrefix: 'NCLEX_COVER_V1:',
+
     async load() {
       this._loading = true;
       this._error = '';
       this.renderIntoDom();
 
-      // Si abres con doble click (file://) fetch no funciona.
       if (window.location.protocol === 'file:') {
         this._loading = false;
         this._error =
           t('Estás abriendo el programa con doble click (file://).', 'You opened the app as a file (file://).') +
           '<br>' +
-          t(
-            'Para que la biblioteca funcione en local, abre con un servidor:',
-            'To use the library locally, run a server:'
-          ) +
+          t('Para que la biblioteca funcione en local, abre con un servidor:', 'To use the library locally, run a server:') +
           `<br><br>
            <div class="text-left inline-block">
              <div class="font-bold mb-1">PowerShell:</div>
@@ -171,92 +130,39 @@
         return;
       }
 
-      // ✅ Cache (para no chocar con rate limits)
-      const CACHE_KEY = 'nclex_books_cache_v1';
-      const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
-
-      // ✅ 1) Intentar GitHub Release BOOKS (AUTO)
       try {
-        // cache primero
-        try {
-          const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
-          if (
-            cached &&
-            cached.ts &&
-            Array.isArray(cached.items) &&
-            Date.now() - cached.ts < CACHE_TTL_MS
-          ) {
-            this._itemsRaw = cached.items;
-            this.applyFilterSort();
-            this._loading = false;
-            this.renderIntoDom();
-            return;
-          }
-        } catch (_) {}
+        const res = await fetch(CATALOG_URL, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const res = await fetch(GH_RELEASE_API, {
-          cache: 'no-store',
-          headers: { Accept: 'application/vnd.github+json' }
+        const data = await res.json();
+
+        let list = [];
+        if (Array.isArray(data)) list = data;
+        else if (Array.isArray(data?.items)) list = data.items;
+        else if (data && typeof data === 'object') list = [data];
+
+        this._itemsRaw = list.map((x) => {
+          const titleObj = (x && typeof x.title === 'object') ? x.title : null;
+          const titleEs = titleObj?.es || x.titleEs || x.title || '';
+          const titleEn = titleObj?.en || x.titleEn || x.title || '';
+          const added = safeTime(x.addedAt) ?? Date.now();
+
+          return {
+            id: String(x.id || titleEs || titleEn || Math.random().toString(16).slice(2)),
+            title: { es: String(titleEs || ''), en: String(titleEn || '') },
+            author: String(x.author || ''),
+            type: String(x.type || ''),
+            fileUrl: resolveUrl(x.fileUrl || x.filePath || ''),
+            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''), // si viene vacío, generamos auto-cover
+            tags: Array.isArray(x.tags) ? x.tags.map(String) : [],
+            addedAt: added
+          };
         });
-
-        if (!res.ok) throw new Error(`GitHub API HTTP ${res.status}`);
-
-        const rel = await res.json();
-        const items = mapGitHubAssetsToItems(rel.assets || []);
-
-        if (!items.length) throw new Error('GitHub no devolvió PDFs en assets');
-
-        this._itemsRaw = items;
-
-        // guardar cache
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), items }));
-        } catch (_) {}
 
         this.applyFilterSort();
       } catch (e) {
-        console.warn('GitHub load failed, falling back to catalog.json', e);
-
-        // ✅ 2) Fallback: catalog.json (manual)
-        try {
-          const res = await fetch(CATALOG_URL, { cache: 'no-store' });
-          if (!res.ok) throw new Error(`Catalog HTTP ${res.status}`);
-
-          const data = await res.json();
-
-          // Acepta: [..], {items:[..]}, o un objeto suelto {..}
-          let list = [];
-          if (Array.isArray(data)) list = data;
-          else if (Array.isArray(data?.items)) list = data.items;
-          else if (data && typeof data === 'object') list = [data];
-
-          this._itemsRaw = list.map((x) => {
-            const titleObj = x && typeof x.title === 'object' ? x.title : null;
-            const titleEs = titleObj?.es || x.titleEs || x.title || '';
-            const titleEn = titleObj?.en || x.titleEn || x.title || '';
-            const added = safeTime(x.addedAt) ?? Date.now();
-
-            return {
-              id: String(x.id || titleEs || titleEn || Math.random().toString(16).slice(2)),
-              title: { es: String(titleEs || ''), en: String(titleEn || '') },
-              author: String(x.author || ''),
-              type: String(x.type || ''),
-              fileUrl: resolveUrl(x.fileUrl || x.filePath || ''),
-              coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''),
-              tags: Array.isArray(x.tags) ? x.tags.map(String) : [],
-              addedAt: added
-            };
-          });
-
-          this.applyFilterSort();
-        } catch (e2) {
-          console.error(e2);
-          this._error =
-            `${t(
-              'No pude cargar GitHub Releases ni el catálogo local.',
-              'Could not load GitHub Releases or local catalog.'
-            )} (${escapeHTML(e2.message || String(e2))})`;
-        }
+        console.error(e);
+        this._error = `${t('No pude cargar el catálogo de la biblioteca.', 'Could not load the library catalog.')} (${escapeHTML(e.message || String(e))})`;
       } finally {
         this._loading = false;
         this.renderIntoDom();
@@ -268,22 +174,16 @@
       let items = [...this._itemsRaw];
 
       if (q) {
-        items = items.filter((it) => {
+        items = items.filter(it => {
           const hay = normalize([it.title?.es, it.title?.en, it.author, ...(it.tags || [])].join(' '));
           return hay.includes(q);
         });
       }
 
       if (this._sort === 'title') {
-        items.sort((a, b) =>
-          (a.title?.es || a.title?.en || '').localeCompare(b.title?.es || b.title?.en || '')
-        );
+        items.sort((a, b) => (a.title?.es || a.title?.en || '').localeCompare(b.title?.es || b.title?.en || ''));
       } else if (this._sort === 'author') {
-        items.sort(
-          (a, b) =>
-            (a.author || '').localeCompare(b.author || '') ||
-            (a.title?.es || '').localeCompare(b.title?.es || '')
-        );
+        items.sort((a, b) => (a.author || '').localeCompare(b.author || '') || (a.title?.es || '').localeCompare(b.title?.es || ''));
       } else {
         items.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
       }
@@ -304,7 +204,7 @@
       this.renderGrid();
     },
 
-    // ----- viewer
+    // ---------------- PDF Viewer
     openViewer(item) {
       if (!item?.fileUrl) return;
 
@@ -320,11 +220,15 @@
       const frame = document.getElementById('library-frame');
       const title = document.getElementById('library-viewer-title');
 
-      if (title) title.textContent = item.title?.es || item.title?.en || item.id || '';
-      if (frame) frame.src = url;
+      if (title) title.textContent = (item.title?.es || item.title?.en || item.id || '');
+
+      // ✅ Si GitHub fuerza descarga, usamos visor embebido.
+      const viewerUrl = isProbablyDownloadForced(url) ? makeEmbeddedViewerUrl(url) : url;
+
+      if (frame) frame.src = viewerUrl;
       if (modal) modal.classList.remove('hidden');
 
-      this._viewerUrl = url;
+      this._viewerUrl = viewerUrl;
       this.updateFullscreenBtn();
     },
 
@@ -366,7 +270,154 @@
       btn.title = document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa';
     },
 
-    // ----- render
+    // ---------------- Auto covers (PDF.js) — Lazy + Cache
+    async ensurePdfJs() {
+      if (this._pdfjsReady) return true;
+      if (this._pdfjsLoading) return this._pdfjsLoading;
+
+      this._pdfjsLoading = (async () => {
+        try {
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+            this._pdfjsReady = true;
+            return true;
+          }
+
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = PDFJS_LIB_URL;
+            s.async = true;
+            s.onload = resolve;
+            s.onerror = () => reject(new Error('No se pudo cargar PDF.js'));
+            document.head.appendChild(s);
+          });
+
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+            this._pdfjsReady = true;
+            return true;
+          }
+
+          throw new Error('PDF.js no está disponible');
+        } catch (e) {
+          console.warn('PDF.js failed:', e);
+          this._pdfjsReady = false;
+          return false;
+        } finally {
+          // dejamos _pdfjsLoading para no reintentar sin parar
+        }
+      })();
+
+      return this._pdfjsLoading;
+    },
+
+    getCoverCacheKey(fileUrl) {
+      // clave estable por URL
+      return this._coverCachePrefix + encodeURIComponent(String(fileUrl || ''));
+    },
+
+    getCachedCoverDataUrl(fileUrl) {
+      try {
+        return localStorage.getItem(this.getCoverCacheKey(fileUrl)) || '';
+      } catch {
+        return '';
+      }
+    },
+
+    setCachedCoverDataUrl(fileUrl, dataUrl) {
+      try {
+        // guardamos solo si es razonable
+        if (!dataUrl || dataUrl.length < 100) return;
+        // Evitar explotar localStorage: si falla, no pasa nada.
+        localStorage.setItem(this.getCoverCacheKey(fileUrl), dataUrl);
+      } catch { }
+    },
+
+    async renderPdfFirstPageToDataUrl(pdfUrl) {
+      const ok = await this.ensurePdfJs();
+      if (!ok) return '';
+
+      const pdfjsLib = window.pdfjsLib;
+      const loadingTask = pdfjsLib.getDocument({
+        url: pdfUrl,
+        withCredentials: false
+      });
+
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+
+      // Escala tipo “carátula”
+      const viewport = page.getViewport({ scale: 1.0 });
+      const targetW = 360; // ancho de carátula aprox
+      const scale = targetW / viewport.width;
+      const vp = page.getViewport({ scale });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.floor(vp.width);
+      canvas.height = Math.floor(vp.height);
+      const ctx = canvas.getContext('2d', { alpha: false });
+
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+      // JPEG reduce tamaño
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+
+      // limpiar
+      try { page.cleanup(); } catch { }
+      try { pdf.cleanup(); } catch { }
+
+      return dataUrl;
+    },
+
+    setupLazyCoverObserver() {
+      if (this._coverObs) return;
+
+      this._coverObs = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+
+          const el = entry.target;
+          this._coverObs.unobserve(el);
+
+          const pdfUrl = el.getAttribute('data-pdf-url') || '';
+          if (!pdfUrl) return;
+
+          this.hydrateAutoCoverForElement(el, pdfUrl);
+        });
+      }, {
+        root: null,
+        rootMargin: '250px 0px', // empieza antes de llegar (suave)
+        threshold: 0.01
+      });
+    },
+
+    async hydrateAutoCoverForElement(coverContainer, pdfUrl) {
+      if (!coverContainer) return;
+      if (this._coverInFlight.has(pdfUrl)) return;
+      this._coverInFlight.add(pdfUrl);
+
+      try {
+        // 1) cache
+        const cached = this.getCachedCoverDataUrl(pdfUrl);
+        if (cached) {
+          coverContainer.innerHTML = `<img src="${escapeHTML(cached)}" alt="" class="w-full h-full object-cover" loading="lazy" />`;
+          return;
+        }
+
+        // 2) generar
+        const dataUrl = await this.renderPdfFirstPageToDataUrl(pdfUrl);
+        if (dataUrl) {
+          coverContainer.innerHTML = `<img src="${escapeHTML(dataUrl)}" alt="" class="w-full h-full object-cover" loading="lazy" />`;
+          this.setCachedCoverDataUrl(pdfUrl, dataUrl);
+        }
+      } catch (e) {
+        console.warn('Auto-cover failed:', e);
+      } finally {
+        this._coverInFlight.delete(pdfUrl);
+      }
+    },
+
+    // ---------------- render
     shellHTML() {
       return `
         <div class="animate-fade-in">
@@ -382,11 +433,6 @@
               </div>
 
               <div class="flex items-center gap-2">
-                <a href="${escapeHTML(GH_RELEASE_API)}" target="_blank" rel="noopener noreferrer"
-                  class="px-4 py-2 rounded-xl bg-white/90 dark:bg-white/5 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:shadow-md transition backdrop-blur">
-                  <i class="fa-solid fa-cloud mr-2 text-brand-blue"></i>${t('GitHub BOOKS', 'GitHub BOOKS')}
-                </a>
-
                 <a href="${escapeHTML(resolveUrl(CATALOG_URL))}" target="_blank" rel="noopener noreferrer"
                   class="px-4 py-2 rounded-xl bg-white/90 dark:bg-white/5 border border-gray-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold hover:shadow-md transition backdrop-blur">
                   <i class="fa-solid fa-code mr-2 text-brand-blue"></i>${t('Ver Catálogo', 'View Catalog')}
@@ -395,11 +441,14 @@
             </div>
 
             <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <!-- ✅ lupa arreglada -->
               <div class="relative">
-                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm leading-none">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
                 <input id="library-search" type="text"
                   placeholder="Buscar por título, autor, tags..."
-                  class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500" />
+                  class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base leading-tight focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500" />
               </div>
 
               <div class="flex items-center gap-2">
@@ -477,9 +526,7 @@
     },
 
     skeletonCardsHTML() {
-      return `${Array.from({ length: 8 })
-        .map(
-          () => `
+      return `${Array.from({ length: 8 }).map(() => `
         <div class="rounded-2xl border border-gray-200 dark:border-slate-700 bg-white/70 dark:bg-white/5 overflow-hidden shadow-sm max-w-[260px] w-full">
           <div class="aspect-[3/4] bg-gray-100 dark:bg-white/10 animate-pulse"></div>
           <div class="p-4 space-y-2">
@@ -488,9 +535,7 @@
             <div class="h-9 bg-gray-100 dark:bg-white/10 rounded-xl animate-pulse mt-3"></div>
           </div>
         </div>
-      `
-        )
-        .join('')}`;
+      `).join('')}`;
     },
 
     emptyHTML() {
@@ -510,10 +555,7 @@
           <div class="mx-auto w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4 text-red-600 dark:text-red-300">
             <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
           </div>
-          <p class="font-extrabold text-slate-900 dark:text-white">${t(
-            'Error cargando biblioteca',
-            'Error loading library'
-          )}</p>
+          <p class="font-extrabold text-slate-900 dark:text-white">${t('Error cargando biblioteca', 'Error loading library')}</p>
           <p class="text-sm mt-2 text-gray-500 dark:text-gray-400 max-w-xl mx-auto">${this._error}</p>
           <button id="library-retry" class="mt-6 px-5 py-3 rounded-2xl bg-brand-blue text-white font-bold hover:opacity-90 transition">
             <i class="fa-solid fa-rotate mr-2"></i>${t('Reintentar', 'Retry')}
@@ -527,22 +569,38 @@
       const title = item.title?.es || item.title?.en || item.id || '';
       const author = item.author || '';
       const tags = (item.tags || []).slice(0, 3);
-      const cover = item.coverUrl || '';
 
-      const coverNode = cover
-        ? `<img src="${escapeHTML(cover)}" alt="${escapeHTML(
-            title
-          )}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />`
-        : `
-          <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-black">
-            <div class="w-14 h-14 rounded-2xl bg-white/80 dark:bg-white/10 border border-gray-200 dark:border-slate-700 flex items-center justify-center mb-3">
-              <i class="fa-solid ${icon.color} fa-${icon.fa} text-2xl"></i>
+      const hasCover = !!item.coverUrl;
+      const isPDF = guessIsPDF(item);
+
+      const coverNode = hasCover
+        ? `<img src="${escapeHTML(item.coverUrl)}" alt="${escapeHTML(title)}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" loading="lazy" />`
+        : (isPDF && item.fileUrl
+          ? `
+            <!-- Auto-cover (lazy): lo llenamos cuando entra en viewport -->
+            <div class="w-full h-full" data-auto-cover data-pdf-url="${escapeHTML(item.fileUrl)}">
+              <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-black">
+                <div class="w-14 h-14 rounded-2xl bg-white/80 dark:bg-white/10 border border-gray-200 dark:border-slate-700 flex items-center justify-center mb-3">
+                  <i class="fa-solid ${icon.color} fa-${icon.fa} text-2xl"></i>
+                </div>
+                <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200 px-6 text-center line-clamp-2">
+                  ${escapeHTML(title)}
+                </div>
+                <div class="mt-2 text-[11px] text-gray-500 dark:text-gray-400 font-semibold">
+                  ${t('Generando carátula…', 'Generating cover…')}
+                </div>
+              </div>
             </div>
-            <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200 px-6 text-center line-clamp-2">${escapeHTML(
-              title
-            )}</div>
-          </div>
-        `;
+          `
+          : `
+            <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-black">
+              <div class="w-14 h-14 rounded-2xl bg-white/80 dark:bg-white/10 border border-gray-200 dark:border-slate-700 flex items-center justify-center mb-3">
+                <i class="fa-solid ${icon.color} fa-${icon.fa} text-2xl"></i>
+              </div>
+              <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200 px-6 text-center line-clamp-2">${escapeHTML(title)}</div>
+            </div>
+          `
+        );
 
       return `
         <div class="group rounded-3xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-white/5 overflow-hidden shadow-sm hover:shadow-xl transition-all hover:-translate-y-0.5 max-w-[260px] w-full">
@@ -559,24 +617,16 @@
 
           <div class="p-4">
             <div class="min-w-0">
-              <div class="font-extrabold text-slate-900 dark:text-white truncate" title="${escapeHTML(
-                title
-              )}">${escapeHTML(title)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">${
-                author ? escapeHTML(author) : '&nbsp;'
-              }</div>
+              <div class="font-extrabold text-slate-900 dark:text-white truncate" title="${escapeHTML(title)}">${escapeHTML(title)}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">${author ? escapeHTML(author) : '&nbsp;'}</div>
             </div>
 
             <div class="mt-3 flex flex-wrap gap-2">
-              ${tags
-                .map(
-                  (tag) => `
+              ${tags.map(tag => `
                 <span class="text-[11px] px-2 py-1 rounded-full bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 font-bold">
                   ${escapeHTML(tag)}
                 </span>
-              `
-                )
-                .join('')}
+              `).join('')}
             </div>
 
             <div class="mt-4 flex items-center gap-2">
@@ -585,10 +635,11 @@
                 <i class="fa-solid fa-eye mr-2"></i>${t('Abrir', 'Open')}
               </button>
 
-              <a href="${escapeHTML(item.fileUrl)}" download
+              <!-- ✅ Ya NO forzamos download -->
+              <a href="${escapeHTML(item.fileUrl)}" target="_blank" rel="noopener noreferrer"
                 class="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 flex items-center justify-center transition"
-                title="Descargar">
-                <i class="fa-solid fa-download"></i>
+                title="Abrir en nueva pestaña">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
               </a>
             </div>
           </div>
@@ -664,13 +715,28 @@
         return;
       }
 
-      grid.innerHTML = this._items.map((it) => this.cardHTML(it)).join('');
-      grid.querySelectorAll('[data-open]').forEach((btn) => {
+      grid.innerHTML = this._items.map(it => this.cardHTML(it)).join('');
+
+      // bind open buttons
+      grid.querySelectorAll('[data-open]').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-open');
-          const item = this._itemsRaw.find((x) => x.id === id);
+          const item = this._itemsRaw.find(x => x.id === id);
           if (item) this.openViewer(item);
         });
+      });
+
+      // ✅ Lazy auto-covers: solo visibles + scroll
+      this.setupLazyCoverObserver();
+      grid.querySelectorAll('[data-auto-cover]').forEach(el => {
+        // si ya existe en cache, pintamos inmediato sin esperar observer
+        const pdfUrl = el.getAttribute('data-pdf-url') || '';
+        const cached = pdfUrl ? this.getCachedCoverDataUrl(pdfUrl) : '';
+        if (cached) {
+          el.innerHTML = `<img src="${escapeHTML(cached)}" alt="" class="w-full h-full object-cover" loading="lazy" />`;
+        } else {
+          this._coverObs.observe(el);
+        }
       });
     },
 
@@ -720,11 +786,8 @@
     subtitle: { es: 'Libros en la nube', en: 'Cloud Library' },
     icon: 'book-open',
     color: 'teal',
-    render() {
-      return LibraryCloud.shellHTML();
-    },
-    onLoad() {
-      LibraryCloud.onLoad();
-    }
+    render() { return LibraryCloud.shellHTML(); },
+    onLoad() { LibraryCloud.onLoad(); }
   });
+
 })();
