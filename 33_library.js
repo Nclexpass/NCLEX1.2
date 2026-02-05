@@ -1,7 +1,8 @@
-// 33_library.js — Biblioteca (GitHub Release BOOKS -> catalog.json automático)
-// ✅ Lee /library/catalog.json (generado por GitHub Actions)
-// ✅ Muestra lista, búsqueda, orden, placeholder de carátula
-// ✅ Abre PDFs en nueva pestaña (porque GitHub Releases bloquea iframe/PDF.js por CORS/X-Frame)
+// 33_library.js — Biblioteca (descarga simple + carátula automática placeholder)
+// ✅ Lee /library/catalog.json generado por GitHub Actions (Release BOOKS)
+// ✅ Evita CORS del visor: por defecto DESCARGA el PDF
+// ✅ Carátulas: si coverUrl está vacío o falla, usa placeholder bonito con título
+// ✅ Lupa alineada (sin glitch)
 
 (function () {
   'use strict';
@@ -10,7 +11,6 @@
 
   const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-  // Catálogo desde tu hosting (Firebase)
   const CATALOG_URL = window.NCLEX_LIBRARY_CATALOG_URL || '/library/catalog.json';
 
   // -------- helpers
@@ -51,6 +51,13 @@
     return (v || 'FILE').toUpperCase();
   };
 
+  const guessIcon = (item) => {
+    if (guessIsPDF(item)) return { fa: 'file-pdf', color: 'text-red-500' };
+    const url = String(item.fileUrl || '').toLowerCase();
+    if (String(item.type || '').toLowerCase() === 'epub' || url.endsWith('.epub')) return { fa: 'book-open', color: 'text-emerald-500' };
+    return { fa: 'file', color: 'text-slate-500' };
+  };
+
   const safeTime = (ms) => {
     const n = Number(ms);
     if (!Number.isFinite(n)) return null;
@@ -60,14 +67,6 @@
     return n;
   };
 
-  // Crea un "título bonito" si vienen nombres raros
-  const prettifyTitle = (s) => String(s || '')
-    .replace(/\.pdf$/i, '')
-    .replace(/[_]+/g, ' ')
-    .replace(/[.]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
   // -------- UI / state
   const LibraryCloud = {
     _itemsRaw: [],
@@ -76,7 +75,6 @@
     _sort: 'recent',
     _loading: false,
     _error: '',
-    _viewerUrl: null,
     _escBound: false,
 
     async load() {
@@ -90,16 +88,21 @@
         this._error =
           t('Estás abriendo el programa con doble click (file://).', 'You opened the app as a file (file://).') +
           '<br>' +
-          t('Para que la biblioteca funcione en local, abre con un servidor.', 'To use the library locally, run a server.');
+          t('Para que la biblioteca funcione en local, abre con un servidor.', 'To use the library locally, run a server.') +
+          `<br><br>
+           <div class="text-left inline-block">
+             <div class="font-bold mb-1">PowerShell:</div>
+             <code class="block bg-black/5 dark:bg-white/10 p-3 rounded-xl text-xs">
+               cd "A:\\NCLEX SOFTWARE\\NCLEX1.2"<br>
+               firebase serve --only hosting
+             </code>
+           </div>`;
         this.renderIntoDom();
         return;
       }
 
       try {
-        // cache-bust para que NO se quede pegado con catálogos viejos
-        const url = CATALOG_URL + (CATALOG_URL.includes('?') ? '&' : '?') + 'v=' + Date.now();
-
-        const res = await fetch(url, { cache: 'no-store' });
+        const res = await fetch(CATALOG_URL, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
@@ -111,20 +114,8 @@
 
         this._itemsRaw = list.map((x) => {
           const titleObj = (x && typeof x.title === 'object') ? x.title : null;
-
-          const rawTitleEs = titleObj?.es || x.titleEs || x.title || '';
-          const rawTitleEn = titleObj?.en || x.titleEn || x.title || '';
-
-          // si no vino título bonito, lo sacamos del fileUrl
-          let fallbackName = '';
-          try {
-            const u = new URL(String(x.fileUrl || ''), window.location.origin);
-            fallbackName = decodeURIComponent(u.pathname.split('/').pop() || '');
-          } catch { /* ignore */ }
-
-          const titleEs = prettifyTitle(rawTitleEs || fallbackName);
-          const titleEn = prettifyTitle(rawTitleEn || fallbackName);
-
+          const titleEs = titleObj?.es || x.titleEs || x.title || '';
+          const titleEn = titleObj?.en || x.titleEn || x.title || '';
           const added = safeTime(x.addedAt) ?? Date.now();
 
           return {
@@ -133,7 +124,7 @@
             author: String(x.author || ''),
             type: String(x.type || ''),
             fileUrl: resolveUrl(x.fileUrl || x.filePath || ''),
-            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''), // ahora puede venir vacío
+            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''),
             tags: Array.isArray(x.tags) ? x.tags.map(String) : [],
             addedAt: added
           };
@@ -184,14 +175,22 @@
       this.renderGrid();
     },
 
-    // ----- viewer (IMPORTANTE: GitHub Releases bloquea iframe/PDF.js -> abrimos en nueva pestaña)
-    openViewer(item) {
+    // Abrir en pestaña nueva (sin visor embebido)
+    openInNewTab(item) {
       if (!item?.fileUrl) return;
+      window.open(item.fileUrl, '_blank', 'noopener,noreferrer');
+    },
 
-      const url = item.fileUrl;
-
-      // Abrir en nueva pestaña para que se lea (evita CORS/X-Frame)
-      window.open(url, '_blank', 'noopener,noreferrer');
+    // Descargar (fuerte)
+    download(item) {
+      if (!item?.fileUrl) return;
+      const a = document.createElement('a');
+      a.href = item.fileUrl;
+      a.rel = 'noopener noreferrer';
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     },
 
     // ----- render
@@ -207,9 +206,6 @@
                 <p class="mt-1 text-gray-500 dark:text-gray-400">
                   ${t('Libros y PDFs para todos los usuarios.', 'Books & PDFs for all users.')}
                 </p>
-                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  ${t('Nota: Los PDFs están en GitHub Releases. Se abren en una pestaña nueva para evitar CORS.', 'Note: PDFs are hosted on GitHub Releases. We open them in a new tab to avoid CORS.')}
-                </p>
               </div>
 
               <div class="flex items-center gap-2">
@@ -221,11 +217,12 @@
             </div>
 
             <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <!-- FIX lupa: contenedor relative + icono centrado -->
               <div class="relative">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                 <input id="library-search" type="text"
                   placeholder="Buscar por título, autor, tags..."
-                  class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base leading-[1.25] focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500" />
+                  class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500" />
               </div>
 
               <div class="flex items-center gap-2">
@@ -308,22 +305,39 @@
       `;
     },
 
-    cardHTML(item) {
-      const title = item.title?.es || item.title?.en || item.id || '';
-      const author = item.author || '';
-      const tags = (item.tags || []).slice(0, 3);
-
-      // Si no hay coverUrl (porque será automático luego), ponemos placeholder bonito
-      const coverNode = `
+    // Placeholder carátula (bonito)
+    coverPlaceholderHTML(title, icon) {
+      return `
         <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-black">
           <div class="w-14 h-14 rounded-2xl bg-white/80 dark:bg-white/10 border border-gray-200 dark:border-slate-700 flex items-center justify-center mb-3">
-            <i class="fa-solid fa-file-pdf text-red-500 text-2xl"></i>
+            <i class="fa-solid ${icon.color} fa-${icon.fa} text-2xl"></i>
           </div>
           <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200 px-6 text-center line-clamp-2">
             ${escapeHTML(title)}
           </div>
         </div>
       `;
+    },
+
+    cardHTML(item) {
+      const icon = guessIcon(item);
+      const title = item.title?.es || item.title?.en || item.id || '';
+      const author = item.author || '';
+      const tags = (item.tags || []).slice(0, 3);
+      const cover = item.coverUrl || '';
+
+      // Si hay coverUrl, intentamos cargarlo, si falla -> placeholder
+      const coverNode = cover
+        ? `
+          <img
+            src="${escapeHTML(cover)}"
+            alt="${escapeHTML(title)}"
+            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            loading="lazy"
+            onerror="this.outerHTML=${JSON.stringify(this.coverPlaceholderHTML(title, icon))}"
+          />
+        `
+        : this.coverPlaceholderHTML(title, icon);
 
       return `
         <div class="group rounded-3xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-white/5 overflow-hidden shadow-sm hover:shadow-xl transition-all hover:-translate-y-0.5 max-w-[260px] w-full">
@@ -340,8 +354,12 @@
 
           <div class="p-4">
             <div class="min-w-0">
-              <div class="font-extrabold text-slate-900 dark:text-white truncate" title="${escapeHTML(title)}">${escapeHTML(title)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">${author ? escapeHTML(author) : '&nbsp;'}</div>
+              <div class="font-extrabold text-slate-900 dark:text-white truncate" title="${escapeHTML(title)}">
+                ${escapeHTML(title)}
+              </div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                ${author ? escapeHTML(author) : '&nbsp;'}
+              </div>
             </div>
 
             <div class="mt-3 flex flex-wrap gap-2">
@@ -353,16 +371,18 @@
             </div>
 
             <div class="mt-4 flex items-center gap-2">
-              <button data-open="${escapeHTML(item.id)}"
+              <!-- Principal: Descargar -->
+              <button data-download="${escapeHTML(item.id)}"
                 class="flex-1 px-3 py-2 rounded-2xl bg-brand-blue text-white font-extrabold hover:opacity-90 transition">
-                <i class="fa-solid fa-eye mr-2"></i>${t('Abrir', 'Open')}
+                <i class="fa-solid fa-download mr-2"></i>${t('Descargar', 'Download')}
               </button>
 
-              <a href="${escapeHTML(item.fileUrl)}" target="_blank" rel="noopener noreferrer"
+              <!-- Secundario: Abrir en pestaña -->
+              <button data-open="${escapeHTML(item.id)}"
                 class="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 flex items-center justify-center transition"
-                title="Descargar / Ver">
-                <i class="fa-solid fa-download"></i>
-              </a>
+                title="Abrir en pestaña">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -438,11 +458,20 @@
       }
 
       grid.innerHTML = this._items.map(it => this.cardHTML(it)).join('');
+
       grid.querySelectorAll('[data-open]').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-open');
           const item = this._itemsRaw.find(x => x.id === id);
-          if (item) this.openViewer(item);
+          if (item) this.openInNewTab(item);
+        });
+      });
+
+      grid.querySelectorAll('[data-download]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-download');
+          const item = this._itemsRaw.find(x => x.id === id);
+          if (item) this.download(item);
         });
       });
     },
@@ -460,7 +489,7 @@
         this._escBound = true;
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') {
-            // no modal ahora, solo por compatibilidad
+            // no modal now, but keep for future
           }
         });
       }
