@@ -8,10 +8,25 @@
         "author":  "",
         "type":  "pdf",
         "fileUrl":  "library/files/Anatomia y Fisiologia Humana.pdf",
-        "coverUrl":  "library/covers/anatomia_fisiologia_humana.jpg",
+        "coverUrl":  "",
         "tags":  [
                      "NCLEX"
                  ],
-        "addedAt":  1770246965008
+        "addedAt":  1770260484589
+    },
+    {
+        "id":  "farmacologia_pearson",
+        "title":  {
+                      "es":  "Farmacologia Pearson",
+                      "en":  "Farmacologia Pearson"
+                  },
+        "author":  "",
+        "type":  "pdf",
+        "fileUrl":  "library/files/Farmacologia Pearson.pdf",
+        "coverUrl":  "library/covers/Farmacologia Pearson.jpg",
+        "tags":  [
+                     "NCLEX"
+                 ],
+        "addedAt":  1770260484597
     }
 ]

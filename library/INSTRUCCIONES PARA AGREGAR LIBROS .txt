@@ -1,0 +1,88 @@
+GUÍA — Publicar cambios y subir libros (PC principal)
+Carpeta del proyecto
+
+A:\NCLEX SOFTWARE\NCLEX1.2
+
+A) Agregar un libro nuevo
+
+Copia el PDF a:
+A:\NCLEX SOFTWARE\NCLEX1.2\library\files\
+
+Copia la carátula (JPG/PNG) a:
+A:\NCLEX SOFTWARE\NCLEX1.2\library\covers\
+
+Genera/actualiza el catálogo:
+
+cd "A:\NCLEX SOFTWARE\NCLEX1.2"
+powershell -ExecutionPolicy Bypass -File .\library\make_catalog.ps1
+
+
+Verifica qué cambios hay (opcional):
+
+git status
+
+
+Publicar (esto dispara el deploy automático):
+
+git add .
+git commit -m "Add new book"
+git push
+
+
+✅ Resultado: GitHub Actions despliega solo a Firebase Hosting (se ve verde en GitHub → Actions).
+
+
+GUÍA — Hacer lo mismo desde OTRA PC (publicar desde cualquier computadora)
+Requisitos en la otra PC (una sola vez)
+
+Instalar Git for Windows
+
+Instalar Firebase CLI
+
+npm install -g firebase-tools
+
+
+Tener acceso a tu GitHub (cuenta Nclexpass)
+
+B) Descargar tu proyecto (clonar)
+
+Abre PowerShell y elige una carpeta donde guardar el proyecto, ejemplo:
+
+cd "C:\Users\TU_USUARIO\Desktop"
+
+
+Clona tu repo:
+
+git clone https://github.com/Nclexpass/NCLEX1.2.git
+cd NCLEX1.2
+
+C) Agregar libros y publicar (igual que siempre)
+
+Copia PDF a library/files/
+
+Copia carátula a library/covers/
+
+Genera catálogo:
+
+powershell -ExecutionPolicy Bypass -File .\library\make_catalog.ps1
+
+
+Publicar:
+
+git add .
+git commit -m "Add new book"
+git push
+
+
+✅ Resultado: Igual que en tu PC principal, al hacer git push se publica automático.
+
+Comandos útiles (por si algo falla)
+
+Ver estado:
+
+git status
+
+
+Bajar cambios si otra PC ya publicó antes que tú:
+
+git pull

@@ -1,0 +1,5 @@
+cd "A:\NCLEX SOFTWARE\NCLEX1.2"
+firebase hosting:sites:list
+
+o solo
+firebase hosting:sites:list
