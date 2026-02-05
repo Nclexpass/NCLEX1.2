@@ -1,0 +1,123 @@
+name: Auto catalog + covers from Release BOOKS
+
+on:
+  release:
+    types: [published, edited, released]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install tools (poppler)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
+      - name: Download PDFs from Release BOOKS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p tmp_pdfs
+          gh release download BOOKS --repo "${{ github.repository }}" --dir tmp_pdfs --pattern "*.pdf" || true
+          ls -la tmp_pdfs || true
+
+      - name: Generate catalog.json + cover images
+        run: |
+          python3 - << 'PY'
+          import os, json, time, subprocess, urllib.parse, re
+
+          OWNER, REPO = "${{ github.repository }}".split("/")
+          TAG = "BOOKS"
+          RELEASE_BASE = f"https://github.com/{OWNER}/{REPO}/releases/download/{TAG}/"
+
+          pdf_dir = "tmp_pdfs"
+          covers_dir = "library/files/covers"
+          os.makedirs(covers_dir, exist_ok=True)
+          os.makedirs("library", exist_ok=True)
+
+          def slugify(name: str) -> str:
+              s = name.lower()
+              s = re.sub(r"\.pdf$", "", s, flags=re.I)
+              s = s.replace("_", " ").replace(".", " ")
+              s = re.sub(r"\s+", " ", s).strip()
+              s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
+              return s or "book"
+
+          items = []
+          now_ms = int(time.time() * 1000)
+
+          if not os.path.isdir(pdf_dir):
+              print("No tmp_pdfs folder found")
+              pdfs = []
+          else:
+              pdfs = [f for f in os.listdir(pdf_dir) if f.lower().endswith(".pdf")]
+              pdfs.sort()
+
+          for fname in pdfs:
+              local_pdf = os.path.join(pdf_dir, fname)
+              title = re.sub(r"\.pdf$", "", fname, flags=re.I).replace("_", " ").replace(".", " ")
+              title = re.sub(r"\s+", " ", title).strip()
+
+              safe_id = slugify(fname)
+
+              # URL encode filename for downloads (spaces etc.)
+              url_name = urllib.parse.quote(fname, safe="()!$&'*,;=@:+-._~")  # keep common safe chars
+              file_url = RELEASE_BASE + url_name
+
+              cover_name = f"{safe_id}.jpg"
+              cover_path = os.path.join(covers_dir, cover_name)
+
+              # Create cover only if missing
+              if not os.path.exists(cover_path):
+                  # pdftoppm outputs cover_path without .jpg extension when -singlefile is used
+                  out_base = os.path.join(covers_dir, safe_id)
+                  try:
+                      subprocess.run([
+                          "pdftoppm",
+                          "-f", "1", "-l", "1",
+                          "-jpeg",
+                          "-singlefile",
+                          "-scale-to-x", "420",
+                          "-scale-to-y", "-1",
+                          local_pdf,
+                          out_base
+                      ], check=True)
+                      # pdftoppm creates out_base.jpg
+                  except Exception as e:
+                      print("Cover failed for:", fname, e)
+
+              items.append({
+                  "id": safe_id,
+                  "title": {"es": title, "en": title},
+                  "author": "",
+                  "type": "pdf",
+                  "fileUrl": file_url,
+                  "coverUrl": f"library/files/covers/{cover_name}",
+                  "tags": ["NCLEX"],
+                  "addedAt": now_ms,
+                  "source": "github_release"
+              })
+
+          with open("library/catalog.json", "w", encoding="utf-8") as f:
+              json.dump(items, f, ensure_ascii=False, indent=2)
+
+          print("OK: catalog -> library/catalog.json")
+          print("OK: books ->", len(items))
+          print("OK: covers ->", covers_dir)
+          PY
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add library/catalog.json library/files/covers || true
+          git status
+          git commit -m "Auto-update library catalog + covers (BOOKS)" || echo "Nothing to commit"
+          git push
