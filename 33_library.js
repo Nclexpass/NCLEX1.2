@@ -1,9 +1,7 @@
-// 33_library.js — Biblioteca (AUTO desde GitHub Release BOOKS + carátulas generadas por Actions)
-// ✅ Lee /library/catalog.json
-// ✅ Carátulas: /library/files/covers/*.jpg (generadas por GitHub Actions)
-// ✅ Abrir PDF SIN CORS: usa Google Viewer embebido (no descarga al abrir)
-// ✅ Botón Descargar: abre el link directo del Release
-// IMPORTANTE: No abras con file:// — usa servidor o hosting (Firebase).
+// 33_library.js — Biblioteca (GitHub Release BOOKS -> catalog.json automático)
+// ✅ Lee /library/catalog.json (generado por GitHub Actions)
+// ✅ Muestra lista, búsqueda, orden, placeholder de carátula
+// ✅ Abre PDFs en nueva pestaña (porque GitHub Releases bloquea iframe/PDF.js por CORS/X-Frame)
 
 (function () {
   'use strict';
@@ -12,17 +10,16 @@
 
   const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-  // Catálogo siempre desde tu web
+  // Catálogo desde tu hosting (Firebase)
   const CATALOG_URL = window.NCLEX_LIBRARY_CATALOG_URL || '/library/catalog.json';
 
-  // ---------- helpers
+  // -------- helpers
   const escapeHTML = (s) => String(s ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[ch]));
 
   const isAbsoluteUrl = (u) => /^https?:\/\//i.test(String(u || ''));
 
-  // Resuelve rutas desde la raíz del dominio
   const resolveUrl = (maybeRelative) => {
     if (!maybeRelative) return '';
     let raw = String(maybeRelative);
@@ -63,14 +60,15 @@
     return n;
   };
 
-  // ✅ Visor sin CORS: Google Viewer (no descarga al abrir)
-  const googleViewerUrl = (pdfUrl) => {
-    // Google viewer lee el PDF server-side, así no hay CORS en tu navegador
-    const encoded = encodeURIComponent(pdfUrl);
-    return `https://docs.google.com/gview?embedded=1&url=${encoded}`;
-  };
+  // Crea un "título bonito" si vienen nombres raros
+  const prettifyTitle = (s) => String(s || '')
+    .replace(/\.pdf$/i, '')
+    .replace(/[_]+/g, ' ')
+    .replace(/[.]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-  // ---------- UI / state
+  // -------- UI / state
   const LibraryCloud = {
     _itemsRaw: [],
     _items: [],
@@ -86,32 +84,26 @@
       this._error = '';
       this.renderIntoDom();
 
-      // file:// bloquea fetch
+      // Si abres con doble click (file://) fetch no funciona.
       if (window.location.protocol === 'file:') {
         this._loading = false;
         this._error =
           t('Estás abriendo el programa con doble click (file://).', 'You opened the app as a file (file://).') +
           '<br>' +
-          t('Para que la biblioteca funcione, abre con un servidor:', 'To use the library, run a server:') +
-          `<br><br>
-           <div class="text-left inline-block">
-             <div class="font-bold mb-1">PowerShell:</div>
-             <code class="block bg-black/5 dark:bg-white/10 p-3 rounded-xl text-xs">
-               cd "A:\\NCLEX SOFTWARE\\NCLEX1.2"<br>
-               firebase serve --only hosting
-             </code>
-           </div>`;
+          t('Para que la biblioteca funcione en local, abre con un servidor.', 'To use the library locally, run a server.');
         this.renderIntoDom();
         return;
       }
 
       try {
-        const res = await fetch(CATALOG_URL, { cache: 'no-store' });
+        // cache-bust para que NO se quede pegado con catálogos viejos
+        const url = CATALOG_URL + (CATALOG_URL.includes('?') ? '&' : '?') + 'v=' + Date.now();
+
+        const res = await fetch(url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
 
-        // Acepta: [..], {items:[..]}, o {..}
         let list = [];
         if (Array.isArray(data)) list = data;
         else if (Array.isArray(data?.items)) list = data.items;
@@ -119,8 +111,20 @@
 
         this._itemsRaw = list.map((x) => {
           const titleObj = (x && typeof x.title === 'object') ? x.title : null;
-          const titleEs = titleObj?.es || x.titleEs || x.title || '';
-          const titleEn = titleObj?.en || x.titleEn || x.title || '';
+
+          const rawTitleEs = titleObj?.es || x.titleEs || x.title || '';
+          const rawTitleEn = titleObj?.en || x.titleEn || x.title || '';
+
+          // si no vino título bonito, lo sacamos del fileUrl
+          let fallbackName = '';
+          try {
+            const u = new URL(String(x.fileUrl || ''), window.location.origin);
+            fallbackName = decodeURIComponent(u.pathname.split('/').pop() || '');
+          } catch { /* ignore */ }
+
+          const titleEs = prettifyTitle(rawTitleEs || fallbackName);
+          const titleEn = prettifyTitle(rawTitleEn || fallbackName);
+
           const added = safeTime(x.addedAt) ?? Date.now();
 
           return {
@@ -128,8 +132,8 @@
             title: { es: String(titleEs || ''), en: String(titleEn || '') },
             author: String(x.author || ''),
             type: String(x.type || ''),
-            fileUrl: String(x.fileUrl || x.filePath || ''),
-            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''), // debe ser /library/files/covers/xxx.jpg
+            fileUrl: resolveUrl(x.fileUrl || x.filePath || ''),
+            coverUrl: resolveUrl(x.coverUrl || x.coverPath || ''), // ahora puede venir vacío
             tags: Array.isArray(x.tags) ? x.tags.map(String) : [],
             addedAt: added
           };
@@ -180,70 +184,14 @@
       this.renderGrid();
     },
 
-    // ----- viewer
+    // ----- viewer (IMPORTANTE: GitHub Releases bloquea iframe/PDF.js -> abrimos en nueva pestaña)
     openViewer(item) {
       if (!item?.fileUrl) return;
 
-      const isPDF = guessIsPDF(item);
       const url = item.fileUrl;
 
-      if (!isPDF) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-        return;
-      }
-
-      const modal = document.getElementById('library-viewer');
-      const frame = document.getElementById('library-frame');
-      const title = document.getElementById('library-viewer-title');
-
-      if (title) title.textContent = (item.title?.es || item.title?.en || item.id || '');
-
-      // ✅ Google viewer (no CORS)
-      const viewer = googleViewerUrl(url);
-      if (frame) frame.src = viewer;
-
-      if (modal) modal.classList.remove('hidden');
-
-      this._viewerUrl = viewer;
-      this.updateFullscreenBtn();
-    },
-
-    closeViewer() {
-      const modal = document.getElementById('library-viewer');
-      const frame = document.getElementById('library-frame');
-      const title = document.getElementById('library-viewer-title');
-      if (frame) frame.src = 'about:blank';
-      if (title) title.textContent = '';
-      if (modal) modal.classList.add('hidden');
-      this._viewerUrl = null;
-      this.updateFullscreenBtn();
-    },
-
-    async toggleFullscreen() {
-      const panel = document.getElementById('library-viewer-panel');
-      if (!panel) return;
-
-      try {
-        if (!document.fullscreenElement) await panel.requestFullscreen();
-        else await document.exitFullscreen();
-      } catch (e) {
-        console.warn('Fullscreen failed:', e);
-      } finally {
-        this.updateFullscreenBtn();
-      }
-    },
-
-    updateFullscreenBtn() {
-      const btn = document.getElementById('library-fullscreen-btn');
-      if (!btn) return;
-      const isOpen = !!this._viewerUrl;
-      btn.disabled = !isOpen;
-      btn.classList.toggle('opacity-40', !isOpen);
-      btn.classList.toggle('cursor-not-allowed', !isOpen);
-      btn.innerHTML = document.fullscreenElement
-        ? `<i class="fa-solid fa-compress"></i>`
-        : `<i class="fa-solid fa-expand"></i>`;
-      btn.title = document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa';
+      // Abrir en nueva pestaña para que se lea (evita CORS/X-Frame)
+      window.open(url, '_blank', 'noopener,noreferrer');
     },
 
     // ----- render
@@ -257,7 +205,10 @@
                   ${t('Biblioteca', 'Library')}
                 </h1>
                 <p class="mt-1 text-gray-500 dark:text-gray-400">
-                  ${t('Libros desde GitHub Release (BOOKS).', 'Books from GitHub Release (BOOKS).')}
+                  ${t('Libros y PDFs para todos los usuarios.', 'Books & PDFs for all users.')}
+                </p>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  ${t('Nota: Los PDFs están en GitHub Releases. Se abren en una pestaña nueva para evitar CORS.', 'Note: PDFs are hosted on GitHub Releases. We open them in a new tab to avoid CORS.')}
                 </p>
               </div>
 
@@ -271,11 +222,10 @@
 
             <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
               <div class="relative">
-                <!-- ✅ fija la lupa (alineación) -->
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
                 <input id="library-search" type="text"
                   placeholder="Buscar por título, autor, tags..."
-                  class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500" />
+                  class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base leading-[1.25] focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500" />
               </div>
 
               <div class="flex items-center gap-2">
@@ -297,6 +247,10 @@
 
           <section class="rounded-3xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-sm bg-white dark:bg-slate-900/40">
             <div class="relative p-6 md:p-8 bg-gradient-to-b from-gray-50 to-white dark:from-slate-900 dark:to-black">
+              <div class="absolute inset-0 pointer-events-none opacity-70">
+                <div class="absolute inset-x-0 top-1/3 h-px bg-gray-200/70 dark:bg-white/10"></div>
+                <div class="absolute inset-x-0 top-2/3 h-px bg-gray-200/70 dark:bg-white/10"></div>
+              </div>
 
               <div class="flex items-center justify-between mb-4 relative z-10">
                 <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">${t('Colección', 'Collection')}</h2>
@@ -311,39 +265,6 @@
               </div>
             </div>
           </section>
-
-          <div id="library-viewer" class="fixed inset-0 z-[140] bg-slate-900/80 backdrop-blur-sm hidden">
-            <div class="absolute inset-0" id="library-viewer-backdrop"></div>
-
-            <div class="relative max-w-6xl mx-auto mt-10 p-4">
-              <div id="library-viewer-panel" class="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-slate-700">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-                  <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-10 h-10 rounded-2xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
-                      <i class="fa-solid fa-book-open"></i>
-                    </div>
-                    <div class="font-bold text-gray-700 dark:text-gray-200 truncate" id="library-viewer-title"></div>
-                  </div>
-
-                  <div class="flex items-center gap-2">
-                    <button id="library-fullscreen-btn"
-                      class="w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300"
-                      title="Pantalla completa" aria-label="Fullscreen">
-                      <i class="fa-solid fa-expand"></i>
-                    </button>
-
-                    <button id="library-close-btn"
-                      class="w-10 h-10 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600"
-                      title="Cerrar" aria-label="Close">
-                      <i class="fa-solid fa-xmark"></i>
-                    </button>
-                  </div>
-                </div>
-
-                <iframe id="library-frame" class="w-full h-[78vh] bg-black" title="PDF Viewer"></iframe>
-              </div>
-            </div>
-          </div>
         </div>
       `;
     },
@@ -391,23 +312,16 @@
       const title = item.title?.es || item.title?.en || item.id || '';
       const author = item.author || '';
       const tags = (item.tags || []).slice(0, 3);
-      const cover = item.coverUrl || '';
 
-      // Si no hay cover, fallback a tarjeta bonita
-      const coverNode = cover
-        ? `<img src="${escapeHTML(cover)}"
-               alt="${escapeHTML(title)}"
-               class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-               loading="lazy"
-               onerror="this.style.display='none'; this.parentElement.classList.add('no-cover');" />`
-        : '';
-
-      const fallbackNode = `
-        <div class="no-cover w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-black">
+      // Si no hay coverUrl (porque será automático luego), ponemos placeholder bonito
+      const coverNode = `
+        <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-white dark:from-slate-900 dark:to-black">
           <div class="w-14 h-14 rounded-2xl bg-white/80 dark:bg-white/10 border border-gray-200 dark:border-slate-700 flex items-center justify-center mb-3">
             <i class="fa-solid fa-file-pdf text-red-500 text-2xl"></i>
           </div>
-          <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200 px-6 text-center line-clamp-2">${escapeHTML(title)}</div>
+          <div class="text-xs font-extrabold text-slate-700 dark:text-slate-200 px-6 text-center line-clamp-2">
+            ${escapeHTML(title)}
+          </div>
         </div>
       `;
 
@@ -415,7 +329,6 @@
         <div class="group rounded-3xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-white/5 overflow-hidden shadow-sm hover:shadow-xl transition-all hover:-translate-y-0.5 max-w-[260px] w-full">
           <div class="aspect-[3/4] relative overflow-hidden">
             ${coverNode}
-            ${fallbackNode}
             <div class="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/70 via-black/25 to-transparent">
               <div class="flex items-center justify-between gap-2">
                 <span class="text-xs px-2 py-1 rounded-full bg-white/15 text-white font-extrabold backdrop-blur border border-white/15">
@@ -445,10 +358,9 @@
                 <i class="fa-solid fa-eye mr-2"></i>${t('Abrir', 'Open')}
               </button>
 
-              <!-- ✅ Descargar solo cuando tú lo pides -->
               <a href="${escapeHTML(item.fileUrl)}" target="_blank" rel="noopener noreferrer"
                 class="w-11 h-11 rounded-2xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-700 dark:text-gray-200 flex items-center justify-center transition"
-                title="Descargar">
+                title="Descargar / Ver">
                 <i class="fa-solid fa-download"></i>
               </a>
             </div>
@@ -539,37 +451,22 @@
       const search = document.getElementById('library-search');
       const sort = document.getElementById('library-sort');
       const reload = document.getElementById('library-reload');
-      const closeBtn = document.getElementById('library-close-btn');
-      const backdrop = document.getElementById('library-viewer-backdrop');
-      const fsBtn = document.getElementById('library-fullscreen-btn');
 
       if (search) search.addEventListener('input', (e) => this.setFilter(e.target.value));
       if (sort) sort.addEventListener('change', (e) => this.setSort(e.target.value));
       if (reload) reload.addEventListener('click', () => this.load());
-      if (closeBtn) closeBtn.addEventListener('click', () => this.closeViewer());
-      if (backdrop) backdrop.addEventListener('click', () => this.closeViewer());
-      if (fsBtn) fsBtn.addEventListener('click', () => this.toggleFullscreen());
 
       if (!this._escBound) {
         this._escBound = true;
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') {
-            if (document.fullscreenElement) {
-              document.exitFullscreen().catch(() => {});
-              this.updateFullscreenBtn();
-              return;
-            }
-            this.closeViewer();
+            // no modal ahora, solo por compatibilidad
           }
         });
       }
-
-      document.addEventListener('fullscreenchange', () => this.updateFullscreenBtn());
-      this.updateFullscreenBtn();
     },
 
     onLoad() {
-      this.closeViewer();
       this.load();
     }
   };
