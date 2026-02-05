@@ -1,4 +1,4 @@
-﻿name: Deploy to Firebase Hosting
+name: Deploy to Firebase Hosting (LIVE)
 
 on:
   push:
@@ -6,14 +6,21 @@ on:
       - main
 
 jobs:
-  build_and_deploy:
+  deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Firebase CLI
-        run: npm i -g firebase-tools
-
-      - name: Deploy
-        run: firebase deploy --only hosting --project nclex-library-9e9e7 --token "${{ secrets.FIREBASE_TOKEN }}"
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}"
+          projectId: "nclex-library-9e9e7"
+          channelId: live
+          # Si tu sitio NO es el default, usa esto:
+          # target: passnclexnow
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
