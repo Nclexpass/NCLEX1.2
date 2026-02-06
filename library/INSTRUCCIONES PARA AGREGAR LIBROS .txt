@@ -1,1 +1,0 @@
-solamente toca el publish.bat despues de haber puesto el .pdf en files y el cover en la carpeta cover en formato .jp
