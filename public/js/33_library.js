@@ -1,8 +1,7 @@
-// 33_library.js — NCLEX Library Ultimate (Visualización Corregida)
-// 🔧 SOLUCIÓN: Visualización en navegador sin descarga automática
+// 33_library.js — NCLEX Library Ultimate (Solución: Preview Disponible)
+// 🔧 SOLUCIÓN: PDF.js local + Servicio proxy para visualización
 // 🌐 Soporte: Español/Inglés
 // 💎 Efectos: 3D Tilt Real + Glassmorphism
-// 🛡️ Motor: Google Viewer + PDF.js (Sin descargas automáticas)
 
 (function () {
   'use strict';
@@ -15,19 +14,21 @@
   }
 
   function initLibrary() {
-    // --- CONFIGURACIÓN CORREGIDA ---
+    // --- CONFIGURACIÓN CON SOLUCIÓN DEFINITIVA ---
     const CONFIG = {
       repo: 'Nclexpass/NCLEX1.2', 
       tag: 'BOOKS',
       
-      // SOLUCIÓN: Usar Google Viewer como predeterminado (siempre funciona)
-      // y PDF.js como alternativa sin descargas automáticas
-      useGoogleViewer: true, // ✅ Esto evita descargas automáticas
-      googleViewerUrl: 'https://docs.google.com/viewer',
-      
-      usePDFJS: false, // Solo como alternativa si Google Viewer falla
+      // ✅ SOLUCIÓN: Usar PDF.js como visualizador principal
+      usePDFJS: true, // IMPORTANTE: Debe ser TRUE
       pdfJsCDN: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
       pdfJsWorker: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+      
+      // Servicio proxy alternativo si PDF.js falla
+      proxyServices: [
+        'https://corsproxy.io/?', // Proxy CORS gratuito
+        'https://api.allorigins.win/raw?url=' // Otro servicio
+      ],
       
       coverImages: {
         'nclex-book-1.pdf': 'https://raw.githubusercontent.com/Nclexpass/NCLEX1.2/main/covers/book1.jpg',
@@ -39,20 +40,14 @@
         ['from-orange-400 via-red-500 to-rose-600', 'text-orange-100', 'shadow-orange-500/50'],
         ['from-blue-400 via-blue-600 to-indigo-800', 'text-blue-100', 'shadow-blue-500/50'],
         ['from-slate-600 via-slate-700 to-slate-900', 'text-gray-300', 'shadow-gray-500/50']
-      ],
-      
-      cache: {
-        enabled: true,
-        ttl: 5 * 60 * 1000,
-        key: 'nclex_library_cache'
-      }
+      ]
     };
 
-    // --- DICCIONARIO DE TRADUCCIONES ---
+    // --- DICCIONARIO DE TRADUCCIONES MEJORADO ---
     const TRANSLATIONS = {
       es: {
         libraryTitle: "Biblioteca NCLEX",
-        librarySubtitle: "Libros • Visualización Directa",
+        librarySubtitle: "Libros • Visor Integrado",
         loadingBooks: "Cargando biblioteca...",
         bookCount: "${count} Libros Disponibles",
         help: "Ayuda",
@@ -60,30 +55,38 @@
         download: "Descargar",
         newTab: "Pestaña Nueva",
         close: "Cerrar",
-        loadingPDF: "CARGANDO VISOR...",
-        usingGoogleViewer: "CARGANDO GOOGLE VIEWER...",
-        usingPDFJS: "CARGANDO VISOR PDF...",
-        nativeReader: "Visualizador",
-        previewUnavailable: "Vista previa no disponible",
-        browserNotSupported: "Usando visualizador externo para mejor compatibilidad.",
+        loadingPDF: "PREPARANDO VISOR...",
+        loadingDocument: "CARGANDO DOCUMENTO...",
+        renderingPages: "RENDERIZANDO PÁGINAS...",
+        viewerReady: "Visor PDF Listo",
+        previewUnavailable: "Cargando alternativa...",
+        browserNotSupported: "Usando visor PDF integrado...",
         connectionError: "Error de Conexión",
         noBooks: "No hay libros disponibles",
         verifyBooks: "Verifica el Release 'BOOKS' en GitHub",
         retryConnection: "Reintentar",
-        openNewTab: "Abrir en Pestaña",
+        openNewTab: "Abrir PDF Externo",
         downloadNow: "Descargar Ahora",
         page: "Página",
         of: "de",
         loading: "Cargando...",
         errorLoading: "Error al cargar",
-        viewingOnline: "Visualizando online",
+        viewingOnline: "Visualización local",
         externalViewer: "Visor externo",
         forceDownload: "Forzar descarga",
-        viewInBrowser: "Ver en navegador"
+        viewInBrowser: "Ver PDF",
+        zoomIn: "Acercar",
+        zoomOut: "Alejar",
+        fitWidth: "Ajustar ancho",
+        fitPage: "Ajustar página",
+        totalPages: "Páginas totales",
+        currentPage: "Página actual",
+        searchPDF: "Buscar en PDF...",
+        enterPage: "Ir a página..."
       },
       en: {
         libraryTitle: "NCLEX Library",
-        librarySubtitle: "Books • Direct Viewing",
+        librarySubtitle: "Books • Built-in Viewer",
         loadingBooks: "Loading library...",
         bookCount: "${count} Books Available",
         help: "Help",
@@ -91,26 +94,34 @@
         download: "Download",
         newTab: "New Tab",
         close: "Close",
-        loadingPDF: "LOADING VIEWER...",
-        usingGoogleViewer: "LOADING GOOGLE VIEWER...",
-        usingPDFJS: "LOADING PDF VIEWER...",
-        nativeReader: "Viewer",
-        previewUnavailable: "Preview unavailable",
-        browserNotSupported: "Using external viewer for better compatibility.",
+        loadingPDF: "PREPARING VIEWER...",
+        loadingDocument: "LOADING DOCUMENT...",
+        renderingPages: "RENDERING PAGES...",
+        viewerReady: "PDF Viewer Ready",
+        previewUnavailable: "Loading alternative...",
+        browserNotSupported: "Using built-in PDF viewer...",
         connectionError: "Connection Error",
         noBooks: "No books available",
         verifyBooks: "Check 'BOOKS' Release on GitHub",
         retryConnection: "Retry",
-        openNewTab: "Open in Tab",
+        openNewTab: "Open PDF Externally",
         downloadNow: "Download Now",
         page: "Page",
         of: "of",
         loading: "Loading...",
         errorLoading: "Error loading",
-        viewingOnline: "Viewing online",
+        viewingOnline: "Local viewing",
         externalViewer: "External viewer",
         forceDownload: "Force download",
-        viewInBrowser: "View in browser"
+        viewInBrowser: "View PDF",
+        zoomIn: "Zoom in",
+        zoomOut: "Zoom out",
+        fitWidth: "Fit width",
+        fitPage: "Fit page",
+        totalPages: "Total pages",
+        currentPage: "Current page",
+        searchPDF: "Search in PDF...",
+        enterPage: "Go to page..."
       }
     };
 
@@ -125,6 +136,8 @@
       pageNum: 1,
       pdfRendering: false,
       pendingPage: null,
+      currentScale: 1.0,
+      pdfViewer: null,
       
       // --- SISTEMA DE IDIOMAS ---
       initLanguageObserver() {
@@ -229,7 +242,6 @@
               title: this.formatTitle(a.name),
               filename: a.name,
               url: a.browser_download_url,
-              directViewUrl: this.getDirectViewUrl(a.browser_download_url), // ✅ URL para visualización
               download_count: a.download_count || 0,
               size: this.formatFileSize(parseInt(a.size)),
               rawSize: parseInt(a.size),
@@ -238,7 +250,6 @@
               coverUrl: CONFIG.coverImages[a.name] || null
             }));
 
-          // Ordenar por popularidad
           this.items.sort((a, b) => b.download_count - a.download_count);
           
           console.log(`✅ ${this.items.length} Libros cargados`);
@@ -251,18 +262,6 @@
         } finally {
           this.loading = false;
           this.render();
-        }
-      },
-
-      // ✅ SOLUCIÓN PRINCIPAL: Crear URL para visualización
-      getDirectViewUrl(downloadUrl) {
-        if (CONFIG.useGoogleViewer) {
-          // Usar Google Viewer (el más confiable para visualización)
-          return `${CONFIG.googleViewerUrl}?url=${encodeURIComponent(downloadUrl)}&embedded=true`;
-        } else {
-          // Si no usamos Google Viewer, intentamos con una técnica alternativa
-          // que evita que el navegador descargue el archivo
-          return downloadUrl;
         }
       },
 
@@ -290,6 +289,35 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+      },
+
+      // ✅ NUEVA FUNCIÓN: Obtener URL con proxy para evitar CORS
+      async getPDFWithProxy(pdfUrl) {
+        // Intentar primero directo (puede funcionar con GitHub)
+        try {
+          const testResponse = await fetch(pdfUrl, { method: 'HEAD' });
+          if (testResponse.ok) {
+            return pdfUrl; // Si funciona directo, usar directo
+          }
+        } catch (e) {
+          console.log('URL directa falló, usando proxy...');
+        }
+        
+        // Usar servicios proxy alternativos
+        for (const proxy of CONFIG.proxyServices) {
+          try {
+            const proxyUrl = proxy + encodeURIComponent(pdfUrl);
+            const test = await fetch(proxyUrl, { method: 'HEAD' });
+            if (test.ok) {
+              return proxyUrl;
+            }
+          } catch (e) {
+            console.log(`Proxy ${proxy} falló, intentando siguiente...`);
+          }
+        }
+        
+        // Si todo falla, devolver la original
+        return pdfUrl;
       },
 
       // --- RENDERIZADO VISUAL ---
@@ -339,7 +367,7 @@
           </div>`;
       },
 
-      // --- SISTEMA DE DESCARGA (Separado de Visualización) ---
+      // --- DESCARGA ---
       async downloadBook(item, event) {
         if (event) event.stopPropagation();
         
@@ -353,7 +381,6 @@
         }
 
         try {
-          // Usar el método directo para descarga
           const link = document.createElement('a');
           link.href = item.url;
           link.download = item.filename;
@@ -365,7 +392,6 @@
           
           this.showNotification(`📥 ${this.t('downloadNow')}: ${item.title}`);
           
-          // Actualizar contador visualmente
           const downloadCount = document.querySelector(`[data-book-id="${item.id}"] .download-count`);
           if (downloadCount) {
             const current = parseInt(downloadCount.textContent) || 0;
@@ -386,17 +412,12 @@
         }
       },
 
-      // --- ✅ LECTOR CORREGIDO: Sin Descargas Automáticas ---
+      // --- ✅ VISOR PDF.js MEJORADO (SOLUCIÓN DEFINITIVA) ---
       async openReader(item) {
         if (this.modalOpen) return;
         this.modalOpen = true;
         
-        // Prevenir clics múltiples
-        document.body.style.pointerEvents = 'none';
-        setTimeout(() => {
-          document.body.style.pointerEvents = 'auto';
-        }, 500);
-        
+        // Crear modal inmediatamente
         const modal = document.createElement('div');
         modal.className = "fixed inset-0 z-[100] flex flex-col animate-fade-in library-modal";
         modal.innerHTML = this.getModalHTML(item);
@@ -406,37 +427,24 @@
         
         document.getElementById('close-modal').onclick = () => this.closeModal(modal);
         
-        // ✅ ESTRATEGIA CORREGIDA:
-        // 1. Primero intentar con Google Viewer (si está habilitado)
-        // 2. Si falla, usar PDF.js
-        // 3. Como último recurso, ofrecer opciones alternativas
-        
-        if (CONFIG.useGoogleViewer) {
-          this.loadWithGoogleViewer(item, modal);
-        } else if (CONFIG.usePDFJS) {
-          await this.tryPDFJS(item, modal);
-        } else {
-          this.showAlternativeOptions(item, modal);
-        }
+        // Iniciar carga del PDF
+        this.loadPDFWithProgress(item, modal);
       },
 
       getModalHTML(item) {
         const safeTitle = this.escapeHtml(item.title);
-        const viewerType = CONFIG.useGoogleViewer ? 'Google Viewer' : 
-                          CONFIG.usePDFJS ? 'PDF.js' : 
-                          this.t('externalViewer');
         
         return `
           <div class="absolute inset-0 bg-slate-900/95 backdrop-blur-xl"></div>
           <div class="relative z-10 flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10 shadow-2xl">
             <div class="flex items-center gap-3 overflow-hidden">
               <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shrink-0 shadow-lg">
-                <i class="fa-solid fa-eye text-white text-sm"></i>
+                <i class="fa-solid fa-file-pdf text-white text-sm"></i>
               </div>
               <div class="min-w-0">
                 <h2 class="text-white font-bold text-sm truncate" title="${safeTitle}">${safeTitle}</h2>
                 <p class="text-white/40 text-[10px] uppercase font-bold">
-                  ${item.size} • ${viewerType} • ${this.t('viewingOnline')}
+                  ${item.size} • PDF.js • ${this.t('viewingOnline')}
                 </p>
               </div>
             </div>
@@ -444,14 +452,8 @@
               <button onclick="window.NCLEX_LIBRARY.downloadBook(${JSON.stringify(item).replace(/"/g, '&quot;').replace(/'/g, '&#x27;')}, event)" 
                       class="px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
                 <i class="fa-solid fa-download"></i> 
-                <span class="hidden sm:inline">${this.t('forceDownload')}</span>
+                <span class="hidden sm:inline">${this.t('download')}</span>
               </button>
-              
-              <a href="${item.directViewUrl}" target="_blank" 
-                 class="px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
-                <i class="fa-solid fa-external-link-alt"></i> 
-                <span class="hidden sm:inline">${this.t('viewInBrowser')}</span>
-              </a>
               
               <button id="close-modal" 
                       class="w-8 h-8 rounded-full bg-white/10 hover:bg-red-500/30 text-white hover:text-red-300 flex items-center justify-center transition-all"
@@ -462,117 +464,89 @@
           </div>
           <div class="relative z-10 flex-1 w-full bg-gray-900 overflow-hidden flex flex-col" id="viewer-container">
             <div class="absolute inset-0 flex flex-col items-center justify-center text-white/20 gap-4" id="loading-indicator">
-              <div class="w-12 h-12 border-4 border-white/10 border-t-blue-500 rounded-full animate-spin"></div>
-              <span class="text-xs font-bold tracking-[0.3em] animate-pulse">
-                ${CONFIG.useGoogleViewer ? this.t('usingGoogleViewer') : this.t('loadingPDF')}
-              </span>
+              <div class="w-16 h-16 relative">
+                <div class="absolute inset-0 border-4 border-white/10 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <div class="text-center">
+                <span class="text-xs font-bold tracking-[0.3em] animate-pulse block mb-1">${this.t('loadingPDF')}</span>
+                <span class="text-[10px] text-gray-400" id="loading-status">${this.t('loadingDocument')}</span>
+                <div class="w-48 h-1 bg-gray-800 rounded-full mt-2 overflow-hidden">
+                  <div id="loading-bar" class="h-full bg-blue-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
             </div>
           </div>
         `;
       },
 
-      // ✅ ESTRATEGIA 1: Google Viewer (La más confiable para visualización)
-      loadWithGoogleViewer(item, modal) {
+      async loadPDFWithProgress(item, modal) {
         const container = modal.querySelector('#viewer-container');
         const loading = modal.querySelector('#loading-indicator');
-        
-        const iframeHTML = `
-          <iframe src="${item.directViewUrl}" 
-                  class="w-full h-full border-0"
-                  allowfullscreen
-                  onload="document.getElementById('loading-indicator').style.display='none';"
-                  style="opacity:0; transition: opacity 0.3s ease-in;"
-                  onload="this.style.opacity='1';">
-          </iframe>
-        `;
-        
-        container.insertAdjacentHTML('beforeend', iframeHTML);
-        
-        // Fallback después de 15 segundos
-        setTimeout(() => {
-          if (loading && loading.style.display !== 'none') {
-            loading.querySelector('span').textContent = this.t('errorLoading');
-            setTimeout(() => {
-              this.showAlternativeOptions(item, modal);
-            }, 2000);
-          }
-        }, 15000);
-      },
-
-      // ✅ ESTRATEGIA 2: PDF.js (Sin descargas automáticas)
-      async tryPDFJS(item, modal) {
-        if (!window.pdfjsLib) {
-          try {
-            await this.loadPDFJS();
-          } catch (error) {
-            console.warn('PDF.js no se pudo cargar:', error);
-            this.showAlternativeOptions(item, modal);
-            return;
-          }
-        }
-        
-        const container = modal.querySelector('#viewer-container');
-        const loading = modal.querySelector('#loading-indicator');
+        const loadingStatus = modal.querySelector('#loading-status');
+        const loadingBar = modal.querySelector('#loading-bar');
         
         try {
-          loading.querySelector('span').textContent = this.t('usingPDFJS');
+          // Paso 1: Cargar PDF.js si no está cargado
+          loadingStatus.textContent = this.t('loadingDocument');
+          loadingBar.style.width = '10%';
           
-          // Configurar PDF.js
+          if (!window.pdfjsLib) {
+            await this.loadPDFJS();
+          }
+          
+          loadingBar.style.width = '30%';
+          loadingStatus.textContent = this.currentLang === 'es' ? 'Configurando visor...' : 'Setting up viewer...';
+          
+          // Paso 2: Configurar PDF.js
           pdfjsLib.GlobalWorkerOptions.workerSrc = CONFIG.pdfJsWorker;
           
-          // Cargar documento usando fetch para evitar descargas automáticas
-          const response = await fetch(item.url);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          // Paso 3: Obtener PDF (con proxy si es necesario)
+          loadingBar.style.width = '50%';
+          loadingStatus.textContent = this.currentLang === 'es' ? 'Obteniendo documento...' : 'Fetching document...';
           
-          const arrayBuffer = await response.arrayBuffer();
-          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+          const pdfUrl = await this.getPDFWithProxy(item.url);
+          
+          // Paso 4: Cargar documento
+          loadingBar.style.width = '70%';
+          loadingStatus.textContent = this.t('renderingPages');
+          
+          const loadingTask = pdfjsLib.getDocument({
+            url: pdfUrl,
+            cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+            cMapPacked: true,
+          });
           
           this.pdfDoc = await loadingTask.promise;
           
-          if (this.pdfDoc.numPages === 0) {
-            throw new Error('PDF vacío');
-          }
+          // Paso 5: Crear interfaz del visor
+          loadingBar.style.width = '90%';
           
-          this.pageNum = 1;
+          container.innerHTML = this.createPDFViewerHTML();
           
-          // Crear interfaz de visualización
-          container.innerHTML = `
-            <div class="flex-1 overflow-auto bg-gray-900 relative" id="pdf-viewer-container">
-              <div class="sticky top-0 z-50 bg-black/50 backdrop-blur px-4 py-2 flex items-center justify-between border-b border-white/10">
-                <div class="flex items-center gap-4 text-white">
-                  <button id="prev-page" class="p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30">
-                    <i class="fa-solid fa-chevron-left"></i>
-                  </button>
-                  <span class="text-sm font-bold min-w-[80px] text-center">
-                    <span id="page-num">${this.pageNum}</span> / <span id="page-count">${this.pdfDoc.numPages}</span>
-                  </span>
-                  <button id="next-page" class="p-2 hover:bg-white/10 rounded transition-colors">
-                    <i class="fa-solid fa-chevron-right"></i>
-                  </button>
-                </div>
-                <div class="text-xs text-gray-400">
-                  ${this.t('page')} <span id="current-page">${this.pageNum}</span> ${this.t('of')} ${this.pdfDoc.numPages}
-                </div>
-              </div>
-              <div class="p-4 flex justify-center">
-                <canvas id="pdf-canvas" class="shadow-2xl max-w-full bg-white rounded"></canvas>
-              </div>
-            </div>
-          `;
-          
-          // Configurar eventos
-          document.getElementById('prev-page').onclick = () => this.changePage(-1);
-          document.getElementById('next-page').onclick = () => this.changePage(1);
-          
-          // Renderizar primera página
+          // Paso 6: Renderizar primera página
+          loadingBar.style.width = '100%';
           await this.renderPDFPage(this.pageNum);
           
-          // Ocultar loading
-          loading.style.display = 'none';
+          // Paso 7: Ocultar loading y mostrar visor
+          setTimeout(() => {
+            loading.style.opacity = '0';
+            loading.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+              loading.style.display = 'none';
+              
+              // Mostrar controles
+              const controls = container.querySelector('#pdf-controls');
+              if (controls) {
+                controls.style.opacity = '1';
+                controls.style.transform = 'translateY(0)';
+              }
+            }, 500);
+          }, 500);
           
         } catch (error) {
-          console.error('Error con PDF.js:', error);
-          this.showAlternativeOptions(item, modal);
+          console.error('Error cargando PDF:', error);
+          this.showFallbackViewer(item, container, loading, error);
         }
       },
 
@@ -589,7 +563,7 @@
             if (window.pdfjsLib) {
               resolve();
             } else {
-              reject(new Error('PDF.js no se cargó correctamente'));
+              reject(new Error('PDF.js no se cargó'));
             }
           };
           script.onerror = () => reject(new Error('Error cargando PDF.js'));
@@ -597,13 +571,85 @@
         });
       },
 
-      async renderPDFPage(num) {
-        if (this.pdfRendering || !this.pdfDoc || num < 1 || num > this.pdfDoc.numPages) {
+      createPDFViewerHTML() {
+        return `
+          <div class="h-full flex flex-col bg-gray-900">
+            <!-- Controles superiores -->
+            <div id="pdf-controls" class="bg-black/50 backdrop-blur px-4 py-2 border-b border-white/10 flex items-center justify-between transition-all duration-300 opacity-0 transform translate-y-[-10px]">
+              <div class="flex items-center gap-2">
+                <button id="zoom-out" class="p-2 rounded hover:bg-white/10 text-white" title="${this.t('zoomOut')}">
+                  <i class="fa-solid fa-magnifying-glass-minus"></i>
+                </button>
+                <span class="text-sm text-white font-bold min-w-[60px] text-center">${Math.round(this.currentScale * 100)}%</span>
+                <button id="zoom-in" class="p-2 rounded hover:bg-white/10 text-white" title="${this.t('zoomIn')}">
+                  <i class="fa-solid fa-magnifying-glass-plus"></i>
+                </button>
+                <button id="fit-width" class="p-2 rounded hover:bg-white/10 text-white ml-2" title="${this.t('fitWidth')}">
+                  <i class="fa-solid fa-arrows-left-right"></i>
+                </button>
+                <button id="fit-page" class="p-2 rounded hover:bg-white/10 text-white" title="${this.t('fitPage')}">
+                  <i class="fa-solid fa-expand"></i>
+                </button>
+              </div>
+              
+              <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 text-white">
+                  <button id="prev-page" class="p-2 rounded hover:bg-white/10 disabled:opacity-30" title="${this.t('page')} ${this.pageNum - 1}">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <div class="flex items-center gap-2">
+                    <input type="number" id="page-input" 
+                           class="w-16 bg-black/30 border border-white/20 rounded px-2 py-1 text-white text-center text-sm"
+                           min="1" value="${this.pageNum}" 
+                           placeholder="${this.t('enterPage')}">
+                    <span class="text-sm">/ <span id="total-pages">${this.pdfDoc?.numPages || '?'}</span></span>
+                  </div>
+                  <button id="next-page" class="p-2 rounded hover:bg-white/10" title="${this.t('page')} ${this.pageNum + 1}">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="text-xs text-gray-300">
+                ${this.t('page')} <span id="current-page">${this.pageNum}</span> ${this.t('of')} <span id="page-count">${this.pdfDoc?.numPages || '?'}</span>
+              </div>
+            </div>
+            
+            <!-- Área del documento -->
+            <div class="flex-1 overflow-auto bg-gray-800 p-4" id="pdf-viewport">
+              <div class="min-h-full flex flex-col items-center">
+                <canvas id="pdf-canvas" class="shadow-2xl bg-white rounded max-w-full"></canvas>
+                <div id="page-info" class="mt-4 text-sm text-gray-400 text-center">
+                  ${this.t('page')} <span id="display-page">${this.pageNum}</span> ${this.t('of')} ${this.pdfDoc?.numPages || '?'}
+                </div>
+              </div>
+            </div>
+            
+            <!-- Controles inferiores -->
+            <div class="bg-black/30 px-4 py-2 border-t border-white/10 flex justify-between items-center">
+              <div class="text-xs text-gray-400">
+                ${this.t('viewingOnline')} • PDF.js
+              </div>
+              <div class="flex items-center gap-2">
+                <button id="first-page" class="p-1.5 rounded hover:bg-white/10 text-gray-300 text-xs">
+                  <i class="fa-solid fa-backward-fast"></i>
+                </button>
+                <button id="last-page" class="p-1.5 rounded hover:bg-white/10 text-gray-300 text-xs">
+                  <i class="fa-solid fa-forward-fast"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      },
+
+      async renderPDFPage(pageNumber) {
+        if (this.pdfRendering || !this.pdfDoc || pageNumber < 1 || pageNumber > this.pdfDoc.numPages) {
           return;
         }
         
         this.pdfRendering = true;
-        this.pageNum = num;
+        this.pageNum = pageNumber;
         
         const canvas = document.getElementById('pdf-canvas');
         if (!canvas) {
@@ -612,48 +658,34 @@
         }
         
         try {
-          const page = await this.pdfDoc.getPage(num);
+          const page = await this.pdfDoc.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: this.currentScale });
           
-          // Calcular escala
-          const viewport = page.getViewport({ scale: 1 });
-          const container = document.getElementById('pdf-viewer-container');
-          const containerWidth = container ? container.clientWidth - 80 : 800;
-          const scale = Math.min(containerWidth / viewport.width, 2.0);
-          const scaledViewport = page.getViewport({ scale });
-          
-          // Configurar canvas
-          canvas.height = scaledViewport.height;
-          canvas.width = scaledViewport.width;
+          // Ajustar canvas al tamaño de la página
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
           
           const context = canvas.getContext('2d', { alpha: false });
           
-          // Limpiar y preparar fondo blanco
+          // Fondo blanco
           context.fillStyle = '#ffffff';
           context.fillRect(0, 0, canvas.width, canvas.height);
           
           const renderContext = {
             canvasContext: context,
-            viewport: scaledViewport
+            viewport: viewport
           };
           
           await page.render(renderContext).promise;
           
           // Actualizar UI
-          document.getElementById('page-num').textContent = num;
-          document.getElementById('current-page').textContent = num;
-          
-          // Habilitar/deshabilitar botones
-          const prevBtn = document.getElementById('prev-page');
-          const nextBtn = document.getElementById('next-page');
-          if (prevBtn) prevBtn.disabled = num <= 1;
-          if (nextBtn) nextBtn.disabled = num >= this.pdfDoc.numPages;
+          this.updatePageControls();
           
         } catch (error) {
           console.error('Error renderizando página:', error);
         } finally {
           this.pdfRendering = false;
           
-          // Procesar página pendiente si existe
           if (this.pendingPage !== null) {
             const nextPage = this.pendingPage;
             this.pendingPage = null;
@@ -662,24 +694,147 @@
         }
       },
 
-      changePage(delta) {
-        const newPage = this.pageNum + delta;
+      updatePageControls() {
+        // Actualizar números de página
+        const pageInput = document.getElementById('page-input');
+        const currentPageSpan = document.getElementById('current-page');
+        const displayPageSpan = document.getElementById('display-page');
+        const totalPagesSpan = document.getElementById('total-pages');
+        const pageCountSpan = document.getElementById('page-count');
         
-        if (newPage < 1 || newPage > this.pdfDoc.numPages) {
-          return;
-        }
+        if (pageInput) pageInput.value = this.pageNum;
+        if (currentPageSpan) currentPageSpan.textContent = this.pageNum;
+        if (displayPageSpan) displayPageSpan.textContent = this.pageNum;
+        if (totalPagesSpan && this.pdfDoc) totalPagesSpan.textContent = this.pdfDoc.numPages;
+        if (pageCountSpan && this.pdfDoc) pageCountSpan.textContent = this.pdfDoc.numPages;
         
-        if (this.pdfRendering) {
-          this.pendingPage = newPage;
-        } else {
-          this.renderPDFPage(newPage);
+        // Actualizar botones de navegación
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const firstBtn = document.getElementById('first-page');
+        const lastBtn = document.getElementById('last-page');
+        
+        if (prevBtn) prevBtn.disabled = this.pageNum <= 1;
+        if (nextBtn && this.pdfDoc) nextBtn.disabled = this.pageNum >= this.pdfDoc.numPages;
+        if (firstBtn) firstBtn.disabled = this.pageNum <= 1;
+        if (lastBtn && this.pdfDoc) lastBtn.disabled = this.pageNum >= this.pdfDoc.numPages;
+        
+        // Actualizar escala
+        const scaleDisplay = document.querySelector('#pdf-controls span:first-child');
+        if (scaleDisplay) {
+          scaleDisplay.textContent = `${Math.round(this.currentScale * 100)}%`;
         }
       },
 
-      // ✅ ESTRATEGIA 3: Opciones alternativas cuando todo falla
-      showAlternativeOptions(item, modal) {
-        const container = modal.querySelector('#viewer-container');
-        const loading = modal.querySelector('#loading-indicator');
+      setupPDFControls() {
+        // Navegación de páginas
+        document.getElementById('prev-page')?.addEventListener('click', () => this.changePage(-1));
+        document.getElementById('next-page')?.addEventListener('click', () => this.changePage(1));
+        document.getElementById('first-page')?.addEventListener('click', () => this.goToPage(1));
+        document.getElementById('last-page')?.addEventListener('click', () => {
+          if (this.pdfDoc) this.goToPage(this.pdfDoc.numPages);
+        });
+        
+        // Input de página
+        const pageInput = document.getElementById('page-input');
+        if (pageInput) {
+          pageInput.addEventListener('change', (e) => {
+            const page = parseInt(e.target.value);
+            if (page >= 1 && this.pdfDoc && page <= this.pdfDoc.numPages) {
+              this.goToPage(page);
+            } else {
+              e.target.value = this.pageNum;
+            }
+          });
+          
+          pageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+              const page = parseInt(e.target.value);
+              if (page >= 1 && this.pdfDoc && page <= this.pdfDoc.numPages) {
+                this.goToPage(page);
+              }
+            }
+          });
+        }
+        
+        // Controles de zoom
+        document.getElementById('zoom-in')?.addEventListener('click', () => this.changeZoom(0.2));
+        document.getElementById('zoom-out')?.addEventListener('click', () => this.changeZoom(-0.2));
+        document.getElementById('fit-width')?.addEventListener('click', () => this.fitToWidth());
+        document.getElementById('fit-page')?.addEventListener('click', () => this.fitToPage());
+      },
+
+      changePage(delta) {
+        const newPage = this.pageNum + delta;
+        if (newPage >= 1 && this.pdfDoc && newPage <= this.pdfDoc.numPages) {
+          this.goToPage(newPage);
+        }
+      },
+
+      goToPage(pageNumber) {
+        if (pageNumber === this.pageNum) return;
+        
+        if (this.pdfRendering) {
+          this.pendingPage = pageNumber;
+        } else {
+          this.renderPDFPage(pageNumber);
+        }
+      },
+
+      changeZoom(delta) {
+        this.currentScale = Math.max(0.5, Math.min(3.0, this.currentScale + delta));
+        this.renderPDFPage(this.pageNum);
+      },
+
+      async fitToWidth() {
+        if (!this.pdfDoc) return;
+        
+        const canvas = document.getElementById('pdf-canvas');
+        const viewport = document.getElementById('pdf-viewport');
+        
+        if (!canvas || !viewport) return;
+        
+        try {
+          const page = await this.pdfDoc.getPage(this.pageNum);
+          const pageViewport = page.getViewport({ scale: 1 });
+          const containerWidth = viewport.clientWidth - 40; // Padding
+          
+          this.currentScale = containerWidth / pageViewport.width;
+          this.currentScale = Math.max(0.5, Math.min(3.0, this.currentScale));
+          
+          await this.renderPDFPage(this.pageNum);
+        } catch (error) {
+          console.error('Error ajustando ancho:', error);
+        }
+      },
+
+      async fitToPage() {
+        if (!this.pdfDoc) return;
+        
+        const viewport = document.getElementById('pdf-viewport');
+        
+        if (!viewport) return;
+        
+        try {
+          const page = await this.pdfDoc.getPage(this.pageNum);
+          const pageViewport = page.getViewport({ scale: 1 });
+          const containerWidth = viewport.clientWidth - 40;
+          const containerHeight = viewport.clientHeight - 100;
+          
+          const widthScale = containerWidth / pageViewport.width;
+          const heightScale = containerHeight / pageViewport.height;
+          
+          this.currentScale = Math.min(widthScale, heightScale, 2.0);
+          this.currentScale = Math.max(0.5, this.currentScale);
+          
+          await this.renderPDFPage(this.pageNum);
+        } catch (error) {
+          console.error('Error ajustando página:', error);
+        }
+      },
+
+      showFallbackViewer(item, container, loading, error) {
+        console.log('Mostrando visor alternativo:', error);
         
         if (loading) {
           loading.style.display = 'none';
@@ -687,28 +842,42 @@
         
         container.innerHTML = `
           <div class="flex flex-col items-center justify-center h-full text-center p-8 gap-6">
-            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center shadow-2xl">
-              <i class="fa-solid fa-file-circle-question text-3xl text-yellow-500"></i>
+            <div class="w-24 h-24 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-2xl">
+              <i class="fa-solid fa-triangle-exclamation text-4xl text-white"></i>
             </div>
             <div>
               <h3 class="text-xl font-bold text-white mb-2">${this.t('previewUnavailable')}</h3>
-              <p class="text-gray-400 max-w-md text-sm">${this.t('browserNotSupported')}</p>
-              <p class="text-gray-500 text-xs mt-2">${item.size} • ${item.fileType}</p>
+              <p class="text-gray-400 max-w-md text-sm mb-4">
+                ${this.currentLang === 'es' 
+                  ? 'El visor PDF no pudo cargar directamente. Usa una de estas opciones:' 
+                  : 'PDF viewer couldn\'t load directly. Use one of these options:'}
+              </p>
+              <div class="bg-gray-800/50 rounded-lg p-4 text-left max-w-md mx-auto">
+                <p class="text-gray-300 text-sm mb-2"><strong>${this.currentLang === 'es' ? 'Posible causa:' : 'Possible cause:'}</strong></p>
+                <ul class="text-gray-400 text-sm space-y-1 list-disc list-inside">
+                  <li>${this.currentLang === 'es' ? 'Políticas CORS del navegador' : 'Browser CORS policies'}</li>
+                  <li>${this.currentLang === 'es' ? 'PDF muy grande (>50MB)' : 'PDF too large (>50MB)'}</li>
+                  <li>${this.currentLang === 'es' ? 'Conexión lenta o interrumpida' : 'Slow or interrupted connection'}</li>
+                </ul>
+              </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 mt-4">
-              <a href="${item.directViewUrl}" target="_blank" 
+              <a href="${item.url}" target="_blank" 
                  class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2">
-                <i class="fa-solid fa-external-link-alt"></i> ${this.t('viewInBrowser')}
+                <i class="fa-solid fa-external-link-alt"></i> ${this.t('openNewTab')}
               </a>
               <button onclick="window.NCLEX_LIBRARY.downloadBook(${JSON.stringify(item).replace(/"/g, '&quot;').replace(/'/g, '&#x27;')}, event)" 
                       class="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2">
-                <i class="fa-solid fa-download"></i> ${this.t('forceDownload')}
+                <i class="fa-solid fa-download"></i> ${this.t('downloadNow')}
               </button>
             </div>
             <div class="mt-6 text-xs text-gray-500">
-              <p>📌 <strong>${this.t('help')}:</strong> ${this.currentLang === 'es' ? 
-                'Google Viewer funciona en la mayoría de navegadores. Si no carga, usa "Ver en navegador".' : 
-                'Google Viewer works in most browsers. If it doesn\'t load, use "View in browser".'}</p>
+              <p><i class="fa-solid fa-lightbulb text-yellow-400 mr-1"></i> 
+                <strong>${this.currentLang === 'es' ? 'Consejo:' : 'Tip:'}</strong> 
+                ${this.currentLang === 'es' 
+                  ? 'Para archivos grandes, descarga y usa un visor local como Adobe Reader.' 
+                  : 'For large files, download and use a local viewer like Adobe Reader.'}
+              </p>
             </div>
           </div>
         `;
@@ -719,7 +888,7 @@
         
         this.modalOpen = false;
         
-        // Limpiar recursos de PDF.js
+        // Limpiar recursos
         if (this.pdfDoc) {
           this.pdfDoc.destroy();
           this.pdfDoc = null;
@@ -728,6 +897,7 @@
         this.pdfRendering = false;
         this.pendingPage = null;
         this.pageNum = 1;
+        this.currentScale = 1.0;
         
         // Animación de salida
         modal.classList.add('opacity-0', 'scale-95');
@@ -742,7 +912,6 @@
       },
 
       showNotification(message) {
-        // Remover notificaciones anteriores
         document.querySelectorAll('.library-notification').forEach(el => {
           el.classList.add('opacity-0', 'translate-x-full');
           setTimeout(() => el.remove(), 300);
@@ -759,15 +928,11 @@
         
         setTimeout(() => {
           notification.classList.add('opacity-0', 'translate-x-full');
-          setTimeout(() => {
-            if (notification.parentNode) {
-              notification.remove();
-            }
-          }, 300);
+          setTimeout(() => notification.remove(), 300);
         }, 3000);
       },
 
-      // --- RENDERIZADO DE INTERFAZ ---
+      // --- INTERFAZ PRINCIPAL ---
       renderSkeleton() {
         const view = document.getElementById('app-view');
         if (!view) return;
@@ -815,6 +980,15 @@
                 </button>
               </div>
             </div>
+            
+            <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-900/10 to-purple-900/10 border border-white/5 backdrop-blur-sm">
+              <div class="flex items-center gap-3 text-sm text-gray-400">
+                <i class="fa-solid fa-lightbulb text-yellow-400"></i>
+                <p><span class="font-bold text-white">Click</span>: ${this.t('viewInBrowser')} • 
+                   <span class="font-bold text-white">${this.t('download')}</span>: ${this.currentLang === 'es' ? 'Guardar en dispositivo' : 'Save to device'}</p>
+              </div>
+            </div>
+            
             ${this.loading ? this.getSkeletonHTML() : this.getGridHTML()}
           </div>`;
       },
@@ -843,14 +1017,6 @@
         }
         
         return `
-          <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-900/10 to-purple-900/10 border border-white/5 backdrop-blur-sm">
-            <div class="flex items-center gap-3 text-sm text-gray-400">
-              <i class="fa-solid fa-lightbulb text-yellow-400"></i>
-              <p><span class="font-bold text-white">Click</span>: ${this.t('viewInBrowser')} • 
-                 <span class="font-bold text-white">${this.t('download')}</span>: ${this.currentLang === 'es' ? 'Guardar en dispositivo' : 'Save to device'}</p>
-            </div>
-          </div>
-          
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 gap-y-12">
             ${this.items.map((item, idx) => this.getBookCardHTML(item, idx)).join('')}
           </div>`;
@@ -921,45 +1087,59 @@
         const helpText = this.currentLang === 'es' ? 
           `📚 ${TRANSLATIONS.es.libraryTitle} - AYUDA
 
-VISUALIZACIÓN (SIN DESCARGA):
-• Click en cualquier libro: Abre en Google Viewer (sin descargar)
-• Google Viewer muestra PDFs directamente en el navegador
-• Si no carga: Usa "Ver en navegador" para abrir en nueva pestaña
+VISUALIZACIÓN INTEGRADA:
+• Click en cualquier libro: Abre visor PDF integrado
+• El visor usa PDF.js (tecnología moderna)
+• Funciona completamente en tu navegador
+
+CONTROLES DEL VISOR:
+• Zoom +/-: Para acercar/alejar
+• Ajustar ancho/página: Para mejor visualización
+• Navegación: Flechas para cambiar página
+• Input de página: Ir a página específica
+
+SI NO CARGA:
+1. Espera unos segundos (PDF.js necesita tiempo)
+2. Revisa tu conexión a internet
+3. Archivos muy grandes (>50MB) pueden tardar
+4. Si persiste, usa "Abrir PDF Externo"
 
 DESCARGA:
-• Botón "Descargar": Solo para guardar en tu dispositivo
-• La visualización NO descarga automáticamente
+• Solo se descarga si usas el botón "Descargar"
+• La visualización NO descarga el archivo
 
-TECNOLOGÍA:
-• Google Viewer: El más confiable para visualizar sin descargar
-• PDF.js: Alternativa si Google Viewer no está disponible
-• Siempre prioriza la visualización sobre la descarga
-
-PROBLEMAS COMUNES:
-1. Si se descarga automáticamente: Usa "Ver en navegador"
-2. Si no carga: Prueba recargando la página
-3. Archivos grandes: Pueden tardar más en cargar` :
+CONSEJOS:
+• Para mejor experiencia, usa Chrome/Firefox
+• PDF.js es compatible con la mayoría de navegadores
+• Los controles aparecen después de cargar` :
           
           `📚 ${TRANSLATIONS.en.libraryTitle} - HELP
 
-VIEWING (NO DOWNLOAD):
-• Click on any book: Opens in Google Viewer (no download)
-• Google Viewer shows PDFs directly in browser
-• If it doesn't load: Use "View in browser" to open in new tab
+BUILT-IN VIEWER:
+• Click on any book: Opens built-in PDF viewer
+• Viewer uses PDF.js (modern technology)
+• Works completely in your browser
+
+VIEWER CONTROLS:
+• Zoom +/-: To zoom in/out
+• Fit width/page: For better viewing
+• Navigation: Arrows to change page
+• Page input: Go to specific page
+
+IF IT DOESN'T LOAD:
+1. Wait a few seconds (PDF.js needs time)
+2. Check your internet connection
+3. Very large files (>50MB) may take longer
+4. If persists, use "Open PDF Externally"
 
 DOWNLOAD:
-• "Download" button: Only to save to your device
-• Viewing does NOT automatically download
+• Only downloads if you use "Download" button
+• Viewing does NOT download the file
 
-TECHNOLOGY:
-• Google Viewer: Most reliable for viewing without downloading
-• PDF.js: Alternative if Google Viewer is not available
-• Always prioritizes viewing over downloading
-
-COMMON ISSUES:
-1. If it downloads automatically: Use "View in browser"
-2. If it doesn't load: Try reloading the page
-3. Large files: May take longer to load`;
+TIPS:
+• For best experience, use Chrome/Firefox
+• PDF.js is compatible with most browsers
+• Controls appear after loading`;
         
         alert(helpText);
       },
@@ -1042,38 +1222,83 @@ COMMON ISSUES:
       #pdf-canvas {
         background: white;
         border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         max-width: 100%;
         height: auto;
-      }
-      
-      .library-modal iframe {
-        width: 100%;
-        height: 100%;
-        border: none;
-        background: white;
       }
       
       .library-notification {
         backdrop-filter: blur(10px);
       }
       
-      /* Scrollbar para el visor */
-      #viewer-container {
+      /* Scrollbar personalizado */
+      #pdf-viewport {
         scrollbar-width: thin;
         scrollbar-color: rgba(255,255,255,0.2) transparent;
       }
       
-      #viewer-container::-webkit-scrollbar {
-        width: 8px;
+      #pdf-viewport::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
       }
       
-      #viewer-container::-webkit-scrollbar-track {
-        background: transparent;
+      #pdf-viewport::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.05);
+        border-radius: 5px;
       }
       
-      #viewer-container::-webkit-scrollbar-thumb {
-        background-color: rgba(255,255,255,0.2);
-        border-radius: 4px;
+      #pdf-viewport::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.2);
+        border-radius: 5px;
+      }
+      
+      #pdf-viewport::-webkit-scrollbar-thumb:hover {
+        background: rgba(255,255,255,0.3);
+      }
+      
+      /* Controles del visor */
+      #pdf-controls button:not(:disabled):hover {
+        background: rgba(255,255,255,0.15) !important;
+        transform: scale(1.05);
+        transition: all 0.2s ease;
+      }
+      
+      #page-input {
+        transition: all 0.2s ease;
+      }
+      
+      #page-input:focus {
+        outline: none;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      }
+      
+      /* Animación de carga */
+      @keyframes pulse-glow {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+      
+      .animate-pulse-glow {
+        animation: pulse-glow 2s ease-in-out infinite;
+      }
+      
+      /* Mejoras para móviles */
+      @media (max-width: 640px) {
+        #pdf-controls {
+          flex-direction: column;
+          gap: 8px;
+          padding: 12px;
+        }
+        
+        #pdf-controls > div {
+          width: 100%;
+          justify-content: center;
+        }
+        
+        #page-input {
+          width: 50px !important;
+        }
       }
     `;
     
