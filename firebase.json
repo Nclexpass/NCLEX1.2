@@ -7,14 +7,14 @@
       "**/node_modules/**",
       "**/*.pdf", 
       "**/*.PDF",
-      "library/files/**",
-      "**/*.bat",
-      "**/*.exe",
       "**/*.zip",
       "**/*.rar"
     ],
     "rewrites": [
-      { "source": "**", "destination": "/index.html" }
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
     ]
   }
 }
