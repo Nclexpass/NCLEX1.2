@@ -1,4 +1,4 @@
-name: Deploy Blindado (Solo Hosting)
+name: Deploy a NCLEX by Rey
 
 on:
   push:
@@ -9,24 +9,15 @@ jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
     steps:
-      # 1. Descargar tus archivos del repositorio
       - name: 📥 Descargar Código
         uses: actions/checkout@v4
 
-      # 2. PASO DE VERIFICACIÓN (Rayos X)
-      # Esto nos mostrará en el log si la carpeta 'public' tiene archivos o está vacía.
-      - name: 🔍 Diagnóstico de Archivos
-        run: |
-          echo "--- ¿Qué hay en la raíz? ---"
-          ls -la
-          echo "--- ¿Qué hay dentro de public? ---"
-          ls -la public || echo "⚠️ ¡CUIDADO! La carpeta public no existe aquí."
-
-      # 3. Subir a Firebase
       - name: 🚀 Subir a Firebase
         uses: w9jds/firebase-action@master
         with:
           args: deploy --only hosting
         env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_NCLEX_LIBRARY_9E9E7 }}
-          PROJECT_ID: nclex-library-9e9e7
+          # Aquí usamos la llave NUEVA que guardaste en Secrets
+          GCP_SA_KEY: ${{ secrets.NUEVO_FIREBASE_KEY }}
+          # Y aquí el nombre de tu proyecto NUEVO
+          PROJECT_ID: nclexbyrey
