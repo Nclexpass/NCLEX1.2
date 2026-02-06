@@ -13,9 +13,16 @@ jobs:
       - name: 📥 Descargar Código
         uses: actions/checkout@v4
 
-      # 2. Subir a Firebase usando Docker (Aislado y Seguro)
-      # Usamos w9jds/firebase-action que es el estándar militar.
-      # No intenta compilar nada, solo sube los archivos.
+      # 2. PASO DE VERIFICACIÓN (Rayos X)
+      # Esto nos mostrará en el log si la carpeta 'public' tiene archivos o está vacía.
+      - name: 🔍 Diagnóstico de Archivos
+        run: |
+          echo "--- ¿Qué hay en la raíz? ---"
+          ls -la
+          echo "--- ¿Qué hay dentro de public? ---"
+          ls -la public || echo "⚠️ ¡CUIDADO! La carpeta public no existe aquí."
+
+      # 3. Subir a Firebase
       - name: 🚀 Subir a Firebase
         uses: w9jds/firebase-action@master
         with:
