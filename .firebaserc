@@ -1,15 +1,5 @@
 {
   "projects": {
-    "default": "nclex-library-9e9e7"
-  },
-  "targets": {
-    "nclex-library-9e9e7": {
-      "hosting": {
-        "main": [
-          "passnclexnow"
-        ]
-      }
-    }
-  },
-  "etags": {}
+    "default": "nclexbyrey"
+  }
 }
