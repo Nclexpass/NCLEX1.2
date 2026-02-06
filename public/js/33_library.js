@@ -97,8 +97,8 @@
              
              <div class="relative z-10 flex items-center justify-between border-t border-white/20 pt-3 mt-2">
                <div class="flex items-center gap-1.5 opacity-90">
-                  <i class="fa-brands fa-apple text-white text-sm"></i>
-                  <span class="text-[9px] font-bold text-white tracking-[0.2em] uppercase">iBOOKS</span>
+                  <i class="fa-solid fa-stethoscope text-white text-sm"></i>
+                  <span class="text-[9px] font-bold text-white tracking-[0.2em] uppercase">BOOKS</span>
                </div>
                <div class="px-2 py-0.5 bg-black/20 rounded text-[9px] font-bold text-white backdrop-blur">PDF</div>
              </div>
