@@ -1,6 +1,5 @@
 {
   "hosting": {
-    "site": "passnclexnow",
     "public": "public",
     "ignore": [
       "firebase.json",
