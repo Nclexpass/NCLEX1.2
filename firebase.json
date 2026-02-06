@@ -5,16 +5,26 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**",
-      "**/*.pdf", 
+      "**/*.pdf",
       "**/*.PDF",
+      "library/files/**",
+      "**/*.exe",
+      "**/*.bat",
+      "**/*.cmd",
+      "**/*.sh",
+      "**/*.ps1",
+      "**/*.msi",
+      "**/*.dll",
+      "**/*.jar",
+      "**/*.bin",
+      "**/*.dmg",
+      "**/*.iso",
       "**/*.zip",
-      "**/*.rar"
+      "**/*.rar",
+      "**/*.7z"
     ],
     "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
+      { "source": "**", "destination": "/index.html" }
     ]
   }
 }
