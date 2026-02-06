@@ -1,14 +1,12 @@
-// 33_library.js — NCLEX Library Ultimate (Bilingual + Hybrid Architecture) - VERSIÓN OPTIMIZADA
-// 🌐 Soporte: Español/Inglés (Detección Automática y Dinámica)
+// 33_library.js — NCLEX Library Ultimate (Visualización Corregida)
+// 🔧 SOLUCIÓN: Visualización en navegador sin descarga automática
+// 🌐 Soporte: Español/Inglés
 // 💎 Efectos: 3D Tilt Real + Glassmorphism
-// 🛡️ Motor: Lector Nativo (Predeterminado) + PDF.js (Motor de Respaldo)
-// 🎨 Arte: Portadas con Estetoscopio + Generación Procedural
-// ⚡ Optimizado: Memoria, Rendimiento, UX
+// 🛡️ Motor: Google Viewer + PDF.js (Sin descargas automáticas)
 
 (function () {
   'use strict';
   
-  // Esperar a que el sistema base cargue
   if (!window.NCLEX) {
     setTimeout(initLibrary, 1000); 
     return;
@@ -17,18 +15,19 @@
   }
 
   function initLibrary() {
-    // --- CONFIGURACIÓN MAESTRA OPTIMIZADA ---
+    // --- CONFIGURACIÓN CORREGIDA ---
     const CONFIG = {
       repo: 'Nclexpass/NCLEX1.2', 
       tag: 'BOOKS',
       
-      // ⚠️ RECOMENDACIÓN PRO: Dejar usePDFJS en false para GitHub Releases.
-      // El lector nativo es más rápido y no tiene problemas de CORS con GitHub.
-      usePDFJS: false,
+      // SOLUCIÓN: Usar Google Viewer como predeterminado (siempre funciona)
+      // y PDF.js como alternativa sin descargas automáticas
+      useGoogleViewer: true, // ✅ Esto evita descargas automáticas
+      googleViewerUrl: 'https://docs.google.com/viewer',
       
+      usePDFJS: false, // Solo como alternativa si Google Viewer falla
       pdfJsCDN: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
       pdfJsWorker: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-      maxPDFSize: 50 * 1024 * 1024, // 50MB máximo para PDF.js (archivos más grandes usarán nativo)
       
       coverImages: {
         'nclex-book-1.pdf': 'https://raw.githubusercontent.com/Nclexpass/NCLEX1.2/main/covers/book1.jpg',
@@ -44,7 +43,7 @@
       
       cache: {
         enabled: true,
-        ttl: 5 * 60 * 1000, // 5 minutos
+        ttl: 5 * 60 * 1000,
         key: 'nclex_library_cache'
       }
     };
@@ -53,7 +52,7 @@
     const TRANSLATIONS = {
       es: {
         libraryTitle: "Biblioteca NCLEX",
-        librarySubtitle: "Libros • Descarga Directa",
+        librarySubtitle: "Libros • Visualización Directa",
         loadingBooks: "Cargando biblioteca...",
         bookCount: "${count} Libros Disponibles",
         help: "Ayuda",
@@ -61,11 +60,12 @@
         download: "Descargar",
         newTab: "Pestaña Nueva",
         close: "Cerrar",
-        loadingPDF: "CARGANDO DOCUMENTO...",
-        usingPDFJS: "RENDERIZANDO VISOR...",
-        nativeReader: "Lector Nativo",
+        loadingPDF: "CARGANDO VISOR...",
+        usingGoogleViewer: "CARGANDO GOOGLE VIEWER...",
+        usingPDFJS: "CARGANDO VISOR PDF...",
+        nativeReader: "Visualizador",
         previewUnavailable: "Vista previa no disponible",
-        browserNotSupported: "Tu navegador prefiere descargar archivos grandes.",
+        browserNotSupported: "Usando visualizador externo para mejor compatibilidad.",
         connectionError: "Error de Conexión",
         noBooks: "No hay libros disponibles",
         verifyBooks: "Verifica el Release 'BOOKS' en GitHub",
@@ -76,13 +76,14 @@
         of: "de",
         loading: "Cargando...",
         errorLoading: "Error al cargar",
-        fileTooLarge: "Archivo muy grande, usando lector nativo",
-        clearCache: "Limpiar caché",
-        cacheCleared: "Caché limpiado"
+        viewingOnline: "Visualizando online",
+        externalViewer: "Visor externo",
+        forceDownload: "Forzar descarga",
+        viewInBrowser: "Ver en navegador"
       },
       en: {
         libraryTitle: "NCLEX Library",
-        librarySubtitle: "Books • Direct Download",
+        librarySubtitle: "Books • Direct Viewing",
         loadingBooks: "Loading library...",
         bookCount: "${count} Books Available",
         help: "Help",
@@ -90,11 +91,12 @@
         download: "Download",
         newTab: "New Tab",
         close: "Close",
-        loadingPDF: "LOADING DOCUMENT...",
-        usingPDFJS: "RENDERING VIEWER...",
-        nativeReader: "Native Reader",
+        loadingPDF: "LOADING VIEWER...",
+        usingGoogleViewer: "LOADING GOOGLE VIEWER...",
+        usingPDFJS: "LOADING PDF VIEWER...",
+        nativeReader: "Viewer",
         previewUnavailable: "Preview unavailable",
-        browserNotSupported: "Your browser prefers downloading large files.",
+        browserNotSupported: "Using external viewer for better compatibility.",
         connectionError: "Connection Error",
         noBooks: "No books available",
         verifyBooks: "Check 'BOOKS' Release on GitHub",
@@ -105,9 +107,10 @@
         of: "of",
         loading: "Loading...",
         errorLoading: "Error loading",
-        fileTooLarge: "File too large, using native reader",
-        clearCache: "Clear cache",
-        cacheCleared: "Cache cleared"
+        viewingOnline: "Viewing online",
+        externalViewer: "External viewer",
+        forceDownload: "Force download",
+        viewInBrowser: "View in browser"
       }
     };
 
@@ -122,51 +125,8 @@
       pageNum: 1,
       pdfRendering: false,
       pendingPage: null,
-      cacheTimer: null,
       
-      // --- SISTEMA DE CACHÉ MEJORADO ---
-      getCachedData() {
-        if (!CONFIG.cache.enabled) return null;
-        
-        try {
-          const cached = localStorage.getItem(CONFIG.cache.key);
-          if (!cached) return null;
-          
-          const data = JSON.parse(cached);
-          const now = Date.now();
-          
-          if (now - data.timestamp > CONFIG.cache.ttl) {
-            localStorage.removeItem(CONFIG.cache.key);
-            return null;
-          }
-          
-          return data.items;
-        } catch (e) {
-          console.warn('Error reading cache:', e);
-          return null;
-        }
-      },
-      
-      setCache(items) {
-        if (!CONFIG.cache.enabled) return;
-        
-        try {
-          const cacheData = {
-            items: items,
-            timestamp: Date.now()
-          };
-          localStorage.setItem(CONFIG.cache.key, JSON.stringify(cacheData));
-        } catch (e) {
-          console.warn('Error setting cache:', e);
-        }
-      },
-      
-      clearCache() {
-        localStorage.removeItem(CONFIG.cache.key);
-        this.showNotification(`✅ ${this.t('cacheCleared')}`);
-      },
-
-      // --- SISTEMA DE IDIOMAS OPTIMIZADO ---
+      // --- SISTEMA DE IDIOMAS ---
       initLanguageObserver() {
         if ('MutationObserver' in window) {
           this.observer = new MutationObserver((mutations) => {
@@ -233,7 +193,7 @@
         }
       },
 
-      // --- INICIALIZACIÓN OPTIMIZADA CON CACHÉ ---
+      // --- INICIALIZACIÓN ---
       async init() {
         if (this.modalOpen) return;
         
@@ -243,21 +203,6 @@
         
         this.renderSkeleton();
         
-        // Intentar cargar desde caché primero
-        const cachedItems = this.getCachedData();
-        if (cachedItems && cachedItems.length > 0) {
-          this.items = cachedItems;
-          this.loading = false;
-          this.render();
-          
-          // Cargar datos frescos en segundo plano
-          setTimeout(() => this.loadFreshData(), 100);
-        } else {
-          await this.loadFreshData();
-        }
-      },
-
-      async loadFreshData() {
         try {
           console.log(`📚 ${this.t('loadingBooks')}`);
           const apiUrl = `https://api.github.com/repos/${CONFIG.repo}/releases/tags/${CONFIG.tag}`;
@@ -279,30 +224,22 @@
               const name = a.name.toLowerCase();
               return name.endsWith('.pdf') || name.endsWith('.epub');
             })
-            .map(a => {
-              const size = parseInt(a.size);
-              const shouldUsePDFJS = CONFIG.usePDFJS && size <= CONFIG.maxPDFSize;
-              
-              return {
-                id: String(a.id),
-                title: this.formatTitle(a.name),
-                filename: a.name,
-                url: a.browser_download_url,
-                download_count: a.download_count || 0,
-                size: this.formatFileSize(size),
-                rawSize: size,
-                date: new Date(a.created_at).toLocaleDateString(),
-                fileType: a.name.toLowerCase().endsWith('.epub') ? 'EPUB' : 'PDF',
-                coverUrl: CONFIG.coverImages[a.name] || null,
-                usePDFJS: shouldUsePDFJS
-              };
-            });
+            .map(a => ({
+              id: String(a.id),
+              title: this.formatTitle(a.name),
+              filename: a.name,
+              url: a.browser_download_url,
+              directViewUrl: this.getDirectViewUrl(a.browser_download_url), // ✅ URL para visualización
+              download_count: a.download_count || 0,
+              size: this.formatFileSize(parseInt(a.size)),
+              rawSize: parseInt(a.size),
+              date: new Date(a.created_at).toLocaleDateString(),
+              fileType: a.name.toLowerCase().endsWith('.epub') ? 'EPUB' : 'PDF',
+              coverUrl: CONFIG.coverImages[a.name] || null
+            }));
 
           // Ordenar por popularidad
           this.items.sort((a, b) => b.download_count - a.download_count);
-          
-          // Guardar en caché
-          this.setCache(this.items);
           
           console.log(`✅ ${this.items.length} Libros cargados`);
 
@@ -317,7 +254,19 @@
         }
       },
 
-      // --- UTILIDADES OPTIMIZADAS ---
+      // ✅ SOLUCIÓN PRINCIPAL: Crear URL para visualización
+      getDirectViewUrl(downloadUrl) {
+        if (CONFIG.useGoogleViewer) {
+          // Usar Google Viewer (el más confiable para visualización)
+          return `${CONFIG.googleViewerUrl}?url=${encodeURIComponent(downloadUrl)}&embedded=true`;
+        } else {
+          // Si no usamos Google Viewer, intentamos con una técnica alternativa
+          // que evita que el navegador descargue el archivo
+          return downloadUrl;
+        }
+      },
+
+      // --- UTILIDADES ---
       formatTitle(filename) {
         return filename
           .replace(/[_-]/g, ' ')
@@ -343,7 +292,7 @@
         return div.innerHTML;
       },
 
-      // --- RENDERIZADO VISUAL OPTIMIZADO ---
+      // --- RENDERIZADO VISUAL ---
       getCover(item, index) {
         if (item.coverUrl) {
           return `
@@ -390,13 +339,12 @@
           </div>`;
       },
 
-      // --- SISTEMA DE DESCARGA OPTIMIZADO ---
+      // --- SISTEMA DE DESCARGA (Separado de Visualización) ---
       async downloadBook(item, event) {
         if (event) event.stopPropagation();
         
         const button = event?.currentTarget;
         const originalHTML = button?.innerHTML || '';
-        const originalText = button?.textContent || '';
         
         if (button) {
           button.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i>';
@@ -405,25 +353,17 @@
         }
 
         try {
-          // Usar fetch para mejor manejo de errores
-          const response = await fetch(item.url);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          
+          // Usar el método directo para descarga
           const link = document.createElement('a');
-          link.href = url;
+          link.href = item.url;
           link.download = item.filename;
+          link.target = '_blank';
           
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
           
-          // Liberar memoria
-          setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-          
-          this.showNotification(`✅ ${this.t('download')}: ${item.title}`);
+          this.showNotification(`📥 ${this.t('downloadNow')}: ${item.title}`);
           
           // Actualizar contador visualmente
           const downloadCount = document.querySelector(`[data-book-id="${item.id}"] .download-count`);
@@ -434,16 +374,7 @@
           
         } catch (error) {
           console.error('Error en descarga:', error);
-          // Fallback al método directo
-          const link = document.createElement('a');
-          link.href = item.url;
-          link.download = item.filename;
-          link.target = '_blank';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          this.showNotification(`📥 ${this.t('downloadNow')}: ${item.title}`);
+          this.showNotification(`❌ ${this.t('errorLoading')}: ${item.title}`);
         } finally {
           if (button) {
             setTimeout(() => {
@@ -455,7 +386,7 @@
         }
       },
 
-      // --- LECTOR HÍBRIDO OPTIMIZADO ---
+      // --- ✅ LECTOR CORREGIDO: Sin Descargas Automáticas ---
       async openReader(item) {
         if (this.modalOpen) return;
         this.modalOpen = true;
@@ -475,41 +406,37 @@
         
         document.getElementById('close-modal').onclick = () => this.closeModal(modal);
         
-        // Decidir estrategia basada en tamaño y configuración
-        const usePDFJS = item.usePDFJS && CONFIG.usePDFJS;
+        // ✅ ESTRATEGIA CORREGIDA:
+        // 1. Primero intentar con Google Viewer (si está habilitado)
+        // 2. Si falla, usar PDF.js
+        // 3. Como último recurso, ofrecer opciones alternativas
         
-        if (usePDFJS && !window.pdfjsLib) {
-          try {
-            await this.loadPDFJS();
-            this.renderWithPDFJS(item, modal);
-          } catch (error) {
-            console.warn('PDF.js falló, usando nativo:', error);
-            this.loadNativePDF(item, modal);
-          }
-        } else if (usePDFJS && window.pdfjsLib) {
-          this.renderWithPDFJS(item, modal);
+        if (CONFIG.useGoogleViewer) {
+          this.loadWithGoogleViewer(item, modal);
+        } else if (CONFIG.usePDFJS) {
+          await this.tryPDFJS(item, modal);
         } else {
-          this.loadNativePDF(item, modal);
+          this.showAlternativeOptions(item, modal);
         }
       },
 
       getModalHTML(item) {
         const safeTitle = this.escapeHtml(item.title);
-        const usePDFJS = item.usePDFJS && CONFIG.usePDFJS;
-        const readerType = usePDFJS ? 'PDF.js' : this.t('nativeReader');
+        const viewerType = CONFIG.useGoogleViewer ? 'Google Viewer' : 
+                          CONFIG.usePDFJS ? 'PDF.js' : 
+                          this.t('externalViewer');
         
         return `
           <div class="absolute inset-0 bg-slate-900/95 backdrop-blur-xl"></div>
           <div class="relative z-10 flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/10 shadow-2xl">
             <div class="flex items-center gap-3 overflow-hidden">
               <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shrink-0 shadow-lg">
-                <i class="fa-solid fa-book-open text-white text-sm"></i>
+                <i class="fa-solid fa-eye text-white text-sm"></i>
               </div>
               <div class="min-w-0">
                 <h2 class="text-white font-bold text-sm truncate" title="${safeTitle}">${safeTitle}</h2>
                 <p class="text-white/40 text-[10px] uppercase font-bold">
-                  ${item.size} • ${readerType}
-                  ${item.rawSize > CONFIG.maxPDFSize ? ' • 📁' : ''}
+                  ${item.size} • ${viewerType} • ${this.t('viewingOnline')}
                 </p>
               </div>
             </div>
@@ -517,13 +444,13 @@
               <button onclick="window.NCLEX_LIBRARY.downloadBook(${JSON.stringify(item).replace(/"/g, '&quot;').replace(/'/g, '&#x27;')}, event)" 
                       class="px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
                 <i class="fa-solid fa-download"></i> 
-                <span class="hidden sm:inline">${this.t('download')}</span>
+                <span class="hidden sm:inline">${this.t('forceDownload')}</span>
               </button>
               
-              <a href="${item.url}" target="_blank" 
+              <a href="${item.directViewUrl}" target="_blank" 
                  class="px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
                 <i class="fa-solid fa-external-link-alt"></i> 
-                <span class="hidden sm:inline">${this.t('newTab')}</span>
+                <span class="hidden sm:inline">${this.t('viewInBrowser')}</span>
               </a>
               
               <button id="close-modal" 
@@ -533,104 +460,73 @@
               </button>
             </div>
           </div>
-          <div class="relative z-10 flex-1 w-full bg-gray-900 overflow-hidden flex flex-col" id="pdf-container">
+          <div class="relative z-10 flex-1 w-full bg-gray-900 overflow-hidden flex flex-col" id="viewer-container">
             <div class="absolute inset-0 flex flex-col items-center justify-center text-white/20 gap-4" id="loading-indicator">
               <div class="w-12 h-12 border-4 border-white/10 border-t-blue-500 rounded-full animate-spin"></div>
-              <span class="text-xs font-bold tracking-[0.3em] animate-pulse">${this.t('loadingPDF')}</span>
+              <span class="text-xs font-bold tracking-[0.3em] animate-pulse">
+                ${CONFIG.useGoogleViewer ? this.t('usingGoogleViewer') : this.t('loadingPDF')}
+              </span>
             </div>
           </div>
         `;
       },
 
-      // ESTRATEGIA 1: Lector Nativo (Optimizado)
-      loadNativePDF(item, modal) {
-        const container = modal.querySelector('#pdf-container');
+      // ✅ ESTRATEGIA 1: Google Viewer (La más confiable para visualización)
+      loadWithGoogleViewer(item, modal) {
+        const container = modal.querySelector('#viewer-container');
         const loading = modal.querySelector('#loading-indicator');
         
-        // Si el archivo es muy grande, mostrar advertencia
-        if (item.rawSize > CONFIG.maxPDFSize) {
-          loading.querySelector('span').textContent = this.t('fileTooLarge');
-        }
-        
-        const objectHTML = `
-          <object data="${item.url}#toolbar=0&navpanes=0" 
-                  type="application/pdf" 
-                  class="w-full h-full relative z-20"
-                  onload="this.style.opacity='1'; document.getElementById('loading-indicator').style.display='none';"
-                  style="opacity:0; transition: opacity 0.3s ease-in;">
-            <div class="fallback-content">
-              ${this.getFallbackContent(item)}
-            </div>
-          </object>
+        const iframeHTML = `
+          <iframe src="${item.directViewUrl}" 
+                  class="w-full h-full border-0"
+                  allowfullscreen
+                  onload="document.getElementById('loading-indicator').style.display='none';"
+                  style="opacity:0; transition: opacity 0.3s ease-in;"
+                  onload="this.style.opacity='1';">
+          </iframe>
         `;
         
-        container.insertAdjacentHTML('beforeend', objectHTML);
+        container.insertAdjacentHTML('beforeend', iframeHTML);
         
-        // Fallback después de 10 segundos
+        // Fallback después de 15 segundos
         setTimeout(() => {
           if (loading && loading.style.display !== 'none') {
-            container.innerHTML = this.getFallbackContent(item, true);
+            loading.querySelector('span').textContent = this.t('errorLoading');
+            setTimeout(() => {
+              this.showAlternativeOptions(item, modal);
+            }, 2000);
           }
-        }, 10000);
+        }, 15000);
       },
 
-      getFallbackContent(item, showButtons = true) {
-        return `
-          <div class="flex flex-col items-center justify-center h-full text-center p-8 gap-6">
-            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center shadow-2xl">
-              <i class="fa-regular fa-file-pdf text-3xl text-gray-500"></i>
-            </div>
-            <div>
-              <h3 class="text-xl font-bold text-white mb-2">${this.t('previewUnavailable')}</h3>
-              <p class="text-gray-400 max-w-md text-sm">${this.t('browserNotSupported')}</p>
-            </div>
-            ${showButtons ? `
-            <div class="flex flex-col sm:flex-row gap-3 mt-4">
-              <a href="${item.url}" target="_blank" 
-                 class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2">
-                <i class="fa-solid fa-external-link-alt"></i> ${this.t('openNewTab')}
-              </a>
-              <button onclick="window.NCLEX_LIBRARY.downloadBook(${JSON.stringify(item).replace(/"/g, '&quot;').replace(/'/g, '&#x27;')}, event)" 
-                      class="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2">
-                <i class="fa-solid fa-download"></i> ${this.t('downloadNow')}
-              </button>
-            </div>
-            ` : ''}
-          </div>
-        `;
-      },
-
-      // ESTRATEGIA 2: PDF.js (Optimizado para memoria)
-      async loadPDFJS() {
-        return new Promise((resolve, reject) => {
-          if (window.pdfjsLib) {
-            resolve();
+      // ✅ ESTRATEGIA 2: PDF.js (Sin descargas automáticas)
+      async tryPDFJS(item, modal) {
+        if (!window.pdfjsLib) {
+          try {
+            await this.loadPDFJS();
+          } catch (error) {
+            console.warn('PDF.js no se pudo cargar:', error);
+            this.showAlternativeOptions(item, modal);
             return;
           }
-          
-          const script = document.createElement('script');
-          script.src = CONFIG.pdfJsCDN;
-          script.onload = () => {
-            if (window.pdfjsLib) {
-              pdfjsLib.GlobalWorkerOptions.workerSrc = CONFIG.pdfJsWorker;
-              resolve();
-            } else {
-              reject(new Error('PDF.js no se cargó correctamente'));
-            }
-          };
-          script.onerror = () => reject(new Error('Error cargando PDF.js'));
-          document.head.appendChild(script);
-        });
-      },
-
-      async renderWithPDFJS(item, modal) {
-        const container = modal.querySelector('#pdf-container');
+        }
+        
+        const container = modal.querySelector('#viewer-container');
         const loading = modal.querySelector('#loading-indicator');
         
         try {
           loading.querySelector('span').textContent = this.t('usingPDFJS');
           
-          const loadingTask = pdfjsLib.getDocument(item.url);
+          // Configurar PDF.js
+          pdfjsLib.GlobalWorkerOptions.workerSrc = CONFIG.pdfJsWorker;
+          
+          // Cargar documento usando fetch para evitar descargas automáticas
+          const response = await fetch(item.url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          
+          const arrayBuffer = await response.arrayBuffer();
+          const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+          
           this.pdfDoc = await loadingTask.promise;
           
           if (this.pdfDoc.numPages === 0) {
@@ -639,17 +535,18 @@
           
           this.pageNum = 1;
           
+          // Crear interfaz de visualización
           container.innerHTML = `
             <div class="flex-1 overflow-auto bg-gray-900 relative" id="pdf-viewer-container">
               <div class="sticky top-0 z-50 bg-black/50 backdrop-blur px-4 py-2 flex items-center justify-between border-b border-white/10">
                 <div class="flex items-center gap-4 text-white">
-                  <button id="prev-page" class="p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30" title="${this.t('page')} ${this.pageNum - 1}">
+                  <button id="prev-page" class="p-2 hover:bg-white/10 rounded transition-colors disabled:opacity-30">
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
                   <span class="text-sm font-bold min-w-[80px] text-center">
                     <span id="page-num">${this.pageNum}</span> / <span id="page-count">${this.pdfDoc.numPages}</span>
                   </span>
-                  <button id="next-page" class="p-2 hover:bg-white/10 rounded transition-colors" title="${this.t('page')} ${this.pageNum + 1}">
+                  <button id="next-page" class="p-2 hover:bg-white/10 rounded transition-colors">
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
                 </div>
@@ -658,7 +555,7 @@
                 </div>
               </div>
               <div class="p-4 flex justify-center">
-                <canvas id="pdf-canvas" class="shadow-2xl max-w-full"></canvas>
+                <canvas id="pdf-canvas" class="shadow-2xl max-w-full bg-white rounded"></canvas>
               </div>
             </div>
           `;
@@ -674,10 +571,30 @@
           loading.style.display = 'none';
           
         } catch (error) {
-          console.error('Error PDF.js:', error);
-          loading.style.display = 'none';
-          container.innerHTML = this.getFallbackContent(item, true);
+          console.error('Error con PDF.js:', error);
+          this.showAlternativeOptions(item, modal);
         }
+      },
+
+      async loadPDFJS() {
+        return new Promise((resolve, reject) => {
+          if (window.pdfjsLib) {
+            resolve();
+            return;
+          }
+          
+          const script = document.createElement('script');
+          script.src = CONFIG.pdfJsCDN;
+          script.onload = () => {
+            if (window.pdfjsLib) {
+              resolve();
+            } else {
+              reject(new Error('PDF.js no se cargó correctamente'));
+            }
+          };
+          script.onerror = () => reject(new Error('Error cargando PDF.js'));
+          document.head.appendChild(script);
+        });
       },
 
       async renderPDFPage(num) {
@@ -694,47 +611,54 @@
           return;
         }
         
-        const container = document.getElementById('pdf-viewer-container');
-        const page = await this.pdfDoc.getPage(num);
-        
-        // Calcular escala óptima
-        const viewport = page.getViewport({ scale: 1 });
-        const containerWidth = container ? container.clientWidth - 80 : 800;
-        const scale = Math.min(containerWidth / viewport.width, 2.0);
-        const scaledViewport = page.getViewport({ scale });
-        
-        // Preparar canvas
-        canvas.height = scaledViewport.height;
-        canvas.width = scaledViewport.width;
-        
-        const context = canvas.getContext('2d', { alpha: false });
-        const renderContext = {
-          canvasContext: context,
-          viewport: scaledViewport
-        };
-        
-        // Limpiar canvas
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle = '#ffffff';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        await page.render(renderContext).promise;
-        
-        // Actualizar UI
-        document.getElementById('page-num').textContent = num;
-        document.getElementById('current-page').textContent = num;
-        
-        // Habilitar/deshabilitar botones
-        document.getElementById('prev-page').disabled = num <= 1;
-        document.getElementById('next-page').disabled = num >= this.pdfDoc.numPages;
-        
-        this.pdfRendering = false;
-        
-        // Procesar página pendiente si existe
-        if (this.pendingPage !== null) {
-          const nextPage = this.pendingPage;
-          this.pendingPage = null;
-          await this.renderPDFPage(nextPage);
+        try {
+          const page = await this.pdfDoc.getPage(num);
+          
+          // Calcular escala
+          const viewport = page.getViewport({ scale: 1 });
+          const container = document.getElementById('pdf-viewer-container');
+          const containerWidth = container ? container.clientWidth - 80 : 800;
+          const scale = Math.min(containerWidth / viewport.width, 2.0);
+          const scaledViewport = page.getViewport({ scale });
+          
+          // Configurar canvas
+          canvas.height = scaledViewport.height;
+          canvas.width = scaledViewport.width;
+          
+          const context = canvas.getContext('2d', { alpha: false });
+          
+          // Limpiar y preparar fondo blanco
+          context.fillStyle = '#ffffff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          
+          const renderContext = {
+            canvasContext: context,
+            viewport: scaledViewport
+          };
+          
+          await page.render(renderContext).promise;
+          
+          // Actualizar UI
+          document.getElementById('page-num').textContent = num;
+          document.getElementById('current-page').textContent = num;
+          
+          // Habilitar/deshabilitar botones
+          const prevBtn = document.getElementById('prev-page');
+          const nextBtn = document.getElementById('next-page');
+          if (prevBtn) prevBtn.disabled = num <= 1;
+          if (nextBtn) nextBtn.disabled = num >= this.pdfDoc.numPages;
+          
+        } catch (error) {
+          console.error('Error renderizando página:', error);
+        } finally {
+          this.pdfRendering = false;
+          
+          // Procesar página pendiente si existe
+          if (this.pendingPage !== null) {
+            const nextPage = this.pendingPage;
+            this.pendingPage = null;
+            await this.renderPDFPage(nextPage);
+          }
         }
       },
 
@@ -750,6 +674,44 @@
         } else {
           this.renderPDFPage(newPage);
         }
+      },
+
+      // ✅ ESTRATEGIA 3: Opciones alternativas cuando todo falla
+      showAlternativeOptions(item, modal) {
+        const container = modal.querySelector('#viewer-container');
+        const loading = modal.querySelector('#loading-indicator');
+        
+        if (loading) {
+          loading.style.display = 'none';
+        }
+        
+        container.innerHTML = `
+          <div class="flex flex-col items-center justify-center h-full text-center p-8 gap-6">
+            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center shadow-2xl">
+              <i class="fa-solid fa-file-circle-question text-3xl text-yellow-500"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-white mb-2">${this.t('previewUnavailable')}</h3>
+              <p class="text-gray-400 max-w-md text-sm">${this.t('browserNotSupported')}</p>
+              <p class="text-gray-500 text-xs mt-2">${item.size} • ${item.fileType}</p>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 mt-4">
+              <a href="${item.directViewUrl}" target="_blank" 
+                 class="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-external-link-alt"></i> ${this.t('viewInBrowser')}
+              </a>
+              <button onclick="window.NCLEX_LIBRARY.downloadBook(${JSON.stringify(item).replace(/"/g, '&quot;').replace(/'/g, '&#x27;')}, event)" 
+                      class="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-download"></i> ${this.t('forceDownload')}
+              </button>
+            </div>
+            <div class="mt-6 text-xs text-gray-500">
+              <p>📌 <strong>${this.t('help')}:</strong> ${this.currentLang === 'es' ? 
+                'Google Viewer funciona en la mayoría de navegadores. Si no carga, usa "Ver en navegador".' : 
+                'Google Viewer works in most browsers. If it doesn\'t load, use "View in browser".'}</p>
+            </div>
+          </div>
+        `;
       },
 
       closeModal(modal) {
@@ -779,7 +741,6 @@
         }, 300);
       },
 
-      // --- SISTEMA DE NOTIFICACIONES OPTIMIZADO ---
       showNotification(message) {
         // Remover notificaciones anteriores
         document.querySelectorAll('.library-notification').forEach(el => {
@@ -865,16 +826,10 @@
               <i class="fa-solid fa-triangle-exclamation text-4xl text-red-400 mb-4"></i>
               <h3 class="text-lg font-bold text-red-300">${this.t('connectionError')}</h3>
               <p class="text-sm text-red-400/70 mt-2">${this.escapeHtml(this.error)}</p>
-              <div class="flex justify-center gap-3 mt-6">
-                <button onclick="window.NCLEX_LIBRARY.init()" 
-                        class="px-6 py-2 rounded-full bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 transition-colors">
-                  <span class="text-sm font-bold text-red-300">${this.t('retryConnection')}</span>
-                </button>
-                <button onclick="window.NCLEX_LIBRARY.clearCache()" 
-                        class="px-6 py-2 rounded-full bg-gray-800/50 border border-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                  <span class="text-sm font-bold text-gray-300">${this.t('clearCache')}</span>
-                </button>
-              </div>
+              <button onclick="window.NCLEX_LIBRARY.init()" 
+                      class="mt-6 px-6 py-2 rounded-full bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+                <span class="text-sm font-bold text-red-300">${this.t('retryConnection')}</span>
+              </button>
             </div>`;
         }
 
@@ -888,6 +843,14 @@
         }
         
         return `
+          <div class="mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-900/10 to-purple-900/10 border border-white/5 backdrop-blur-sm">
+            <div class="flex items-center gap-3 text-sm text-gray-400">
+              <i class="fa-solid fa-lightbulb text-yellow-400"></i>
+              <p><span class="font-bold text-white">Click</span>: ${this.t('viewInBrowser')} • 
+                 <span class="font-bold text-white">${this.t('download')}</span>: ${this.currentLang === 'es' ? 'Guardar en dispositivo' : 'Save to device'}</p>
+            </div>
+          </div>
+          
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 gap-y-12">
             ${this.items.map((item, idx) => this.getBookCardHTML(item, idx)).join('')}
           </div>`;
@@ -958,43 +921,45 @@
         const helpText = this.currentLang === 'es' ? 
           `📚 ${TRANSLATIONS.es.libraryTitle} - AYUDA
 
-VISUALIZACIÓN:
-• Click en cualquier libro: Abre lector nativo
-• Archivos grandes (>50MB): Se abren en lector nativo automáticamente
-• Si el PDF no carga: Usa "Abrir en Pestaña"
+VISUALIZACIÓN (SIN DESCARGA):
+• Click en cualquier libro: Abre en Google Viewer (sin descargar)
+• Google Viewer muestra PDFs directamente en el navegador
+• Si no carga: Usa "Ver en navegador" para abrir en nueva pestaña
 
 DESCARGA:
-• Botón "Descargar": Guarda directamente en tu dispositivo
-• El contador se actualiza visualmente
+• Botón "Descargar": Solo para guardar en tu dispositivo
+• La visualización NO descarga automáticamente
 
 TECNOLOGÍA:
-• Lector Nativo: Más rápido, menos consumo de memoria
-• PDF.js: Para archivos pequeños (<50MB), con navegación
+• Google Viewer: El más confiable para visualizar sin descargar
+• PDF.js: Alternativa si Google Viewer no está disponible
+• Siempre prioriza la visualización sobre la descarga
 
-CONSEJOS:
-• Para mejor experiencia, mantén usePDFJS: false
-• Los datos se cachean por 5 minutos
-• Recarga si faltan libros` :
+PROBLEMAS COMUNES:
+1. Si se descarga automáticamente: Usa "Ver en navegador"
+2. Si no carga: Prueba recargando la página
+3. Archivos grandes: Pueden tardar más en cargar` :
           
           `📚 ${TRANSLATIONS.en.libraryTitle} - HELP
 
-VIEWING:
-• Click on any book: Opens native reader
-• Large files (>50MB): Automatically open in native reader
-• If PDF doesn't load: Use "Open in Tab"
+VIEWING (NO DOWNLOAD):
+• Click on any book: Opens in Google Viewer (no download)
+• Google Viewer shows PDFs directly in browser
+• If it doesn't load: Use "View in browser" to open in new tab
 
 DOWNLOAD:
-• "Download" button: Saves directly to your device
-• Counter updates visually
+• "Download" button: Only to save to your device
+• Viewing does NOT automatically download
 
 TECHNOLOGY:
-• Native Reader: Faster, less memory consumption
-• PDF.js: For small files (<50MB), with navigation
+• Google Viewer: Most reliable for viewing without downloading
+• PDF.js: Alternative if Google Viewer is not available
+• Always prioritizes viewing over downloading
 
-TIPS:
-• For best experience, keep usePDFJS: false
-• Data is cached for 5 minutes
-• Reload if books are missing`;
+COMMON ISSUES:
+1. If it downloads automatically: Use "View in browser"
+2. If it doesn't load: Try reloading the page
+3. Large files: May take longer to load`;
         
         alert(helpText);
       },
@@ -1081,41 +1046,34 @@ TIPS:
         height: auto;
       }
       
-      .fallback-content {
-        animation: fadeIn 0.5s ease-out;
-      }
-      
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+      .library-modal iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: white;
       }
       
       .library-notification {
         backdrop-filter: blur(10px);
       }
       
-      /* Mejoras para el modal PDF.js */
-      #pdf-viewer-container {
+      /* Scrollbar para el visor */
+      #viewer-container {
         scrollbar-width: thin;
         scrollbar-color: rgba(255,255,255,0.2) transparent;
       }
       
-      #pdf-viewer-container::-webkit-scrollbar {
+      #viewer-container::-webkit-scrollbar {
         width: 8px;
       }
       
-      #pdf-viewer-container::-webkit-scrollbar-track {
+      #viewer-container::-webkit-scrollbar-track {
         background: transparent;
       }
       
-      #pdf-viewer-container::-webkit-scrollbar-thumb {
+      #viewer-container::-webkit-scrollbar-thumb {
         background-color: rgba(255,255,255,0.2);
         border-radius: 4px;
-      }
-      
-      /* Botones de navegación PDF */
-      #prev-page:disabled, #next-page:disabled {
-        cursor: not-allowed;
       }
     `;
     
