@@ -1,4 +1,4 @@
-/* ngn_engine.js — Motor Next Generation NCLEX & Topic Registry v2.1 */.
+/* ngn_engine.js — Motor Next Generation NCLEX & Topic Registry v2.1 */
 /* 🔗 ESTADO: BRIDGE ACTIVATED - ANATOMY COMPATIBLE */
 
 (function () {
