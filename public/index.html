@@ -10,58 +10,65 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NCLEX MASTERCLASS | By Reynier Diaz Gerones</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS local para evitar advertencia en producción -->
+    <script>
+        // Solución temporal para CDN de Tailwind
+        if (typeof window.tailwind === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.tailwindcss.com';
+            script.onload = function() {
+                tailwind.config = {
+                    darkMode: 'class',
+                    theme: {
+                        extend: {
+                            fontFamily: { sans: ['Inter', 'sans-serif'] },
+                            colors: {
+                                brand: { 
+                                    blue: '#007AFF', 
+                                    bg: '#F5F5F7', 
+                                    dark: '#000000', 
+                                    card: '#1C1C1E', 
+                                    border: '#2C2C2E' 
+                                },
+                                clinical: {
+                                    success: '#34C759', 
+                                    error: '#FF3B30',   
+                                    warning: '#FF9500', 
+                                    info: '#5856D6'     
+                                }
+                            },
+                            zIndex: {
+                                '60': '60',
+                                '70': '70',
+                                '100': '100',
+                            },
+                            animation: {
+                                'slide-in': 'slideIn 0.3s ease-out forwards',
+                                'fade-in': 'fadeIn 0.4s ease-out forwards'
+                            },
+                            keyframes: {
+                                slideIn: { '0%': { transform: 'translateX(-20px)', opacity: '0' }, '100%': { transform: 'translateX(0)', opacity: '1' } },
+                                fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+                            }
+                        }
+                    }
+                };
+            };
+            document.head.appendChild(script);
+        }
+    </script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        brand: { 
-                            blue: '#007AFF', 
-                            bg: '#F5F5F7', 
-                            dark: '#000000', 
-                            card: '#1C1C1E', 
-                            border: '#2C2C2E' 
-                        },
-                        clinical: {
-                            success: '#34C759', 
-                            error: '#FF3B30',   
-                            warning: '#FF9500', 
-                            info: '#5856D6'     
-                        }
-                    },
-                    zIndex: {
-                        '60': '60',
-                        '70': '70',
-                        '100': '100',
-                    },
-                    animation: {
-                        'slide-in': 'slideIn 0.3s ease-out forwards',
-                        'fade-in': 'fadeIn 0.4s ease-out forwards'
-                    },
-                    keyframes: {
-                        slideIn: { '0%': { transform: 'translateX(-20px)', opacity: '0' }, '100%': { transform: 'translateX(0)', opacity: '1' } },
-                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
-                    }
-                }
-            }
-        }
-    </script>
-
     <style>
+        /* Estilos base mientras carga Tailwind */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #F5F5F7; color: #000000; transition: background-color 0.3s, color 0.3s; }
+        body.dark { background: #000000; color: #ffffff; }
+        .hidden { display: none !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden-lang { display: none !important; }
-        
-        ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.3); border-radius: 999px; }
-        .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); }
-        ::-webkit-scrollbar-track { background: transparent; }
         
         .nav-btn.active {
             background-color: rgba(0, 122, 255, 0.1);
@@ -71,13 +78,6 @@
         .dark .nav-btn.active {
             background-color: rgba(0, 122, 255, 0.2);
             color: #60a5fa;
-        }
-        
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
         }
         
         #home-search-results {
@@ -91,7 +91,6 @@
             background-color: white;
             border-radius: 0 0 0.75rem 0.75rem;
             box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-            animation: slideIn 0.2s ease-out;
             display: none;
         }
         
@@ -105,10 +104,31 @@
         #home-search-results.active {
             display: block;
         }
+        
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        /* Animaciones */
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-slide-in { animation: slideIn 0.3s ease-out forwards; }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
     </style>
 </head>
 
-<body class="bg-brand-bg text-slate-900 dark:bg-brand-dark dark:text-slate-100 min-h-screen overflow-hidden flex flex-col md:flex-row font-sans transition-colors duration-300">
+<body class="bg-brand-bg text-slate-900 dark:bg-brand-dark dark:text-slate-100 min-h-screen overflow-hidden flex flex-col md:flex-row font-sans">
     
     <noscript>
         <div class="fixed inset-0 bg-white z-[999] flex items-center justify-center text-center p-4">
@@ -225,13 +245,13 @@
         <i class="fa-solid fa-arrow-up text-lg" aria-hidden="true"></i>
     </button>
 
-    <!-- Archivos principales -->
-    <script type="module" src="js/auth.js?v=2.0"></script>
+    <!-- Scripts principales (SIN type="module") -->
+    <script src="js/auth.js?v=2.0"></script>
+    <script src="js/logic.js?v=2.0"></script>
     <script src="js/ngn_engine.js?v=2.0"></script>
     <script src="js/simulator.js?v=2.0"></script>
-    <script src="js/logic.js?v=2.0"></script>
 
-    <!-- Temas -->
+    <!-- Scripts de temas -->
     <script src="js/01_newborn.js"></script>
     <script src="js/02_maternity.js"></script>
     <script src="js/03_pediatrics_growth_development.js"></script>
@@ -267,9 +287,32 @@
     <script src="js/33_library.js?v=20260204"></script>
     <script src="js/34_anatomy.js"></script>
 
-    <!-- Script para el arrastre de floating-tools (ya existente) -->
+    <!-- Script de inicialización y herramientas flotantes -->
     <script>
 (function () {
+  // Inicialización básica si logic.js no carga
+  window.nclexApp = window.nclexApp || {
+    navigate: function(route) {
+      console.log('Navigating to:', route);
+      const view = document.getElementById('app-view');
+      if (view) {
+        view.innerHTML = `<div class="p-8"><h2 class="text-2xl font-bold">${route}</h2><p>Módulo en desarrollo</p></div>`;
+      }
+    },
+    toggleLanguage: function() {
+      const isEs = document.documentElement.lang === 'es';
+      document.documentElement.lang = isEs ? 'en' : 'es';
+      document.querySelectorAll('.lang-es, .lang-en').forEach(el => {
+        el.classList.toggle('hidden-lang');
+      });
+    },
+    toggleTheme: function() {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('nclex_theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+    }
+  };
+
+  // Herramientas flotantes
   const KEY = 'nclex_floating_tools_pos_v1';
   const el = document.getElementById('floating-tools');
   if (!el) return;
@@ -295,7 +338,6 @@
   }
 
   function onDown(e) {
-    // Si haces click en un botón, NO arrastrar
     if (e.target.closest('button')) return;
 
     dragging = true;
@@ -307,12 +349,10 @@
     origX = rect.left;
     origY = rect.top;
 
-    // Forzar posicionamiento por left/top
     el.style.left = origX + 'px';
     el.style.top = origY + 'px';
     el.style.right = 'auto';
 
-    // feedback visual
     el.style.outline = '2px solid rgba(0,122,255,0.55)';
     el.style.outlineOffset = '2px';
 
@@ -365,11 +405,9 @@
     document.removeEventListener('touchend', onUp);
   }
 
-  // Drag con mouse/touch
   el.addEventListener('mousedown', onDown);
   el.addEventListener('touchstart', onDown, { passive: false });
 
-  // Doble click en el fondo para resetear posición
   el.addEventListener('dblclick', (e) => {
     if (e.target.closest('button')) return;
     try { localStorage.removeItem(KEY); } catch (e) {}
@@ -378,6 +416,45 @@
     el.style.left = 'auto';
   });
 })();
+
+// Ocultar loading y inicializar tema
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    const loading = document.getElementById('loading');
+    if (loading) loading.style.display = 'none';
+    
+    // Inicializar tema
+    const savedTheme = localStorage.getItem('nclex_theme') || 'dark';
+    if (savedTheme === 'dark') {
+      document.body.classList.add('dark');
+      document.documentElement.classList.add('dark');
+    }
+    
+    // Inicializar lenguaje
+    const savedLang = localStorage.getItem('nclex_lang') || 'es';
+    document.documentElement.lang = savedLang;
+    
+    // Verificar carga de scripts
+    console.log('NCLEX Masterclass cargado');
+    
+    // Navegar a home si no hay error
+    if (window.nclexApp && typeof window.nclexApp.navigate === 'function') {
+      window.nclexApp.navigate('home');
+    }
+  }, 1000);
+});
+
+// Fallback para funciones no cargadas
+window.toggleNotepad = window.toggleNotepad || function() {
+  const notepad = document.getElementById('notepad-window');
+  if (notepad) {
+    notepad.classList.toggle('hidden');
+  }
+};
+
+window.scrollToTop = window.scrollToTop || function() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
     </script>
 
 </body>
