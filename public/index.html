@@ -6,12 +6,10 @@
     <meta name="description" content="NCLEX-RN Masterclass Study Application - Comprehensive Nursing Education Platform | Plataforma Integral de Educación en Enfermería">
     <meta name="theme-color" content="#F5F5F7">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes"> <!-- Añadido -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NCLEX MASTERCLASS | By Reynier Diaz Gerones</title>
     
-    <!-- Reemplazar CDN de Tailwind por versión local o instalación adecuada -->
-    <!-- Para desarrollo temporal, mantenemos el CDN pero con la advertencia -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -227,12 +225,13 @@
         <i class="fa-solid fa-arrow-up text-lg" aria-hidden="true"></i>
     </button>
 
-    <!-- CORREGIDO: Todos los archivos JS están en la carpeta js/ -->
+    <!-- Archivos principales -->
     <script type="module" src="js/auth.js?v=2.0"></script>
     <script src="js/ngn_engine.js?v=2.0"></script>
     <script src="js/simulator.js?v=2.0"></script>
     <script src="js/logic.js?v=2.0"></script>
 
+    <!-- Temas -->
     <script src="js/01_newborn.js"></script>
     <script src="js/02_maternity.js"></script>
     <script src="js/03_pediatrics_growth_development.js"></script>
@@ -247,7 +246,7 @@
     <script src="js/12_fundamentals.js"></script>
     <script src="js/13_hematology_oncology.js"></script>
     <script src="js/14_gastrointestinal.js"></script>
-    <script src="js/15_integrumentary_burns.js"></script> <!-- Nombre corregido -->
+    <script src="js/15_integrumentary_burns.js"></script>
     <script src="js/16_labs_values.js"></script>
     <script src="js/17_bnotepad.js"></script>
     <script src="js/18_leadership_management.js"></script>
@@ -266,7 +265,9 @@
     <script src="js/31_search_service.js"></script>
     <script src="js/32_analytics_dashboard.js"></script>
     <script src="js/33_library.js?v=20260204"></script>
+    <script src="js/34_anatomy.js"></script>
 
+    <!-- Script para el arrastre de floating-tools (ya existente) -->
     <script>
 (function () {
   const KEY = 'nclex_floating_tools_pos_v1';
@@ -377,7 +378,7 @@
     el.style.left = 'auto';
   });
 })();
-</script>
+    </script>
 
 </body>
 </html>
