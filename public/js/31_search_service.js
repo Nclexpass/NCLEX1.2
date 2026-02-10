@@ -9,68 +9,6 @@
 
   const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-
-  const normalize = (s) => String(s || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-
-  const stripHTML = (html) => {
-    const div = document.createElement('div');
-    div.innerHTML = html || '';
-    return div.textContent || div.innerText || '';
-  };
-
-  const countOccurrences = (haystack, needle) => {
-    if (!needle) return 0;
-    let c = 0, i = 0;
-    while ((i = haystack.indexOf(needle, i)) !== -1) { c++; i += Math.max(1, needle.length); }
-    return c;
-  };
-
-  const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g, ch => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[ch]));
-
-  const buildNormAndMap = (str) => {
-    const map = [];
-    let norm = '';
-    const src = String(str || '');
-    for (let i = 0; i < src.length; i++) {
-      const base = src[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      for (let j = 0; j < base.length; j++) {
-        norm += base[j].toLowerCase();
-        map.push(i);
-      }
-    }
-    return { norm, map };
-  };
-
-  const snippetFromPlain = (plain, qNorm) => {
-    const text = String(plain || '').trim().replace(/\s+/g, ' ');
-    if (!text) return '';
-    const { norm, map } = buildNormAndMap(text);
-    const found = norm.indexOf(qNorm);
-    if (found === -1) {
-      return escapeHTML(text.slice(0, 160)) + (text.length > 160 ? '…' : '');
-    }
-    const startOrig = map[found] ?? 0;
-    const endOrig = (map[found + qNorm.length - 1] ?? startOrig) + 1;
-
-    const ctxBefore = 70, ctxAfter = 90;
-    const start = Math.max(0, startOrig - ctxBefore);
-    const end = Math.min(text.length, endOrig + ctxAfter);
-
-    const prefix = start > 0 ? '…' : '';
-    const suffix = end < text.length ? '…' : '';
-
-    const before = escapeHTML(text.slice(start, startOrig));
-    const mid = escapeHTML(text.slice(startOrig, endOrig));
-    const after = escapeHTML(text.slice(endOrig, end));
-
-    return `${prefix}${before}<mark class="bg-yellow-200/70 dark:bg-yellow-500/30 px-0.5 rounded-sm">${mid}</mark>${after}${suffix}`;
-  };
-
   const SearchService = {
     index: [],
     attempts: 0,
@@ -124,48 +62,17 @@
       topics.forEach(topic => {
         if (!topic || !topic.id) return;
 
-        // Indexar título/subtítulo + contenido completo (render -> texto plano)
-        const titleES = topic.title?.es || '';
-        const subES = topic.subtitle?.es || '';
-        const titleEN = topic.title?.en || '';
-        const subEN = topic.subtitle?.en || '';
-
-        const metaRaw = `${titleES} ${subES} ${titleEN} ${subEN}`;
-        const metaNorm = normalize(metaRaw);
-
-        // Reusar cache del índice inteligente si existe (evita re-ejecutar render())
-        const cachedPlain = topic.__searchPlain || '';
-        const cachedNorm = topic.__searchNorm || '';
-
-        let plain = cachedPlain;
-        let contentNorm = cachedNorm;
-
-        if (!plain || !contentNorm) {
-          let rawHTML = '';
-          try {
-            rawHTML = typeof topic.render === 'function' ? topic.render() : (typeof topic.content === 'string' ? topic.content : '');
-          } catch (e) {
-            rawHTML = '';
-          }
-          plain = stripHTML(rawHTML);
-          contentNorm = normalize(plain);
-
-          try {
-            topic.__searchPlain = plain;
-            topic.__searchNorm = contentNorm;
-          } catch (e) {}
-        }
+        // Indexar ES y EN
+        const textES = (topic.title?.es + ' ' + (topic.subtitle?.es || '')).toLowerCase();
+        const textEN = (topic.title?.en + ' ' + (topic.subtitle?.en || '')).toLowerCase();
 
         this.index.push({
-          id: String(topic.id),
-          metaNorm,
-          contentNorm,
-          search: (metaNorm + ' ' + contentNorm).trim(),
+          id: topic.id,
+          text: textES + ' | ' + textEN, // Búsqueda combinada
           titleObj: topic.title,
           subtitleObj: topic.subtitle,
           icon: topic.icon,
-          color: topic.color,
-          plain // para snippets
+          color: topic.color
         });
       });
     },
@@ -368,17 +275,8 @@
           return;
       }
 
-      const qNorm = normalize(query);
-
-      // Filtrar usando índice combinado (título/subtítulo + contenido)
-      const matches = this.index
-        .filter(item => item.search && item.search.includes(qNorm))
-        .map(item => {
-          const titleBoost = item.metaNorm && item.metaNorm.includes(qNorm) ? 25 : 0;
-          const count = countOccurrences(item.contentNorm || '', qNorm);
-          return { ...item, _score: titleBoost + count, _count: count, _titleHit: titleBoost > 0 };
-        })
-        .sort((a, b) => (b._score - a._score));
+      // Filtrar usando el índice combinado
+      const matches = this.index.filter(item => item.text.includes(query));
 
       if (matches.length === 0) {
         container.innerHTML = `<div class="text-center py-8 text-gray-500">${t('Sin resultados', 'No results found')}</div>`;
@@ -391,18 +289,14 @@
         const subHTML = match.subtitleObj ? t(match.subtitleObj.es, match.subtitleObj.en) : '';
 
         html += `
-          <button onclick="window.nclexApp.openTopicWithHighlight('${match.id}','${encodeURIComponent(query)}'); document.getElementById('close-search').click();" 
+          <button onclick="window.nclexApp.navigate('topic/${match.id}'); document.getElementById('close-search').click();" 
                   class="w-full text-left p-3 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all flex items-center gap-4 group border border-transparent hover:border-blue-100 dark:hover:border-blue-800">
              <div class="w-10 h-10 rounded-full bg-${match.color || 'blue'}-100 dark:bg-${match.color || 'blue'}-900/30 text-${match.color || 'blue'}-600 dark:text-${match.color || 'blue'}-400 flex items-center justify-center shrink-0">
                 <i class="fa-solid fa-${match.icon || 'book'}"></i>
              </div>
              <div class="flex-1 min-w-0">
                 <div class="font-bold text-slate-800 dark:text-gray-200 text-sm truncate">${titleHTML}</div>
-                <div class="flex items-center justify-between gap-3">
-                  <div class="text-xs text-gray-500 truncate">${subHTML}</div>
-                  <span class="text-[10px] px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 shrink-0">${t(match._count + ' coincidencias', match._count + ' matches')}</span>
-                </div>
-                <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">${snippetFromPlain(match.plain, qNorm)}</div>
+                <div class="text-xs text-gray-500 truncate">${subHTML}</div>
              </div>
              <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-blue-500"></i>
           </button>

@@ -52,12 +52,6 @@
       updateTimer: null,
       scrollPositions: {} 
     };
-
-    // --- SYSTEM / UI MODULES (NO cuentan como "Temas" de estudio) ---
-    const SYSTEM_TOPIC_IDS = new Set(['library']); // (Paso 2 añadiremos 'dashboard')
-    const isSystemTopic = (id) => SYSTEM_TOPIC_IDS.has(String(id));
-    const getStudyTopics = () => state.topics.filter(t => !isSystemTopic(t.id));
-
   
     // --- SMART SEARCH TEXT INDEX (NCLEX OPTIMIZED) ---
     const SmartTextIndex = (() => {
@@ -97,23 +91,14 @@
     
         if (!rawContent) return;
     
-        const plainRaw = stripHTML(rawContent);
-        const plainText = normalize(plainRaw);
+        const plainText = normalize(stripHTML(rawContent));
         const headings = extractHeadings(rawContent);
-
-        // Cache para evitar re-render en otros servicios (búsqueda global, etc.)
-        try {
-          topic.__searchPlain = plainRaw;
-          topic.__searchNorm = plainText;
-          topic.__searchHeadings = headings;
-        } catch (e) {}
-
+    
         index.push({
           id: topic.id,
           title: topic.title?.es || topic.title?.en || topic.title || '',
           subtitle: topic.subtitle?.es || topic.subtitle?.en || '',
           text: plainText,
-          plain: plainRaw,
           headings,
           color: topic.color || 'blue'
         });
@@ -163,11 +148,7 @@
         return results;
       }
     
-      function getEntry(topicId) {
-        return index.find(t => t.id === topicId) || null;
-      }
-
-      return { build, search, getEntry };
+      return { build, search };
     })();
 
     window.NCLEX = {
@@ -196,7 +177,7 @@
         state.updateTimer = setTimeout(() => {
             if (state.isAppLoaded) {
                 updateNav();
-                SmartTextIndex.build(getStudyTopics()); // REBUILD INDEX ON NEW CONTENT
+                SmartTextIndex.build(state.topics); // REBUILD INDEX ON NEW CONTENT
                 // If we are currently on this topic (reloading hot swap), re-render
                 if (state.currentRoute === `topic/${topic.id}`) {
                     render(state.currentRoute);
@@ -242,7 +223,6 @@
       },
       
       toggleTopicComplete(topicId) {
-          if (isSystemTopic(topicId)) return;
           const index = state.completedTopics.indexOf(topicId);
           if (index > -1) state.completedTopics.splice(index, 1);
           else state.completedTopics.push(topicId);
@@ -267,37 +247,7 @@
           }, 100);
       },
   
-
-
-      openTopicWithHighlight(topicId, encodedTerm, encodedHeading) {
-        try {
-          const term = encodedTerm ? decodeURIComponent(encodedTerm) : '';
-          const heading = encodedHeading ? decodeURIComponent(encodedHeading) : '';
-          if (term) {
-            sessionStorage.setItem('nclex_pending_highlight', JSON.stringify({
-              topicId: String(topicId),
-              term: term,
-              heading: heading || null,
-              ts: Date.now()
-            }));
-          } else {
-            sessionStorage.removeItem('nclex_pending_highlight');
-          }
-        } catch (e) {
-          console.warn('Highlight setup failed:', e);
-        }
-        return this.navigate('topic/' + String(topicId));
-      },
-
-      clearHighlights() {
-        try { sessionStorage.removeItem('nclex_pending_highlight'); } catch(e) {}
-        if (window.NCLEX_HIGHLIGHT && typeof window.NCLEX_HIGHLIGHT.clear === 'function') {
-          window.NCLEX_HIGHLIGHT.clear();
-        }
-      },
-
       getTopics() { return state.topics; }
-
     };
   
     window.scrollToTop = function() {
@@ -414,7 +364,7 @@
       const termRegex = new RegExp(escapedTerm, 'g');
       
       // Search in topics
-      getStudyTopics().forEach(topic => {
+      state.topics.forEach(topic => {
         let score = 0;
         let matches = [];
         
@@ -576,13 +526,10 @@
                 'brain';
               
               const matchInfo = result.matches.join(', ');
-              const sectionHeading = (result.matches || []).find(m => String(m).startsWith('section: '))?.replace('section: ', '') || '';
-              const encTerm = encodeURIComponent(term);
-              const encHeading = encodeURIComponent(sectionHeading);
               
               return `
               <div class="p-4 border-b border-gray-100 dark:border-brand-border hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" 
-                   onclick="${result.type === 'topic' ? `window.nclexApp.openTopicWithHighlight('${result.topic.id}','${encTerm}','${encHeading}')` : `window.nclexApp.navigateToQuestion(${result.index})`}">
+                   onclick="${result.type === 'topic' ? `window.nclexApp.navigate('topic/${result.topic.id}')` : `window.nclexApp.navigateToQuestion(${result.index})`}">
                 <div class="flex items-start gap-3">
                   <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${colors.grad} flex items-center justify-center text-white flex-shrink-0">
                     <i class="fa-solid fa-${icon}"></i>
@@ -637,207 +584,6 @@
       }
     }
   
-
-
-    // --- HIGHLIGHT DE RESULTADOS DE BÚSQUEDA (acento-insensible + navegación) ---
-    window.NCLEX_HIGHLIGHT = (() => {
-      const CONTROL_ID = 'nclex-highlight-controls';
-      const MARK_CLASS = 'nclex-highlight-mark';
-      let marks = [];
-      let current = 0;
-
-      const normalize = (s) => String(s || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-
-      function removeControls() {
-        const el = document.getElementById(CONTROL_ID);
-        if (el) el.remove();
-      }
-
-      function clear(root = document) {
-        removeControls();
-        marks = [];
-        current = 0;
-        const rootEl = root && root.querySelectorAll ? root : document;
-        rootEl.querySelectorAll('mark.' + MARK_CLASS).forEach(mark => {
-          const textNode = document.createTextNode(mark.textContent || '');
-          mark.replaceWith(textNode);
-        });
-        // Normalize to merge adjacent text nodes
-        if (rootEl.normalize) rootEl.normalize();
-      }
-
-      function buildNormAndMap(str) {
-        const map = [];
-        let norm = '';
-        for (let i = 0; i < str.length; i++) {
-          const base = str[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          for (let j = 0; j < base.length; j++) {
-            norm += base[j].toLowerCase();
-            map.push(i);
-          }
-        }
-        return { norm, map };
-      }
-
-      function findRanges(original, queryNorm) {
-        const { norm, map } = buildNormAndMap(original);
-        const ranges = [];
-        if (!queryNorm) return ranges;
-
-        let idx = 0;
-        while (true) {
-          const found = norm.indexOf(queryNorm, idx);
-          if (found === -1) break;
-          const startOrig = map[found];
-          const endOrig = (map[found + queryNorm.length - 1] ?? startOrig) + 1;
-          ranges.push([startOrig, endOrig]);
-          idx = found + Math.max(1, queryNorm.length);
-        }
-        return ranges;
-      }
-
-      function highlightTextNode(node, queryNorm) {
-        const text = node.nodeValue;
-        if (!text) return 0;
-
-        const ranges = findRanges(text, queryNorm);
-        if (!ranges.length) return 0;
-
-        const frag = document.createDocumentFragment();
-        let last = 0;
-        ranges.forEach(([s, e]) => {
-          if (s > last) frag.appendChild(document.createTextNode(text.slice(last, s)));
-          const mark = document.createElement('mark');
-          mark.className = MARK_CLASS + ' bg-yellow-200/70 dark:bg-yellow-500/30 px-0.5 rounded-sm';
-          mark.textContent = text.slice(s, e);
-          frag.appendChild(mark);
-          last = e;
-        });
-        if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
-
-        node.parentNode.replaceChild(frag, node);
-        return ranges.length;
-      }
-
-      function scrollToMark(i) {
-        if (!marks.length) return;
-        current = ((i % marks.length) + marks.length) % marks.length;
-        const target = marks[current];
-        if (!target) return;
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        updateCounter();
-      }
-
-      function updateCounter() {
-        const counter = document.getElementById('nclex-hl-counter');
-        if (counter) counter.textContent = marks.length ? `${current + 1}/${marks.length}` : '0/0';
-      }
-
-      function injectControls(term) {
-        removeControls();
-        const el = document.createElement('div');
-        el.id = CONTROL_ID;
-        el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] bg-white/90 dark:bg-slate-900/85 backdrop-blur border border-gray-200 dark:border-slate-700 shadow-2xl rounded-2xl px-3 py-2 flex items-center gap-2';
-        el.innerHTML = `
-          <span class="text-xs font-semibold text-gray-600 dark:text-gray-200 max-w-[160px] truncate" title="${term}">
-            <i class="fa-solid fa-highlighter mr-1 text-yellow-500"></i>${term}
-          </span>
-          <span id="nclex-hl-counter" class="text-xs font-bold text-gray-500 dark:text-gray-300 px-2 py-1 rounded-full bg-gray-100 dark:bg-white/10">0/0</span>
-          <button id="nclex-hl-prev" class="w-8 h-8 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300" title="Prev">
-            <i class="fa-solid fa-chevron-left"></i>
-          </button>
-          <button id="nclex-hl-next" class="w-8 h-8 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300" title="Next">
-            <i class="fa-solid fa-chevron-right"></i>
-          </button>
-          <button id="nclex-hl-close" class="w-8 h-8 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600" title="Clear">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        `;
-        document.body.appendChild(el);
-
-        el.querySelector('#nclex-hl-prev').addEventListener('click', () => scrollToMark(current - 1));
-        el.querySelector('#nclex-hl-next').addEventListener('click', () => scrollToMark(current + 1));
-        el.querySelector('#nclex-hl-close').addEventListener('click', () => {
-          clear(document.getElementById('app-view') || document);
-          try { sessionStorage.removeItem('nclex_pending_highlight'); } catch(e) {}
-        });
-      }
-
-      function apply(term, opts = {}) {
-        const view = document.getElementById('app-view');
-        if (!view) return;
-
-        clear(view);
-
-        const clean = String(term || '').trim();
-        if (clean.length < 2) return;
-
-        const q = normalize(clean);
-        const walker = document.createTreeWalker(
-          view,
-          NodeFilter.SHOW_TEXT,
-          {
-            acceptNode(node) {
-              if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-              const p = node.parentElement;
-              if (!p) return NodeFilter.FILTER_REJECT;
-              if (p.closest('mark.' + MARK_CLASS)) return NodeFilter.FILTER_REJECT;
-              if (p.closest('.hidden-lang')) return NodeFilter.FILTER_REJECT;
-
-              const tag = p.tagName;
-              const bad = ['SCRIPT','STYLE','TEXTAREA','INPUT','SELECT','OPTION','BUTTON'];
-              if (bad.includes(tag)) return NodeFilter.FILTER_REJECT;
-              if (p.closest('pre, code')) return NodeFilter.FILTER_REJECT;
-
-              return NodeFilter.FILTER_ACCEPT;
-            }
-          },
-          false
-        );
-
-        while (walker.nextNode()) {
-          // highlightTextNode reemplaza el nodo; TreeWalker sigue estable si avanzamos con nextNode()
-          highlightTextNode(walker.currentNode, q);
-        }
-
-        marks = Array.from(view.querySelectorAll('mark.' + MARK_CLASS));
-        if (marks.length) {
-          injectControls(clean);
-          scrollToMark(0);
-
-          // Si el resultado venía de una sección específica, intentamos saltar a ese heading
-          if (opts.heading) {
-            const targetNorm = normalize(opts.heading);
-            const hs = view.querySelectorAll('h1,h2,h3,h4,h5');
-            for (const h of hs) {
-              if (normalize(h.textContent).includes(targetNorm)) {
-                h.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      function applyPendingForRoute(route) {
-        if (!route || !route.startsWith('topic/')) return;
-        let pending = null;
-        try { pending = JSON.parse(sessionStorage.getItem('nclex_pending_highlight') || 'null'); } catch (e) {}
-        if (!pending || !pending.term) return;
-
-        const topicId = route.split('/')[1];
-        if (pending.topicId && String(pending.topicId) !== String(topicId)) return;
-
-        apply(pending.term, { heading: pending.heading });
-      }
-
-      return { apply, clear, applyPendingForRoute };
-    })();
-
-
     function applyTheme() {
       document.documentElement.classList.toggle('dark', state.currentTheme === 'dark');
     }
@@ -913,7 +659,7 @@
       const container = $('#topics-nav');
       if (!container) return;
   
-      container.innerHTML = getStudyTopics().map(t => {
+      container.innerHTML = state.topics.map(t => {
         const isComplete = state.completedTopics.includes(t.id);
         const checkMark = isComplete ? `<i class="fa-solid fa-circle-check text-green-500 ml-auto text-xs"></i>` : '';
         const titleHTML = getBilingualTitle(t);
@@ -961,10 +707,6 @@
     function render(route) {
       const view = $('#app-view');
       if (!view) return;
-  
-      if (window.NCLEX_HIGHLIGHT && typeof window.NCLEX_HIGHLIGHT.clear === 'function') {
-        window.NCLEX_HIGHLIGHT.clear();
-      }
   
       // Smooth fade out
       view.style.opacity = '0';
@@ -1041,22 +783,7 @@
   
           applyLanguageGlobal();
           updateNavActive(route);
-
-          // Hook opcional de los módulos (ej: Biblioteca) + highlight pendiente desde búsqueda
-          if (route.startsWith('topic/')) {
-            const topicId = route.split('/')[1];
-            const topicObj = state.topics.find(t => t.id === topicId);
-            setTimeout(() => {
-              try {
-                if (topicObj && typeof topicObj.onLoad === 'function') topicObj.onLoad();
-              } catch (e) { console.error(e); }
-              applyLanguageGlobal();
-              if (window.NCLEX_HIGHLIGHT && typeof window.NCLEX_HIGHLIGHT.applyPendingForRoute === 'function') {
-                window.NCLEX_HIGHLIGHT.applyPendingForRoute(route);
-              }
-            }, 30);
-          }
-
+          
           // Fade in
           view.style.opacity = '1';
           view.style.transform = 'translateY(0)';
@@ -1076,12 +803,12 @@
     }
   
     function renderHome() {
-      const totalTopics = getStudyTopics().length;
+      const totalTopics = state.topics.length;
       const completedCount = state.completedTopics.length;
       const progressPercent = totalTopics === 0 ? 0 : Math.round((completedCount / totalTopics) * 100);
   
-      const topicsHTML = getStudyTopics().length > 0
-        ? getStudyTopics().map(t => {
+      const topicsHTML = state.topics.length > 0
+        ? state.topics.map(t => {
             const isComplete = state.completedTopics.includes(t.id);
             const borderClass = isComplete ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-200 dark:border-brand-border';
             const iconCheck = isComplete ? '<div class="absolute top-4 right-4 text-green-500 animate-bounce-short"><i class="fa-solid fa-circle-check text-xl"></i></div>' : '';
@@ -1151,8 +878,8 @@
               </p>
             </div>
             <div class="text-xs px-3 py-1 rounded-full bg-brand-blue/10 text-brand-blue font-bold">
-              <span class="lang-es">${getStudyTopics().length} temas</span>
-              <span class="lang-en hidden-lang">${getStudyTopics().length} topics</span>
+              <span class="lang-es">${state.topics.length} temas</span>
+              <span class="lang-en hidden-lang">${state.topics.length} topics</span>
             </div>
           </div>
           
@@ -1205,7 +932,7 @@
            <div class="col-span-1 bg-white dark:bg-brand-card p-6 rounded-3xl border border-gray-200 dark:border-brand-border shadow-lg flex flex-col justify-center">
              <h2 class="text-xl font-bold mb-1"><i class="fa-solid fa-layer-group text-brand-blue mr-2"></i><span class="lang-es">Biblioteca</span><span class="lang-en hidden-lang">Library</span></h2>
              <div>
-                 <span class="text-4xl font-black">${getStudyTopics().length}</span> <span class="text-gray-500 text-sm"><span class="lang-es">Temas</span><span class="lang-en hidden-lang">Topics</span></span>
+                 <span class="text-4xl font-black">${state.topics.length}</span> <span class="text-gray-500 text-sm"><span class="lang-es">Temas</span><span class="lang-en hidden-lang">Topics</span></span>
              </div>
            </div>
         </div>
@@ -1221,9 +948,8 @@
       const topic = state.topics.find(t => t.id === topicId);
       if (!topic) return `<div class="p-10 text-center"><h2 class="text-xl font-bold">Error 404</h2><p>Topic ID ${topicId} not found.</p></div>`;
       
-      const isSystem = isSystemTopic(topicId);
       const isComplete = state.completedTopics.includes(topicId);
-      const completeBtn = isSystem ? '' : `
+      const completeBtn = `
           <button onclick="window.nclexApp.toggleTopicComplete('${topicId}')" class="px-6 py-3 rounded-xl font-bold shadow-sm transition-all flex items-center gap-2 ${isComplete ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'}">
               <i class="fa-solid ${isComplete ? 'fa-circle-check' : 'fa-circle'}"></i>
               <span class="lang-es">${isComplete ? 'Completado' : 'Marcar Leído'}</span>
@@ -1232,16 +958,14 @@
   
       let content = typeof topic.render === 'function' ? topic.render() : (topic.content || '');
       
-      // Smart button injection (solo para temas de estudio)
-      if (completeBtn) {
-          if(content.includes('</header>')) {
-              content = content.replace('</header>', `<div class="mt-4 flex justify-end md:absolute md:top-8 md:right-8">${completeBtn}</div></header>`);
-              content = content.replace('<header', '<header class="relative" ');
-          } else {
-              content = `<div class="mb-6 flex justify-end sticky top-0 z-20 bg-brand-bg/95 dark:bg-brand-dark/95 backdrop-blur py-2">${completeBtn}</div>` + content;
-          }
+      // Smart button injection
+      if(content.includes('</header>')) {
+          content = content.replace('</header>', `<div class="mt-4 flex justify-end md:absolute md:top-8 md:right-8">${completeBtn}</div></header>`);
+          content = content.replace('<header', '<header class="relative" ');
+      } else {
+          content = `<div class="mb-6 flex justify-end sticky top-0 z-20 bg-brand-bg/95 dark:bg-brand-dark/95 backdrop-blur py-2">${completeBtn}</div>` + content;
       }
-
+      
       return `
         <div class="animate-fade-in pb-20 relative">
             <button onclick="window.nclexApp.navigate('home')" class="mb-4 flex items-center gap-2 text-gray-500 hover:text-brand-blue transition-colors font-medium text-sm group">
@@ -1261,7 +985,7 @@
       state.isAppLoaded = true;
       updateNav();
       
-      SmartTextIndex.build(getStudyTopics()); // Build initial index
+      SmartTextIndex.build(state.topics); // Build initial index
       
       render('home');
       updateNavActive('home');

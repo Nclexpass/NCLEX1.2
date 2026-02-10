@@ -1,247 +1,240 @@
-/* 32_analytics_dashboard.js — Student Performance Tracker (Data Visualization) */
-/* Dependencies: localStorage (shared with simulator.js) */
+// 32_analytics_dashboard.js — Dashboard de Métricas Bilingüe & Auto-Actualizable
+// VERSIÓN AUDITADA: Integración nativa con logic.js + Captura automática de datos del simulador
+// Dependencias: window.NCLEX, localStorage
 
-(function () {
-    'use strict';
+(function() {
+  'use strict';
 
-    // --- 1. GESTIÓN DE DATOS ---
-    const Analytics = {
-        getHistory: () => {
-            try {
-                // Formato esperado: [{ date: timestamp, score: 5, total: 10, correct: 5 }, ...]
-                const raw = localStorage.getItem('nclex_exam_history');
-                return raw ? JSON.parse(raw) : [];
-            } catch (e) {
-                console.error("Error parsing history:", e);
-                return [];
-            }
-        },
+  // 1. Guard Clause: Verificación de seguridad
+  if (!window.NCLEX && !window.nclexApp) {
+      console.error("Critical: NCLEX Core not found. Module 32 skipped.");
+      return;
+  }
 
-        getStats: () => {
-            const history = Analytics.getHistory();
-            const totalTests = history.length;
-            
-            if (totalTests === 0) return null;
+  console.log("Cargando Módulo 32: Analytics Dashboard...");
 
-            const totalQuestions = history.reduce((acc, curr) => acc + (curr.total || 0), 0);
-            const totalCorrect = history.reduce((acc, curr) => acc + (curr.correct || 0), 0);
-            const averageScore = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-            
-            // Simulación de racha (simple)
-            const lastDate = history[history.length - 1]?.date || Date.now();
-            const daysDiff = Math.floor((Date.now() - lastDate) / (1000 * 60 * 60 * 24));
-            const streak = daysDiff < 2 ? (parseInt(localStorage.getItem('nclex_streak') || '1')) : 0;
+  // 2. Helper Bilingüe (Compatible con tu sistema logic.js)
+  const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-            return {
-                totalTests,
-                totalQuestions,
-                averageScore,
-                streak,
-                history: history.reverse().slice(0, 10) // Últimos 10
-            };
-        },
-
-        // Mock data para cuando no hay historial real
-        getMockStats: () => ({
-            totalTests: 0,
-            totalQuestions: 0,
-            averageScore: 0,
-            streak: 0,
-            history: []
-        })
-    };
-
-    // --- 2. COMPONENTES UI (CHARTS & CARDS) ---
+  // 3. Registrar Tópico (Esto hace que aparezca en el menú)
+  // Aseguramos compatibilidad si NCLEX está definido
+  if (window.NCLEX) {
+      NCLEX.registerTopic({
+        id: 'dashboard', 
+        title: { es: 'Panel de Métricas', en: 'Performance Dashboard' },
+        subtitle: { es: 'Progreso y Análisis', en: 'Progress & Analytics' },
+        icon: 'chart-pie',
+        color: 'indigo',
     
-    // Donut Chart simple con SVG
-    const renderDonut = (percent) => {
-        const radius = 40;
-        const circumference = 2 * Math.PI * radius;
-        const offset = circumference - (percent / 100) * circumference;
-        let color = percent >= 75 ? 'text-green-500' : (percent >= 60 ? 'text-orange-500' : 'text-red-500');
+        render() {
+          Analytics.loadData(); // Recargar datos al abrir
+          return Analytics.getHTML();
+        }
+      });
+  }
 
-        return `
-            <div class="relative w-32 h-32 flex items-center justify-center">
-                <svg class="transform -rotate-90 w-full h-full">
-                    <circle cx="64" cy="64" r="${radius}" stroke="currentColor" stroke-width="8" fill="transparent" class="text-gray-200 dark:text-white/10" />
-                    <circle cx="64" cy="64" r="${radius}" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" class="${color} transition-all duration-1000 ease-out" />
-                </svg>
-                <div class="absolute flex flex-col items-center">
-                    <span class="text-2xl font-black text-slate-800 dark:text-white">${percent}%</span>
-                    <span class="text-[10px] uppercase text-gray-400 font-bold">AVG</span>
+  // --- LÓGICA DEL DASHBOARD ---
+  const Analytics = {
+    data: { total: 0, correct: 0, score: 0, streak: 0, progress: 0 },
+
+    loadData() {
+      try {
+        // Recuperar historial
+        const history = JSON.parse(localStorage.getItem('nclex_exam_history') || '[]');
+        const readModules = JSON.parse(localStorage.getItem('nclex_progress') || '[]'); // Corregido key a 'nclex_progress' según logic.js
+        
+        let totalQ = 0;
+        let totalCorrect = 0;
+
+        history.forEach(session => {
+            totalQ += (parseInt(session.total) || 0);
+            totalCorrect += (parseInt(session.correct) || 0);
+        });
+
+        // Calcular porcentaje global
+        const score = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
+        
+        // Calcular progreso de lectura
+        // Usamos window.NCLEX.getAllTopics() si existe para ser más precisos, o fallback
+        const topics = (window.NCLEX && window.NCLEX.getAllTopics) ? window.NCLEX.getAllTopics() : [];
+        const totalTopics = topics.length || 32;
+        const progress = Math.min(100, Math.round((readModules.length / totalTopics) * 100));
+
+        this.data = {
+            total: totalQ,
+            correct: totalCorrect,
+            score: score,
+            streak: parseInt(localStorage.getItem('nclex_streak') || '0'),
+            progress: progress
+        };
+      } catch (e) {
+        console.error("Error cargando analíticas:", e);
+      }
+    },
+
+    getHTML() {
+      // ESTADO VACÍO (Si no ha hecho exámenes)
+      if (this.data.total === 0) {
+          return `
+            <div class="flex flex-col items-center justify-center py-12 text-center animate-fade-in bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
+                <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-6 text-indigo-600 dark:text-indigo-400 text-4xl">
+                    <i class="fa-solid fa-chart-simple"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                    ${t('Panel de Métricas Vacío', 'Empty Dashboard')}
+                </h2>
+                <p class="text-gray-500 dark:text-gray-400 max-w-md mb-8">
+                    ${t('El sistema necesita datos. Completa tu primer simulacro para activar la inteligencia artificial y ver tu rendimiento.', 'System needs data. Complete your first simulation to activate AI insights and track performance.')}
+                </p>
+                <button onclick="window.nclexApp.navigate('simulator')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+                    <i class="fa-solid fa-play"></i> ${t('Ir al Simulador', 'Go to Simulator')}
+                </button>
+            </div>
+          `;
+      }
+
+      // DASHBOARD CON DATOS
+      const scoreColor = this.data.score >= 75 ? 'text-green-500' : (this.data.score >= 50 ? 'text-yellow-500' : 'text-red-500');
+      
+      return `
+        <div class="animate-fade-in space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col items-center relative overflow-hidden">
+                    <h3 class="text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-4 tracking-wider z-10">
+                        ${t('Puntaje Global', 'Global Score')}
+                    </h3>
+                    <div class="relative w-32 h-32 z-10">
+                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                            <path class="text-slate-100 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"/>
+                            <path class="${scoreColor} transition-all duration-1000" stroke-dasharray="${this.data.score}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center text-3xl font-black text-slate-800 dark:text-white">
+                            ${this.data.score}%
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-trophy absolute -bottom-4 -right-4 text-9xl text-gray-100 dark:text-slate-700/50 -z-0 transform rotate-12"></i>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col justify-center space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">${t('Preguntas', 'Questions')}</span>
+                        <span class="text-2xl font-bold text-slate-800 dark:text-white">${this.data.total}</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-3">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">${t('Aciertos', 'Correct')}</span>
+                        <span class="text-2xl font-bold text-green-500">${this.data.correct}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">${t('Racha', 'Streak')}</span>
+                        <span class="text-2xl font-bold text-orange-500">${this.data.streak} <i class="fa-solid fa-fire text-lg"></i></span>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-3xl shadow-lg text-white flex flex-col justify-between relative overflow-hidden">
+                    <div class="z-10">
+                        <h3 class="text-indigo-100 text-xs font-bold uppercase tracking-wider mb-2">${t('Progreso del Curso', 'Course Progress')}</h3>
+                        <div class="flex items-end gap-2 mb-4">
+                            <p class="text-4xl font-black">${this.data.progress}%</p>
+                            <p class="text-sm text-indigo-200 mb-1">${t('Completado', 'Completed')}</p>
+                        </div>
+                    </div>
+                    <div class="w-full bg-black/20 rounded-full h-3 mb-4 z-10">
+                        <div class="bg-white h-3 rounded-full transition-all duration-1000 shadow-glow" style="width: ${this.data.progress}%"></div>
+                    </div>
+                    <button onclick="window.nclexApp.navigate('home')" class="w-full bg-white/10 hover:bg-white/20 text-white text-sm font-bold py-3 rounded-xl transition-colors border border-white/10 z-10">
+                        ${t('Continuar Estudio', 'Continue Studying')}
+                    </button>
+                    <i class="fa-solid fa-graduation-cap absolute top-2 right-2 text-8xl text-white/10 transform -rotate-12"></i>
                 </div>
             </div>
-        `;
-    };
 
-    const renderHistoryTable = (history) => {
-        if (!history || history.length === 0) {
-            return `
-                <div class="text-center py-8 text-gray-400">
-                    <p class="text-sm">
-                        <span class="lang-es">No hay exámenes registrados aún.</span>
-                        <span class="lang-en hidden-lang">No exams recorded yet.</span>
-                    </p>
-                    <button onclick="window.NCLEX.navigate('simulator')" class="mt-2 text-brand-blue text-xs font-bold hover:underline">
-                        <span class="lang-es">IR AL SIMULADOR</span>
-                        <span class="lang-en hidden-lang">GO TO SIMULATOR</span>
-                    </button>
-                </div>`;
-        }
-
-        let rows = '';
-        history.forEach(h => {
-            const date = new Date(h.date).toLocaleDateString();
-            const pct = Math.round((h.correct / h.total) * 100);
-            const color = pct >= 75 ? 'bg-green-100 text-green-700' : (pct >= 60 ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700');
-            
-            rows += `
-                <tr class="border-b border-gray-100 dark:border-white/5 last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-                    <td class="py-3 pl-4 text-xs font-mono text-gray-500">${date}</td>
-                    <td class="py-3 text-sm font-bold text-slate-800 dark:text-white">${h.total} Qs</td>
-                    <td class="py-3 pr-4 text-right">
-                        <span class="px-2 py-1 rounded-full text-xs font-bold ${color}">${pct}%</span>
-                    </td>
-                </tr>
-            `;
-        });
-
-        return `
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="text-xs text-gray-400 uppercase border-b border-gray-200 dark:border-white/10">
-                        <th class="py-2 pl-4 font-semibold">Date</th>
-                        <th class="py-2 font-semibold">Session</th>
-                        <th class="py-2 pr-4 text-right font-semibold">Score</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
-        `;
-    };
-
-    // --- 3. RENDERIZADO PRINCIPAL ---
-    window.Dashboard = {
-        render: () => {
-            const stats = Analytics.getStats() || Analytics.getMockStats();
-            
-            // Mensaje motivacional basado en score
-            let motiveEs = "Comienza a estudiar hoy.";
-            let motiveEn = "Start studying today.";
-            
-            if (stats.totalTests > 0) {
-                if (stats.averageScore >= 75) { motiveEs = "¡Estás listo para el NCLEX!"; motiveEn = "You are NCLEX Ready!"; }
-                else if (stats.averageScore >= 60) { motiveEs = "Vas bien, enfócate en tus debilidades."; motiveEn = "Good path, focus on weaknesses."; }
-                else { motiveEs = "Se requiere refuerzo crítico."; motiveEn = "Critical review required."; }
-            }
-
-            return `
-                <div class="animate-slide-up space-y-6">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h2 class="text-2xl font-black text-slate-800 dark:text-white">
-                                <span class="lang-es">Análisis de Rendimiento</span>
-                                <span class="lang-en hidden-lang">Performance Analytics</span>
-                            </h2>
-                            <p class="text-sm text-gray-500">
-                                <span class="lang-es">Métricas en tiempo real de tus sesiones de estudio.</span>
-                                <span class="lang-en hidden-lang">Real-time metrics from your study sessions.</span>
-                            </p>
-                        </div>
-                        <div class="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-brand-blue rounded-xl font-bold text-sm flex items-center gap-2">
-                            <i class="fa-solid fa-fire"></i>
-                            <span>${stats.streak}</span>
-                            <span class="lang-es">Días racha</span>
-                            <span class="lang-en hidden-lang">Day streak</span>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        
-                        <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-white/5 flex flex-col items-center justify-center relative overflow-hidden">
-                            <h3 class="absolute top-4 left-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
-                                <span class="lang-es">Promedio Global</span>
-                                <span class="lang-en hidden-lang">Global Average</span>
-                            </h3>
-                            <div class="mt-4">
-                                ${renderDonut(stats.averageScore)}
-                            </div>
-                            <p class="text-xs text-center font-medium ${stats.averageScore >= 60 ? 'text-green-600' : 'text-orange-500'} mt-2">
-                                <span class="lang-es">${motiveEs}</span>
-                                <span class="lang-en hidden-lang">${motiveEn}</span>
-                            </p>
-                        </div>
-
-                        <div class="bg-white dark:bg-[#1c1c1e] p-6 rounded-2xl shadow-sm border border-gray-200 dark:border-white/5 flex flex-col justify-between">
-                            <div>
-                                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
-                                    <span class="lang-es">Volumen de Estudio</span>
-                                    <span class="lang-en hidden-lang">Study Volume</span>
-                                </h3>
-                                <div class="flex items-baseline gap-2 mb-2">
-                                    <span class="text-4xl font-black text-slate-800 dark:text-white">${stats.totalQuestions}</span>
-                                    <span class="text-sm text-gray-500 font-medium">Qs</span>
-                                </div>
-                                <div class="w-full bg-gray-100 dark:bg-white/10 h-2 rounded-full overflow-hidden">
-                                    <div class="bg-indigo-500 h-full" style="width: ${Math.min((stats.totalQuestions / 1000) * 100, 100)}%"></div>
-                                </div>
-                                <p class="text-[10px] text-gray-400 mt-2">Target: 1,000 Qs</p>
-                            </div>
-                            <div class="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 flex justify-between items-center">
-                                <span class="text-sm font-bold text-gray-600 dark:text-gray-300">
-                                    <span class="lang-es">Tests Completados</span>
-                                    <span class="lang-en hidden-lang">Tests Completed</span>
-                                </span>
-                                <span class="text-xl font-bold text-indigo-500">${stats.totalTests}</span>
-                            </div>
-                        </div>
-
-                        <div class="bg-gradient-to-br from-brand-blue to-blue-600 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
-                            <i class="fa-solid fa-chart-line absolute -bottom-4 -right-4 text-9xl text-white opacity-10"></i>
-                            <h3 class="text-xs font-bold text-blue-100 uppercase tracking-wider mb-2">
-                                <span class="lang-es">Probabilidad de Pase</span>
-                                <span class="lang-en hidden-lang">Pass Probability</span>
-                            </h3>
-                            
-                            <div class="mt-4 mb-6">
-                                <span class="text-5xl font-black tracking-tight">
-                                    ${stats.totalTests > 2 ? (stats.averageScore >= 65 ? 'High' : 'Low') : '--'}
-                                </span>
-                            </div>
-                            
-                            <p class="text-xs text-blue-100 leading-relaxed relative z-10">
-                                <span class="lang-es">Basado en el algoritmo de consistencia y dificultad de preguntas. Se requieren +5 exámenes para precisión.</span>
-                                <span class="lang-en hidden-lang">Based on consistency and difficulty algorithms. 5+ exams required for accuracy.</span>
-                            </p>
-                        </div>
-
-                    </div>
-
-                    <div class="bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-sm border border-gray-200 dark:border-white/5 overflow-hidden">
-                        <div class="p-4 border-b border-gray-100 dark:border-white/5 flex justify-between items-center">
-                            <h3 class="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                <i class="fa-solid fa-clock-rotate-left text-gray-400"></i>
-                                <span class="lang-es">Historial Reciente</span>
-                                <span class="lang-en hidden-lang">Recent History</span>
-                            </h3>
-                        </div>
-                        ${renderHistoryTable(stats.history)}
-                    </div>
-                </div>
-            `;
-        }
-    };
-
-    // --- 4. REGISTRO ---
-    if (window.NCLEX) {
-        window.NCLEX.registerTopic({
-            id: 'analytics',
-            title: { es: 'Estadísticas', en: 'Analytics' },
-            subtitle: { es: 'Progreso y Métricas', en: 'Progress & Metrics' },
-            icon: 'chart-pie',
-            color: 'indigo',
-            render: () => window.Dashboard.render()
-        });
+            <div class="flex justify-center pt-6">
+                <button onclick="window.nclexApp.navigate('simulator')" class="bg-slate-900 dark:bg-white dark:text-slate-900 text-white px-10 py-4 rounded-2xl font-bold shadow-xl hover:scale-105 transition-all flex items-center gap-3 text-lg">
+                    <i class="fa-solid fa-bolt text-yellow-400 dark:text-yellow-600"></i>
+                    ${t('Entrenar Ahora', 'Train Now')}
+                </button>
+            </div>
+        </div>
+      `;
     }
+  };
+
+  // --- INTERCEPTOR DE DATOS DEL SIMULADOR (Auto-Save Patch FIXED) ---
+  const observer = new MutationObserver((mutations) => {
+    const appView = document.getElementById('app-view');
+    if (!appView) return;
+
+    // Buscamos si apareció la pantalla de resultados del simulador
+    const resultsHeader = appView.querySelector('h2');
+    // Verificar si estamos en la pantalla de resultados (títulos bilingües)
+    if (resultsHeader && (resultsHeader.innerText.includes('Resultados') || resultsHeader.innerText.includes('Results'))) {
+        
+        let correct = null;
+        let total = null;
+
+        // ESTRATEGIA DOM: Buscar los bloques que contienen "Correct" y "Total"
+        // simulator.js usa spans con texto 'Correctas'/'Correct' y 'Total'
+        // Los números están en el elemento hermano o padre.
+        
+        const allSpans = Array.from(appView.querySelectorAll('span'));
+        
+        // Buscar el número de CORRECTAS
+        const correctLabel = allSpans.find(el => /Correct/i.test(el.innerText));
+        if (correctLabel && correctLabel.parentElement) {
+            // En simulator.js, el número es el primer hijo del div padre, o un hermano previo
+            const numberEl = correctLabel.parentElement.querySelector('.text-2xl');
+            if (numberEl) correct = parseInt(numberEl.innerText);
+        }
+
+        // Buscar el número TOTAL
+        const totalLabel = allSpans.find(el => /Total/i.test(el.innerText));
+        if (totalLabel && totalLabel.parentElement) {
+             const numberEl = totalLabel.parentElement.querySelector('.text-2xl');
+             if (numberEl) total = parseInt(numberEl.innerText);
+        }
+
+        // Si falló la estrategia DOM precisa, intentar un fallback (menos preciso pero útil)
+        if (correct === null || total === null) {
+             // Buscar números grandes en la pantalla
+             const bigNumbers = Array.from(appView.querySelectorAll('.text-2xl')).map(el => parseInt(el.innerText)).filter(n => !isNaN(n));
+             if (bigNumbers.length >= 2) {
+                 // Asumir heurísticamente que el menor es aciertos y el mayor es total (si no hay 3 números)
+                 // simulator.js muestra: SCORE (grande), TOTAL (grande).
+                 correct = bigNumbers[0];
+                 total = bigNumbers[1];
+             }
+        }
+
+        if (correct !== null && total !== null && total > 0) {
+            
+            // Guardar en Historial si es un nuevo resultado
+            const lastSession = JSON.parse(localStorage.getItem('nclex_last_session_id') || '0');
+            const currentSessionId = Date.now();
+            
+            // Evitar guardar duplicados (debounce de 10 seg)
+            if (currentSessionId - lastSession > 10000) {
+                const history = JSON.parse(localStorage.getItem('nclex_exam_history') || '[]');
+                history.push({
+                    date: currentSessionId,
+                    correct: correct,
+                    total: total,
+                    score: Math.round((correct/total)*100)
+                });
+                localStorage.setItem('nclex_exam_history', JSON.stringify(history));
+                
+                // Actualizar racha
+                let streak = parseInt(localStorage.getItem('nclex_streak') || '0');
+                localStorage.setItem('nclex_streak', streak + 1);
+                
+                localStorage.setItem('nclex_last_session_id', currentSessionId);
+                console.log(`📊 Analytics: Resultados capturados (C:${correct}/T:${total}) y guardados.`);
+            }
+        }
+    }
+  });
+
+  // Iniciar el observador sobre el contenedor principal
+  const targetNode = document.getElementById('app-view') || document.body;
+  observer.observe(targetNode, { childList: true, subtree: true });
 
 })();
