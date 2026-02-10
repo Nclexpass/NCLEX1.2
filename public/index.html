@@ -183,8 +183,8 @@
     </main>
 
     <aside id="notepad-window" aria-label="Bloc de notas flotante" 
-            class="fixed z-[70] hidden w-80 md:w-96 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 shadow-2xl rounded-2xl flex flex-col transition-opacity duration-200"
-            style="box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+           class="fixed z-[70] hidden w-80 md:w-96 bg-white dark:bg-[#1C1C1E] border border-gray-200 dark:border-gray-700 shadow-2xl rounded-2xl flex flex-col transition-opacity duration-200"
+           style="box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
         
         <div id="notepad-header" class="p-4 flex items-center justify-between border-b border-gray-100 dark:border-white/5 bg-gray-50/80 dark:bg-black/40 backdrop-blur-sm cursor-move rounded-t-2xl select-none">
             <div class="flex items-center gap-3 pointer-events-none">
@@ -205,180 +205,53 @@
             </div>
     </aside>
 
-    <div id="floating-tools"
-      class="fixed top-6 right-8 z-[90] flex items-center gap-3 p-2 rounded-3xl bg-white/70 dark:bg-black/35 backdrop-blur border border-gray-200 dark:border-brand-border shadow-lg">
-      <button onclick="window.toggleNotepad()" aria-label="Abrir Notas / Open Notes"
-        class="w-14 h-14 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 rounded-2xl shadow-lg shadow-yellow-500/30 flex items-center justify-center transition-all hover:-translate-y-1 active:scale-95 group">
+    <button onclick="window.toggleNotepad()" aria-label="Abrir Notas / Open Notes"
+        class="fixed top-6 right-8 w-14 h-14 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 rounded-2xl shadow-lg shadow-yellow-500/30 z-[50] flex items-center justify-center transition-all hover:-translate-y-1 active:scale-95 group">
         <i class="fa-solid fa-pen-to-square text-xl group-hover:rotate-12 transition-transform" aria-hidden="true"></i>
-      </button>
+    </button>
 
-      <button onclick="window.openLibrary ? window.openLibrary() : (window.nclexApp && window.nclexApp.navigate('topic/library'))"
-        aria-label="Abrir Biblioteca / Open Library"
-        class="w-14 h-14 bg-teal-500 hover:bg-teal-600 text-white rounded-2xl shadow-lg shadow-teal-500/30 flex items-center justify-center transition-all hover:-translate-y-1 active:scale-95 group">
-        <i class="fa-solid fa-book-open text-xl group-hover:rotate-6 transition-transform" aria-hidden="true"></i>
-      </button>
-    </div>
-
-<button id="back-to-top" onclick="window.scrollToTop()" aria-label="Volver arriba / Back to top"
+    <button id="back-to-top" onclick="window.scrollToTop()" aria-label="Volver arriba / Back to top"
         class="hidden fixed bottom-8 right-7 w-12 h-12 bg-brand-blue text-white rounded-full shadow-lg shadow-blue-500/30 hover:bg-blue-600 z-[50] transition-all hover:-translate-y-1 flex items-center justify-center opacity-0 translate-y-10 duration-300">
         <i class="fa-solid fa-arrow-up text-lg" aria-hidden="true"></i>
     </button>
 
-    <script type="module" src="js/auth.js?v=2.0"></script>
-    <script src="js/ngn_engine.js?v=2.0"></script>
-    <script src="js/simulator.js?v=2.0"></script>
-    <script src="js/logic.js?v=2.0"></script>
-
-    <script src="js/01_newborn.js"></script>
-    <script src="js/02_maternity.js"></script>
-    <script src="js/03_pediatrics_growth_development.js"></script>
-    <script src="js/04_med_surg_adult.js"></script>
-    <script src="js/05_cardiovascular.js"></script>
-    <script src="js/06_respiratory.js"></script>
-    <script src="js/07_pharmacology.js"></script>
-    <script src="js/08_endocrine.js"></script>
-    <script src="js/09_mental_health.js"></script>
-    <script src="js/10_neurological.js"></script>
-    <script src="js/11_musculoskeletal.js"></script>
-    <script src="js/12_fundamentals.js"></script>
-    <script src="js/13_hematology_oncology.js"></script>
-    <script src="js/14_gastrointestinal.js"></script>
-    <script src="js/15_integumentary_burns.js"></script>
-    <script src="js/16_labs_values.js"></script>
-    <script src="js/17_bnotepad.js"></script>
-    <script src="js/18_leadership_management.js"></script>
-    <script src="js/19_prioritization_delegation.js"></script>
-    <script src="js/20_renal_genitourinary.js"></script>
-    <script src="js/21_infectious_immune.js"></script>
-    <script src="js/22_emergency_critical.js"></script>
-    <script src="js/23_fluids_electrolytes.js"></script>
-    <script src="js/24_clinical_nutrition.js"></script>
-    <script src="js/25_perioperative_care.js"></script>
-    <script src="js/26_high_risk_pharm.js"></script>
-    <script src="js/27_critical_thinking_ngn.js"></script>
-    <script src="js/28_ethics_legal.js"></script> 
-    <script src="js/29_negative_rationales.js"></script>
-    <script src="js/30_common_student_errors.js"></script>
-    <script src="js/31_search_service.js"></script>
-    <script src="js/32_analytics_dashboard.js"></script>
-    <script src="js/33_library.js?v=20260205"></script>
-    <script src="js/34_anatomy.js?v=10.1"></script>
-
-
-
-
-
-    <script>
-(function () {
-  const KEY = 'nclex_floating_tools_pos_v1';
-  const el = document.getElementById('floating-tools');
-  if (!el) return;
-
-  // Restaurar posición guardada
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-      el.style.left = saved.x + 'px';
-      el.style.top = saved.y + 'px';
-      el.style.right = 'auto';
-    }
-  } catch (e) {}
-
-  let dragging = false;
-  let startX = 0, startY = 0;
-  let origX = 0, origY = 0;
-
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-
-  function point(e) {
-    return e.touches ? e.touches[0] : e;
-  }
-
-  function onDown(e) {
-    // Si haces click en un botón, NO arrastrar
-    if (e.target.closest('button')) return;
-
-    dragging = true;
-    const p = point(e);
-    startX = p.clientX;
-    startY = p.clientY;
-
-    const rect = el.getBoundingClientRect();
-    origX = rect.left;
-    origY = rect.top;
-
-    // Forzar posicionamiento por left/top
-    el.style.left = origX + 'px';
-    el.style.top = origY + 'px';
-    el.style.right = 'auto';
-
-    // feedback visual
-    el.style.outline = '2px solid rgba(0,122,255,0.55)';
-    el.style.outlineOffset = '2px';
-
-    document.addEventListener('mousemove', onMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('touchend', onUp);
-
-    e.preventDefault();
-  }
-
-  function onMove(e) {
-    if (!dragging) return;
-    const p = point(e);
-
-    let nx = origX + (p.clientX - startX);
-    let ny = origY + (p.clientY - startY);
-
-    const pad = 8;
-    const maxX = window.innerWidth - el.offsetWidth - pad;
-    const maxY = window.innerHeight - el.offsetHeight - pad;
-
-    nx = clamp(nx, pad, Math.max(pad, maxX));
-    ny = clamp(ny, pad, Math.max(pad, maxY));
-
-    el.style.left = nx + 'px';
-    el.style.top = ny + 'px';
-
-    e.preventDefault();
-  }
-
-  function onUp() {
-    if (!dragging) return;
-    dragging = false;
-
-    el.style.outline = '';
-    el.style.outlineOffset = '';
-
-    const rect = el.getBoundingClientRect();
-    try {
-      localStorage.setItem(KEY, JSON.stringify({
-        x: Math.round(rect.left),
-        y: Math.round(rect.top)
-      }));
-    } catch (e) {}
-
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    document.removeEventListener('touchmove', onMove);
-    document.removeEventListener('touchend', onUp);
-  }
-
-  // Drag con mouse/touch
-  el.addEventListener('mousedown', onDown);
-  el.addEventListener('touchstart', onDown, { passive: false });
-
-  // Doble click en el fondo para resetear posición
-  el.addEventListener('dblclick', (e) => {
-    if (e.target.closest('button')) return;
-    try { localStorage.removeItem(KEY); } catch (e) {}
-    el.style.top = '1.5rem';
-    el.style.right = '2rem';
-    el.style.left = 'auto';
-  });
-})();
-</script>
-
+   <script type="module" src="js/auth.js?v=2.0"></script>
+<script src="js/ngn_engine.js?v=2.0"></script>
+<script src="js/simulator.js?v=2.0"></script>
+<script src="js/logic.js?v=2.0"></script>
+<script src="js/01_newborn.js"></script>
+<script src="js/02_maternity.js"></script>
+<script src="js/03_pediatrics_growth_development.js"></script>
+<script src="js/04_med_surg_adult.js"></script>
+<script src="js/05_cardiovascular.js"></script>
+<script src="js/06_respiratory.js"></script>
+<script src="js/07_pharmacology.js"></script>
+<script src="js/08_endocrine.js"></script>
+<script src="js/09_mental_health.js"></script>
+<script src="js/10_neurological.js"></script>
+<script src="js/11_musculoskeletal.js"></script>
+<script src="js/12_fundamentals.js"></script>
+<script src="js/13_hematology_oncology.js"></script>
+<script src="js/14_gastrointestinal.js"></script>
+<script src="js/15_integumentary_burns.js"></script>
+<script src="js/16_labs_values.js"></script>
+<script src="js/17_bnotepad.js"></script>
+<script src="js/18_leadership_management.js"></script>
+<script src="js/19_prioritization_delegation.js"></script>
+<script src="js/20_renal_genitourinary.js"></script>
+<script src="js/21_infectious_immune.js"></script>
+<script src="js/22_emergency_critical.js"></script>
+<script src="js/23_fluids_electrolytes.js"></script>
+<script src="js/24_clinical_nutrition.js"></script>
+<script src="js/25_perioperative_care.js"></script>
+<script src="js/26_high_risk_pharm.js"></script>
+<script src="js/27_critical_thinking_ngn.js"></script>
+<script src="js/28_ethics_legal.js"></script>
+<script src="js/29_negative_rationales.js"></script>
+<script src="js/30_common_student_errors.js"></script>
+<script src="js/31_search_service.js"></script>
+<script src="js/32_analytics_dashboard.js"></script>
+<script src="js/33_library.js?v=20260205"></script>
+<script src="js/34_anatomy.js?v=1.0"></script>
 </body>
 </html>
