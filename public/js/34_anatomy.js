@@ -1,4 +1,4 @@
-// 34_anatomy.js — NCLEX Anatomy Master Lab v10.2
+// 34_anatomy.js — NCLEX Anatomy Master Lab v10.3
 // 🏥 ESTADO: INTEGRACIÓN ESTÁNDAR (Sincronizado con Engine v2.1 y Logic Master)
 // 🎯 Función: Módulo de contenido puro. Se registra en window.NCLEX y deja que Logic.js pinte el botón.
 
@@ -114,7 +114,7 @@ class AnatomyMasterLab {
     this.#detectLanguage();
     this.#injectStyles();
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closePanel(); });
-    console.log("✅ Anatomy Master v10.2 Loaded");
+    console.log("✅ Anatomy Master v10.3 Loaded");
   }
 
   #detectLanguage() {
@@ -143,7 +143,7 @@ class AnatomyMasterLab {
   closePanel() {
     this.state.currentPart = null;
     document.querySelectorAll('.anatomy-hotspot').forEach(el => el.classList.remove('active-spot'));
-    this.#renderInfoPanel(); // Actualiza el panel para mostrar el estado vacío
+    this.#renderInfoPanel(); // Llama al render para mostrar el estado vacío
   }
 
   switchTab(tab) {
@@ -241,17 +241,12 @@ class AnatomyMasterLab {
   }
 
   #getSystemContent() {
-    this.#renderInfoPanel(); // Asegurarse de que el panel se inicialice si hay estado previo
-    return this.#renderSystem(); // Usamos helper para mantener limpio
+    this.#renderInfoPanel(); 
+    return this.#renderSystem();
   }
 
   #renderSystem() {
-    // Nota: Esta función devuelve el string HTML del layout principal (imágenes + panel lateral)
     const sys = this.systemsDB[this.state.currentSystem];
-    
-    // Si ya existe el contenedor, lo actualizamos. Si no, devolvemos el string inicial.
-    // Para simplificar en este modelo "return string", devolvemos todo el bloque.
-    
     return `
       <div class="h-full flex flex-col gap-4">
         <div class="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
@@ -280,17 +275,16 @@ class AnatomyMasterLab {
 
   #renderInfoPanel() {
     const container = document.getElementById('anatomy-details');
-    // Si no hay parte seleccionada, mostramos el estado vacío
+    // Estado vacío si no hay selección o si el contenedor no existe
+    if (!container) return;
     if (!this.state.currentPart) {
-      if (container) container.innerHTML = this.#getEmptyState();
+      container.innerHTML = this.#getEmptyState();
       return;
     }
-    
-    if (!container) return; // Si el DOM no está listo aún
 
     const part = this.systemsDB[this.state.currentSystem].parts[this.state.currentPart];
     
-    // --- CORRECCIÓN AQUÍ: Definimos 'tabs' y lo usamos correctamente ---
+    // Generación de Tabs
     const tabs = ['info', 'nclex', 'procedures', 'assessment'].map(t => `<button onclick="window.NCLEX_ANATOMY.switchTab('${t}')" class="flex-1 py-2 text-xs font-bold uppercase border-b-2 ${this.state.currentTab === t ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-400'}">${t}</button>`).join('');
 
     let content = '';
@@ -309,7 +303,6 @@ class AnatomyMasterLab {
         content = `<div class="p-4 space-y-4"><div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-sm dark:text-white">${part.assessment[this.state.currentLang]}</div><textarea id="note-input" class="w-full border p-2 rounded dark:bg-gray-800 dark:text-white" placeholder="Note..."></textarea><button onclick="window.NCLEX_ANATOMY.saveAssessmentNote()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm w-full">Save</button><div class="space-y-2 mt-4">${notes.map(n => `<div class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-sm text-gray-700 dark:text-gray-300">${n.text}</div>`).join('')}</div></div>`;
     }
 
-    // --- CORRECCIÓN AQUÍ: Usamos ${tabs} en lugar de ${tabsHtml} ---
     container.innerHTML = `<div class="h-full flex flex-col animate-slide-up"><div class="h-40 bg-gray-900 relative flex-shrink-0"><img src="${part.img}" class="w-full h-full object-cover opacity-60" onerror="this.src='https://via.placeholder.com/400x200'"><button onclick="window.NCLEX_ANATOMY.closePanel()" class="absolute top-2 right-2 text-white bg-black/50 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button></div><div class="flex border-b border-gray-200 dark:border-gray-700">${tabs}</div><div class="flex-1 overflow-y-auto bg-white dark:bg-gray-900">${content}</div></div>`;
   }
 
@@ -331,11 +324,10 @@ class AnatomyMasterLab {
       const lab = new AnatomyMasterLab();
       window.NCLEX_ANATOMY = lab;
       
-      // Registro limpio, sin hacks. Logic.js se encargará de pintar el botón.
       window.NCLEX.registerTopic({
         id: 'anatomy', 
         title: {es:'Anatomía Clínica', en:'Clinical Anatomy'}, 
-        subtitle: {es:'Atlas v10.2', en:'Atlas v10.2'}, 
+        subtitle: {es:'Atlas v10.3', en:'Atlas v10.3'}, 
         icon: 'heart-pulse', 
         color: 'blue',
         render: () => { 
