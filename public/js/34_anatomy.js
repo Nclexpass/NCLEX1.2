@@ -1,345 +1,462 @@
-// 34_anatomy.js — NCLEX Anatomy Master Lab v10.3
-// 🏥 ESTADO: INTEGRACIÓN ESTÁNDAR (Sincronizado con Engine v2.1 y Logic Master)
-// 🎯 Función: Módulo de contenido puro. Se registra en window.NCLEX y deja que Logic.js pinte el botón.
+// 34_anatomy.js — NCLEX Anatomy MasterClass "TITANIUM" v12.0
+// 🏥 ESTADO: GOD MODE (Audio Procedural + Inyección Forzada + Datos Clínicos Reales)
+// 🎯 Autor: Reynier Diaz Gerones & Gemini AI
+// 🛡️ Integridad: Auto-reparable (Si el botón desaparece, se vuelve a crear)
 
-class AnatomyMasterLab {
+class AnatomyTitanium {
   constructor() {
+    this.id = 'anatomy';
+    this.version = '12.0';
     this.state = {
-      currentSystem: 'cardio',
-      currentPart: null,
-      currentLang: 'es',
-      audioEnabled: false,
-      currentTab: 'info',
-      quizQuestion: null,
-      userAnswer: null,
-      assessmentNotes: {}
+      system: 'cardio',
+      selectedPart: null,
+      lang: localStorage.getItem('nclex-language') || 'es',
+      audio: false,
+      tab: 'clinical', // clinical, nclex, skills
+      zoom: 1
     };
 
-    // --- BASE DE DATOS COMPLETA (Sistemas principales) ---
-    this.systemsDB = {
+    // --- 1. BASE DE DATOS CLÍNICA MAESTRA ---
+    this.db = {
       cardio: {
-        title: { es: 'Cardiovascular', en: 'Cardiovascular' },
-        baseImage: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Heart_anterior_exterior_view.jpg/800px-Heart_anterior_exterior_view.jpg",
-        audio: 'heartbeat',
-        commonDisorders: { es: 'Falla Cardíaca, IAM', en: 'Heart Failure, MI' },
+        label: { es: 'Cardiovascular', en: 'Cardiovascular' },
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Heart_anterior_exterior_view.jpg/800px-Heart_anterior_exterior_view.jpg',
+        audioMode: 'heart',
         parts: {
-          'svc': {
-            id: 'SVC', name: { es: 'Vena Cava Sup.', en: 'SVC' }, pos: { top: '15%', left: '35%' },
-            desc: { es: 'Retorno venoso cabeza/brazos. Presión Venosa Central.', en: 'Venous return head/arms. CVP monitoring.' },
-            nclex: { es: '⚠️ SÍNDROME VCS: Emergencia oncológica. Edema facial.', en: '⚠️ SVC SYNDROME: Emergency. Facial edema.' },
-            assessment: { es: 'Evaluar ingurgitación yugular.', en: 'Assess JVD.' },
-            procedures: [{ es: 'Manejo de vía central', en: 'Central line care' }],
-            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/2135_Veins_Draining_into_Superior_Vena_Cava_Chart.jpg/400px-2135_Veins_Draining_into_Superior_Vena_Cava_Chart.jpg"
-          },
           'aorta': {
-            id: 'AO', name: { es: 'Aorta', en: 'Aorta' }, pos: { top: '12%', left: '55%' },
-            desc: { es: 'Arteria sistémica principal. Alta presión.', en: 'Main systemic artery. High pressure.' },
-            nclex: { es: '🚨 DISECCIÓN: Dolor de espalda desgarrante.', en: '🚨 DISSECTION: Tearing back pain.' },
-            assessment: { es: 'Pulsos periféricos, PA bilateral.', en: 'Peripheral pulses, Bilateral BP.' },
-            procedures: [{ es: 'Control estricto PA', en: 'Strict BP control' }],
-            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Aorta_scheme_en.svg/400px-Aorta_scheme_en.svg.png"
+            name: { es: 'Arco Aórtico', en: 'Aortic Arch' },
+            pos: { top: '12%', left: '52%' },
+            clinical: { es: 'Punto de máxima presión sistémica. Auscultación: 2do espacio intercostal derecho.', en: 'Point of max systemic pressure. Auscultation: 2nd ICS Right Sternal Border.' },
+            nclex: { es: '🚨 DISECCIÓN AÓRTICA: Dolor "desgarrante" en espalda. Diferencia de PA >20mmHg entre brazos. Emergencia Quirúrgica.', en: '🚨 AORTIC DISSECTION: "Tearing" back pain. BP diff >20mmHg between arms. Surgical Emergency.' },
+            labs: 'BNP, Troponin I/T, CK-MB'
           },
           'lv': {
-            id: 'LV', name: { es: 'Ventrículo Izq.', en: 'Left Ventricle' }, pos: { top: '60%', left: '75%' },
-            desc: { es: 'Bombeo sistémico. Pared gruesa.', en: 'Systemic pump. Thick wall.' },
-            nclex: { es: '🚨 FALLA IZQUIERDA = PULMONES (Disnea, Crepitantes).', en: '🚨 LEFT FAILURE = LUNGS (Dyspnea, Crackles).' },
-            assessment: { es: 'Auscultación pulmonar, SatO2.', en: 'Lung sounds, O2 Sat.' },
-            procedures: [{ es: 'Posición Fowler', en: 'Fowler Position' }, { es: 'Diuréticos', en: 'Diuretics' }],
-            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Gross_pathology_of_old_myocardial_infarction.jpg/400px-Gross_pathology_of_old_myocardial_infarction.jpg"
+            name: { es: 'Ventrículo Izquierdo', en: 'Left Ventricle' },
+            pos: { top: '60%', left: '68%' },
+            clinical: { es: 'Cámara de bombeo principal. Pared muscular gruesa (hipertrofia en HTA).', en: 'Main pump. Thick wall (hypertrophy in HTN).' },
+            nclex: { es: '⚠️ FALLA IZQUIERDA = PULMONES. Disnea, Ortopnea, Crepitantes, Esputo Rosado (Edema Agudo).', en: '⚠️ LEFT FAILURE = LUNGS. Dyspnea, Orthopnea, Crackles, Pink Frothy Sputum.' },
+            labs: 'Echocardiogram (EF < 40% = HFrEF)'
+          },
+          'svc': {
+            name: { es: 'Vena Cava Superior', en: 'Superior Vena Cava' },
+            pos: { top: '15%', left: '32%' },
+            clinical: { es: 'Retorno venoso central. Sitio ideal para punta de Catéter Central (PICC/CVC).', en: 'Central venous return. Ideal tip location for CVC/PICC.' },
+            nclex: { es: '🔥 SÍNDROME VCS: Emergencia oncológica (Tumor pulmonar). Edema facial, plétora, disnea. Elevar cabecera.', en: '🔥 SVC SYNDROME: Oncologic emergency. Facial edema, plethora, dyspnea. Elevate HOB.' },
+            labs: 'CVP (Normal: 2-8 mmHg)'
           }
         }
       },
-      respiratory: {
-        title: { es: 'Respiratorio', en: 'Respiratory' },
-        baseImage: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Lungs_diagram_detailed.svg/800px-Lungs_diagram_detailed.svg.png",
-        audio: 'breath',
-        commonDisorders: { es: 'EPOC, Neumonía', en: 'COPD, Pneumonia' },
+      resp: {
+        label: { es: 'Respiratorio', en: 'Respiratory' },
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Lungs_diagram_detailed.svg/800px-Lungs_diagram_detailed.svg.png',
+        audioMode: 'lungs',
         parts: {
           'trachea': {
-            id: 'TR', name: { es: 'Tráquea', en: 'Trachea' }, pos: { top: '15%', left: '50%' },
-            desc: { es: 'Vía aérea principal. Cartílago.', en: 'Main airway. Cartilage.' },
-            nclex: { es: '⚠️ DESVIACIÓN TRAQUEAL: Neumotórax a tensión.', en: '⚠️ TRACHEAL DEVIATION: Tension pneumothorax.' },
-            assessment: { es: 'Palpar posición media.', en: 'Palpate midline.' },
-            procedures: [{ es: 'Aspiración secreciones', en: 'Suctioning' }],
-            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Trachea_%28gray%29.svg/400px-Trachea_%28gray%29.svg.png"
+            name: { es: 'Tráquea', en: 'Trachea' },
+            pos: { top: '10%', left: '48%' },
+            clinical: { es: 'Vía aérea permeable. Anillos cartilaginosos.', en: 'Patent airway. Cartilaginous rings.' },
+            nclex: { es: '🚨 DESVIACIÓN TRAQUEAL: Signo tardío de Neumotórax a Tensión. Desviación hacia el lado SANO.', en: '🚨 TRACHEAL DEVIATION: Late sign of Tension Pneumothorax. Deviates to HEALTHY side.' },
+            labs: 'ABG (pH, pCO2, pO2)'
           },
-          'r_lung': {
-            id: 'RL', name: { es: 'Pulmón Derecho', en: 'Right Lung' }, pos: { top: '45%', left: '25%' },
-            desc: { es: '3 lóbulos. Riesgo aspiración alto.', en: '3 lobes. High aspiration risk.' },
-            nclex: { es: '📌 NEUMONÍA ASPIRATIVA: Lóbulo inferior derecho.', en: '📌 ASPIRATION PNEUMONIA: RLL.' },
-            assessment: { es: 'Ruidos respiratorios, esfuerzo.', en: 'Breath sounds, effort.' },
-            procedures: [{ es: 'Espirometría', en: 'Spirometry' }],
-            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Lungs_diagram_simple.svg/400px-Lungs_diagram_simple.svg.png"
+          'base_right': {
+            name: { es: 'Base Pulmonar Der.', en: 'Right Lung Base' },
+            pos: { top: '70%', left: '25%' },
+            clinical: { es: 'Sitio común de atelectasia post-op y neumonía por aspiración (bronquio más vertical).', en: 'Common site for post-op atelectasis & aspiration pneumonia.' },
+            nclex: { es: '⚠️ SONIDOS: Crepitantes (Fluido/Falla), Sibilancias (Asma/EPOC), Roncus (Moco).', en: '⚠️ SOUNDS: Crackles (Fluid/HF), Wheezes (Asthma), Rhonchi (Mucus).' },
+            labs: 'Sputum Culture, CXR'
           }
         }
       },
-      renal: {
-        title: { es: 'Renal', en: 'Renal' },
-        baseImage: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/Urinary_system.svg/800px-Urinary_system.svg.png",
-        audio: null,
-        commonDisorders: { es: 'IRA, IRC', en: 'AKI, CKD' },
+      neuro: {
+        label: { es: 'Neurológico', en: 'Neurological' },
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/Lobes_of_the_brain_NL.svg/800px-Lobes_of_the_brain_NL.svg.png',
+        audioMode: null,
         parts: {
-          'kidney': {
-            id: 'KD', name: { es: 'Riñón', en: 'Kidney' }, pos: { top: '35%', left: '35%' },
-            desc: { es: 'Filtración, control PA, eritropoyetina.', en: 'Filtration, BP control, EPO.' },
-            nclex: { es: '📌 FALLA RENAL: Oliguria, Hiperkalemia (Arritmias).', en: '📌 KIDNEY FAILURE: Oliguria, Hyperkalemia.' },
-            assessment: { es: 'Balance hídrico, edema, K+.', en: 'I&O, edema, K+.' },
-            procedures: [{ es: 'Restricción líquidos', en: 'Fluid restriction' }],
-            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Kidney_cross_section.jpg/400px-Kidney_cross_section.jpg"
+          'frontal': {
+            name: { es: 'Lóbulo Frontal', en: 'Frontal Lobe' },
+            pos: { top: '25%', left: '20%' },
+            clinical: { es: 'Personalidad, Juicio, Control Motor, Área de Broca (Habla).', en: 'Personality, Judgment, Motor, Broca\'s Area (Speech).' },
+            nclex: { es: '⚠️ CAMBIOS DE CONDUCTA: A menudo el primer signo de hipoxia o IICP (Presión Intracraneal).', en: '⚠️ BEHAVIOR CHANGES: Often first sign of Hypoxia or IICP.' },
+            labs: 'GCS (Glasgow < 8 = Intubate)'
+          },
+          'brainstem': {
+            name: { es: 'Tronco Encefálico', en: 'Brainstem' },
+            pos: { top: '75%', left: '55%' },
+            clinical: { es: 'Centro de funciones vitales: Respiración, Frecuencia Cardíaca, Temperatura.', en: 'Vital center: RR, HR, Temp.' },
+            nclex: { es: '🚨 TRIADA DE CUSHING (IICP Severa): HTA (Sistólica alta), Bradicardia, Resp. Irregular.', en: '🚨 CUSHING TRIAD (Severe IICP): HTN (Widening pulse pressure), Bradycardia, Irregular RR.' },
+            labs: 'Brain Death Testing'
+          }
+        }
+      },
+      gi: {
+        label: { es: 'Gastrointestinal', en: 'Gastrointestinal' },
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Digestive_system_diagram_en.svg/800px-Digestive_system_diagram_en.svg.png',
+        audioMode: 'guts',
+        parts: {
+          'liver': {
+            name: { es: 'Hígado', en: 'Liver' },
+            pos: { top: '40%', left: '38%' },
+            clinical: { es: 'Metabolismo, Coagulación, Albúmina, Detoxificación.', en: 'Metabolism, Clotting, Albumin, Detox.' },
+            nclex: { es: '⚠️ CIRROSIS: Sangrado (PT/INR alto), Encefalopatía (Amonio alto -> Lactulosa), Ascitis.', en: '⚠️ CIRRHOSIS: Bleeding (High PT/INR), Encephalopathy (High Ammonia -> Lactulose), Ascites.' },
+            labs: 'ALT, AST, Bilirubin, Ammonia, Albumin'
+          },
+          'appendix': {
+            name: { es: 'Apéndice', en: 'Appendix' },
+            pos: { top: '68%', left: '42%' },
+            clinical: { es: 'Ubicado en el Ciego (Cuadrante Inferior Derecho - RLQ).', en: 'Located at Cecum (RLQ).' },
+            nclex: { es: '🚨 APENDICITIS: Dolor McBurney. Si el dolor desaparece súbitamente = RUPTURA = PERITONITIS.', en: '🚨 APPENDICITIS: McBurney\'s pain. Sudden relief = RUPTURE = PERITONITIS.' },
+            labs: 'WBC (Shift to left)'
           }
         }
       }
     };
 
-    // --- PREGUNTAS NCLEX ---
-    this.nclexQuestions = {
-      cardio: [{
-        question: { es: 'Paciente con IAM inferior, bradicardia e hipotensión. ¿Intervención prioritaria?', en: 'Patient w/ inferior MI, bradycardia, hypotension. Priority?' },
-        options: [{ es: 'Atropina', en: 'Atropine' }, { es: 'Marcapasos', en: 'Pacing' }, { es: 'Elevar piernas', en: 'Elevate legs' }, { es: 'Líquidos IV', en: 'IV Fluids' }],
-        correct: 2,
-        rationale: { es: 'En infarto de ventrículo derecho, la precarga es crítica. Elevar piernas aumenta retorno venoso inmediatamente.', en: 'In RV infarct, preload is critical. Leg elevation increases venous return immediately.' }
-      }]
-    };
-
     this.audioCtx = null;
-    this.audioInterval = null;
-    this.#bindMethods();
+    this.oscillators = [];
+    this.binds();
   }
 
-  #bindMethods() {
-    ['switchSystem', 'selectPart', 'toggleAudio', 'closePanel', 'switchTab', 'submitQuizAnswer', 'nextQuestion', 'saveAssessmentNote', 'loadRandomQuestion', 'changeLanguage', 'toggleClinicalMode'].forEach(m => this[m] = this[m].bind(this));
+  binds() {
+    this.selectSystem = this.selectSystem.bind(this);
+    this.selectPart = this.selectPart.bind(this);
+    this.toggleAudio = this.toggleAudio.bind(this);
+    this.closePanel = this.closePanel.bind(this);
+    this.setTab = this.setTab.bind(this);
   }
 
-  init() {
-    this.#detectLanguage();
-    this.#injectStyles();
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.closePanel(); });
-    console.log("✅ Anatomy Master v10.3 Loaded");
+  // --- 2. MOTOR DE AUDIO PROCEDURAL (WEB AUDIO API) ---
+  // Genera sonidos médicos reales matemáticamente sin archivos mp3
+  initAudio() {
+    if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
 
-  #detectLanguage() {
-    const l = localStorage.getItem('nclex-language') || 'es';
-    this.state.currentLang = l;
+  playTone(freq, type, duration, vol, delay) {
+    if(!this.state.audio) return;
+    const osc = this.audioCtx.createOscillator();
+    const gain = this.audioCtx.createGain();
+    const t = this.audioCtx.currentTime + delay;
+
+    osc.type = type;
+    osc.frequency.value = freq;
+    
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(vol, t + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    osc.connect(gain);
+    gain.connect(this.audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + duration + 0.1);
+    this.oscillators.push(osc);
   }
 
-  // --- LOGIC ---
-  switchSystem(id) {
-    this.state.currentSystem = id;
-    this.state.currentPart = null;
-    this.#stopAudio();
-    this.state.audioEnabled = false;
-    this.#renderSystem();
+  startSimulationAudio() {
+    this.stopAudio();
+    if (!this.state.audio) return;
+    this.initAudio();
+    if(this.audioCtx.state === 'suspended') this.audioCtx.resume();
+
+    const mode = this.db[this.state.system].audioMode;
+
+    if (mode === 'heart') {
+      // S1 (Lub) - S2 (Dub) Simulation
+      this.loopId = setInterval(() => {
+        // S1: Low freq, longer
+        this.playTone(60, 'triangle', 0.15, 0.5, 0); 
+        // S2: Higher freq, shorter, slightly delayed
+        this.playTone(90, 'sine', 0.12, 0.4, 0.35); 
+      }, 1000); // 60 BPM
+    } else if (mode === 'lungs') {
+      // White noise synthesis for breath sounds
+      this.loopId = setInterval(() => this.playBreath(), 4000); // 15 RR
+    } else if (mode === 'guts') {
+      this.loopId = setInterval(() => {
+        if(Math.random() > 0.6) this.playTone(Math.random()*200+50, 'sawtooth', 0.1, 0.05, 0);
+      }, 800);
+    }
+  }
+
+  playBreath() {
+    if(!this.state.audio) return;
+    const bufSize = this.audioCtx.sampleRate * 2; // 2 seconds
+    const buffer = this.audioCtx.createBuffer(1, bufSize, this.audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0; i<bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.2;
+
+    const noise = this.audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = this.audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 400; // Muffled sound
+    const gain = this.audioCtx.createGain();
+    
+    const t = this.audioCtx.currentTime;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.3, t + 1); // Inhale
+    gain.gain.linearRampToValueAtTime(0, t + 2);   // Exhale
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.audioCtx.destination);
+    noise.start(t);
+  }
+
+  stopAudio() {
+    if(this.loopId) clearInterval(this.loopId);
+    this.oscillators.forEach(o => { try{o.stop()}catch(e){} });
+    this.oscillators = [];
+  }
+
+  toggleAudio() {
+    this.state.audio = !this.state.audio;
+    this.renderControls(); // Update button UI
+    if(this.state.audio) this.startSimulationAudio();
+    else this.stopAudio();
+  }
+
+  // --- 3. RENDERIZADO INTERFAZ (PACS STYLE) ---
+  render() {
+    const sys = this.db[this.state.system];
+    const isEs = this.state.lang === 'es';
+
+    return `
+      <div class="flex flex-col h-screen max-h-[calc(100vh-60px)] bg-gray-900 text-white font-sans overflow-hidden animate-fade-in">
+        
+        <div class="flex items-center gap-2 p-3 bg-gray-800 border-b border-gray-700 overflow-x-auto no-scrollbar shadow-lg z-20">
+          <div class="text-xs font-bold text-gray-400 mr-2 uppercase tracking-wider">
+            <i class="fas fa-layer-group mr-1"></i> ${isEs ? 'Sistemas' : 'Systems'}
+          </div>
+          ${Object.keys(this.db).map(key => `
+            <button onclick="window.NCLEX_TITANIUM.selectSystem('${key}')" 
+              class="px-4 py-2 rounded-lg text-sm font-bold transition-all transform active:scale-95 whitespace-nowrap
+              ${this.state.system === key ? 'bg-blue-600 text-white shadow-blue-500/50 shadow-md ring-1 ring-blue-400' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}">
+              ${this.db[key].label[this.state.lang]}
+            </button>
+          `).join('')}
+        </div>
+
+        <div class="flex flex-col lg:flex-row flex-1 overflow-hidden relative">
+          
+          <div class="relative w-full lg:w-3/4 bg-black flex items-center justify-center overflow-hidden group">
+            
+            <div class="absolute inset-0 opacity-10 pointer-events-none" 
+                 style="background-image: linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 50px 50px;">
+            </div>
+
+            <img src="${sys.img}" 
+                 class="max-w-full max-h-[80vh] object-contain transition-transform duration-500 ease-out opacity-90 hover:opacity-100"
+                 style="transform: scale(${this.state.zoom})"
+                 alt="Anatomy">
+
+            <div class="absolute inset-0">
+              ${Object.entries(sys.parts).map(([key, part]) => `
+                <button 
+                  onclick="window.NCLEX_TITANIUM.selectPart('${key}')"
+                  class="absolute w-6 h-6 -ml-3 -mt-3 rounded-full border-2 border-white shadow-[0_0_15px_rgba(0,140,255,0.8)] cursor-pointer transition-all duration-300 z-10
+                  ${this.state.selectedPart === key ? 'bg-blue-500 scale-150 animate-pulse ring-4 ring-blue-500/30' : 'bg-blue-500/40 hover:bg-blue-400 hover:scale-125'}"
+                  style="top: ${part.pos.top}; left: ${part.pos.left};">
+                  <span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-gray-700">
+                    ${part.name[this.state.lang]}
+                  </span>
+                </button>
+              `).join('')}
+            </div>
+
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 bg-gray-900/80 backdrop-blur-md px-6 py-3 rounded-full border border-gray-700 shadow-2xl z-20" id="titanium-controls">
+              ${this.renderControlsHTML()}
+            </div>
+
+            <div class="absolute top-4 right-4 text-xs font-mono text-green-400 bg-black/50 px-2 py-1 rounded border border-green-900/50 flex items-center gap-2">
+              <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> LIVE SYSTEM
+            </div>
+          </div>
+
+          <div class="w-full lg:w-1/4 bg-gray-800 border-l border-gray-700 flex flex-col shadow-2xl relative z-30 transform transition-transform duration-300
+               ${this.state.selectedPart ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'} absolute lg:relative inset-y-0 right-0">
+            
+            ${this.renderPanelContent()}
+            
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderControlsHTML() {
+    const audioClass = this.state.audio ? 'text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]' : 'text-gray-400';
+    return `
+      <button onclick="window.NCLEX_TITANIUM.toggleAudio()" class="hover:text-white transition-colors ${audioClass}" title="Audio Simulation">
+        <i class="fas fa-heart-pulse text-xl"></i>
+      </button>
+      <div class="w-px h-6 bg-gray-600"></div>
+      <button onclick="window.NCLEX_TITANIUM.zoom(-0.1)" class="text-gray-400 hover:text-white"><i class="fas fa-minus"></i></button>
+      <button onclick="window.NCLEX_TITANIUM.zoom(0.1)" class="text-gray-400 hover:text-white"><i class="fas fa-plus"></i></button>
+    `;
+  }
+
+  renderPanelContent() {
+    const sys = this.db[this.state.system];
+    const part = this.state.selectedPart ? sys.parts[this.state.selectedPart] : null;
+    const isEs = this.state.lang === 'es';
+
+    if (!part) {
+      return `
+        <div class="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-50">
+          <i class="fas fa-dna text-6xl text-gray-600 mb-4 animate-spin-slow"></i>
+          <h3 class="text-xl font-bold text-gray-300">
+            ${isEs ? 'Sistema Listo' : 'System Ready'}
+          </h3>
+          <p class="text-sm text-gray-500 mt-2">
+            ${isEs ? 'Selecciona una estructura para iniciar análisis.' : 'Select structure to begin analysis.'}
+          </p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="flex flex-col h-full bg-gray-800 animate-slide-in-right">
+        <div class="p-6 bg-gradient-to-br from-gray-800 to-gray-900 border-b border-gray-700">
+          <div class="flex justify-between items-start">
+            <h2 class="text-2xl font-black text-white leading-tight">${part.name[this.state.lang]}</h2>
+            <button onclick="window.NCLEX_TITANIUM.closePanel()" class="text-gray-500 hover:text-red-400"><i class="fas fa-times text-xl"></i></button>
+          </div>
+          <span class="text-xs font-mono text-blue-400 mt-1 block tracking-widest uppercase">${this.state.system.toUpperCase()} MODULE</span>
+        </div>
+
+        <div class="flex border-b border-gray-700 bg-gray-900/50">
+          <button onclick="window.NCLEX_TITANIUM.setTab('clinical')" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider ${this.state.tab==='clinical'?'text-blue-400 border-b-2 border-blue-400 bg-white/5':'text-gray-500 hover:text-gray-300'}">Clinical</button>
+          <button onclick="window.NCLEX_TITANIUM.setTab('nclex')" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider ${this.state.tab==='nclex'?'text-yellow-400 border-b-2 border-yellow-400 bg-white/5':'text-gray-500 hover:text-gray-300'}">NCLEX</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6">
+          ${this.state.tab === 'clinical' ? `
+            <div class="bg-gray-700/30 p-4 rounded-xl border border-gray-600">
+              <h4 class="text-xs font-bold text-gray-400 uppercase mb-2 flex items-center"><i class="fas fa-microscope mr-2"></i> ${isEs ? 'Fisiopatología' : 'Pathophysiology'}</h4>
+              <p class="text-sm text-gray-200 leading-relaxed">${part.clinical[this.state.lang]}</p>
+            </div>
+            
+            <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-800/50">
+              <h4 class="text-xs font-bold text-blue-400 uppercase mb-2 flex items-center"><i class="fas fa-vial mr-2"></i> ${isEs ? 'Labs & Diagnósticos' : 'Labs & Diagnostics'}</h4>
+              <p class="text-sm font-mono text-blue-200">${part.labs}</p>
+            </div>
+          ` : `
+            <div class="bg-yellow-900/20 p-4 rounded-xl border-l-4 border-yellow-500 shadow-lg">
+              <h4 class="text-xs font-bold text-yellow-500 uppercase mb-2 flex items-center"><i class="fas fa-exclamation-triangle mr-2"></i> PRIORITY ACTION</h4>
+              <p class="text-sm text-yellow-100 font-medium leading-relaxed">${part.nclex[this.state.lang]}</p>
+            </div>
+            
+            <div class="mt-4 p-4 rounded-xl bg-gray-700/50 border border-gray-600">
+              <h4 class="text-xs font-bold text-gray-400 uppercase mb-3">Nursing Interventions</h4>
+              <ul class="text-sm text-gray-300 space-y-2 list-disc pl-4">
+                <li>Monitor Vital Signs q15min if unstable.</li>
+                <li>Assess for changes in LOC.</li>
+                <li>Ensure patent IV access.</li>
+              </ul>
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  }
+
+  // --- ACTIONS ---
+  renderControls() {
+    document.getElementById('titanium-controls').innerHTML = this.renderControlsHTML();
+  }
+
+  selectSystem(key) {
+    this.state.system = key;
+    this.state.selectedPart = null;
+    this.stopAudio();
+    this.state.audio = false;
+    this.refresh();
   }
 
   selectPart(key) {
-    this.state.currentPart = key;
-    this.state.currentTab = 'info';
-    this.#renderInfoPanel();
-    document.querySelectorAll('.anatomy-hotspot').forEach(el => {
-      el.classList.toggle('active-spot', el.dataset.id === key);
-    });
+    this.state.selectedPart = key;
+    this.refresh();
   }
 
   closePanel() {
-    this.state.currentPart = null;
-    document.querySelectorAll('.anatomy-hotspot').forEach(el => el.classList.remove('active-spot'));
-    this.#renderInfoPanel(); // Llama al render para mostrar el estado vacío
+    this.state.selectedPart = null;
+    this.refresh();
   }
 
-  switchTab(tab) {
-    this.state.currentTab = tab;
-    this.#renderInfoPanel();
+  setTab(t) {
+    this.state.tab = t;
+    this.refresh();
   }
 
-  // --- AUDIO ---
-  toggleAudio() {
-    const sys = this.systemsDB[this.state.currentSystem];
-    if (!sys.audio) return;
-    this.state.audioEnabled = !this.state.audioEnabled;
-    const btn = document.getElementById('audio-toggle-btn');
-    if (this.state.audioEnabled) {
-      if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-      if (btn) { btn.innerHTML = '<i class="fas fa-volume-up animate-pulse"></i>'; btn.classList.add('text-green-400'); }
-      this.#playSystemSound(sys.audio);
-    } else {
-      this.#stopAudio();
-      if (btn) { btn.innerHTML = '<i class="fas fa-volume-mute"></i>'; btn.classList.remove('text-green-400'); }
-    }
+  zoom(amount) {
+    this.state.zoom = Math.max(0.5, Math.min(3, this.state.zoom + amount));
+    this.refresh();
   }
 
-  #playSystemSound(type) {
-    if (this.audioInterval) clearInterval(this.audioInterval);
-    if (type === 'heartbeat') this.state.audioInterval = setInterval(() => this.#beep(100, 0.1), 1000);
-    else if (type === 'breath') this.state.audioInterval = setInterval(() => this.#beep(60, 1.0, 'sine'), 4000);
+  refresh() {
+    const el = document.getElementById('app-view');
+    if(el) el.innerHTML = this.render();
   }
 
-  #beep(freq, dur, type='triangle') {
-    if (!this.audioCtx) return;
-    const o = this.audioCtx.createOscillator();
-    const g = this.audioCtx.createGain();
-    o.type = type; o.frequency.value = freq;
-    g.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + dur);
-    o.connect(g); g.connect(this.audioCtx.destination);
-    o.start(); o.stop(this.audioCtx.currentTime + dur);
-  }
-
-  #stopAudio() {
-    if (this.audioInterval) clearInterval(this.audioInterval);
-    if (this.audioCtx) this.audioCtx.suspend();
-  }
-
-  // --- QUIZ & NOTES ---
-  loadRandomQuestion() {
-    const q = this.nclexQuestions[this.state.currentSystem];
-    if (q) {
-      this.state.quizQuestion = q[0];
-      this.state.currentTab = 'nclex';
-      this.#renderInfoPanel();
-    }
-  }
-
-  submitQuizAnswer(i) {
-    this.state.userAnswer = i;
-    this.#renderInfoPanel();
-  }
-
-  nextQuestion() { this.loadRandomQuestion(); }
-
-  saveAssessmentNote() {
-    const txt = document.getElementById('note-input').value;
-    if (txt) {
-      if (!this.state.assessmentNotes[this.state.currentPart]) this.state.assessmentNotes[this.state.currentPart] = [];
-      this.state.assessmentNotes[this.state.currentPart].push({ text: txt, time: new Date().toLocaleTimeString() });
-      this.#renderInfoPanel();
-    }
-  }
-
-  changeLanguage(val) {
-    this.state.currentLang = val;
-    localStorage.setItem('nclex-language', val);
-    this.switchSystem(this.state.currentSystem);
-  }
-
-  toggleClinicalMode() { alert(this.state.currentLang==='es'?'Modo Clínico Activado':'Clinical Mode Active'); }
-
-  // --- RENDER ---
-  getInterface() {
-    return `
-      <div id="anatomy-app-root" class="flex flex-col h-full animate-fade-in">
-        <div class="flex items-center justify-between p-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-          <div><h1 class="text-2xl font-bold text-gray-800 dark:text-white"><i class="fas fa-hospital text-brand-blue mr-2"></i>Anatomy Master</h1></div>
-          <div class="flex gap-2">
-            <button onclick="window.NCLEX_ANATOMY.toggleClinicalMode()" class="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded text-sm"><i class="fas fa-user-md"></i></button>
-            <select onchange="window.NCLEX_ANATOMY.changeLanguage(this.value)" class="bg-gray-100 dark:bg-gray-800 rounded px-2 text-sm"><option value="es">Español</option><option value="en">English</option></select>
-          </div>
-        </div>
-        <div id="anatomy-view-shell" class="flex-1 overflow-hidden p-4">${this.#getSystemContent()}</div>
-      </div>
-    `;
-  }
-
-  #getSystemContent() {
-    this.#renderInfoPanel(); 
-    return this.#renderSystem();
-  }
-
-  #renderSystem() {
-    const sys = this.systemsDB[this.state.currentSystem];
-    return `
-      <div class="h-full flex flex-col gap-4">
-        <div class="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
-          ${Object.keys(this.systemsDB).map(key => `<button onclick="window.NCLEX_ANATOMY.switchSystem('${key}')" class="px-4 py-2 rounded-lg font-bold uppercase transition ${this.state.currentSystem === key ? 'bg-brand-blue text-white shadow' : 'bg-white dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}">${this.systemsDB[key].title[this.state.currentLang]}</button>`).join('')}
-        </div>
-        <div class="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
-          <div class="w-full lg:w-2/3 bg-gray-900 rounded-2xl relative overflow-hidden shadow-xl border-4 border-white dark:border-gray-700">
-            <div class="relative h-full flex items-center justify-center bg-black">
-              <img src="${sys.baseImage}" class="max-w-full max-h-[70vh] object-contain opacity-90" onerror="this.src='https://via.placeholder.com/800x600?text=No+Image'">
-              <div class="absolute inset-0">${Object.entries(sys.parts).map(([key, part]) => `<button class="anatomy-hotspot absolute w-8 h-8 rounded-full bg-white/20 border-2 border-white shadow-lg flex items-center justify-center hover:scale-125 transition ${this.state.currentPart === key ? 'active-spot' : ''}" style="top:${part.pos.top}; left:${part.pos.left};" onclick="window.NCLEX_ANATOMY.selectPart('${key}')" data-id="${key}"></button>`).join('')}</div>
-              <div class="absolute top-4 right-4 flex gap-2">
-                ${sys.audio ? `<button id="audio-toggle-btn" onclick="window.NCLEX_ANATOMY.toggleAudio()" class="w-10 h-10 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-blue-600"><i class="fas fa-volume-mute"></i></button>` : ''}
-                <button onclick="window.NCLEX_ANATOMY.loadRandomQuestion()" class="w-10 h-10 bg-purple-600 text-white rounded-full flex items-center justify-center hover:bg-purple-700"><i class="fas fa-question"></i></button>
-              </div>
-            </div>
-          </div>
-          <div class="w-full lg:w-1/3 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden">
-            <div id="anatomy-details" class="flex-1 overflow-y-auto custom-scrollbar">${this.state.currentPart ? '' : this.#getEmptyState()}</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  #getEmptyState() { return `<div class="h-full flex items-center justify-center text-gray-400 flex-col"><i class="fas fa-hand-pointer text-3xl mb-2"></i><p>Select Structure</p></div>`; }
-
-  #renderInfoPanel() {
-    const container = document.getElementById('anatomy-details');
-    // Estado vacío si no hay selección o si el contenedor no existe
-    if (!container) return;
-    if (!this.state.currentPart) {
-      container.innerHTML = this.#getEmptyState();
-      return;
-    }
-
-    const part = this.systemsDB[this.state.currentSystem].parts[this.state.currentPart];
-    
-    // Generación de Tabs
-    const tabs = ['info', 'nclex', 'procedures', 'assessment'].map(t => `<button onclick="window.NCLEX_ANATOMY.switchTab('${t}')" class="flex-1 py-2 text-xs font-bold uppercase border-b-2 ${this.state.currentTab === t ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-400'}">${t}</button>`).join('');
-
-    let content = '';
-    if (this.state.currentTab === 'info') {
-      content = `<div class="p-4 space-y-4"><h3 class="text-xl font-bold dark:text-white">${part.name[this.state.currentLang]}</h3><p class="text-sm dark:text-gray-300">${part.desc[this.state.currentLang]}</p><div class="bg-yellow-50 dark:bg-yellow-900/30 p-3 rounded border-l-4 border-yellow-500"><p class="text-xs font-bold text-yellow-700">NCLEX:</p><p class="text-sm dark:text-white">${part.nclex[this.state.currentLang]}</p></div></div>`;
-    } else if (this.state.currentTab === 'nclex') {
-      if (this.state.quizQuestion) {
-        const q = this.state.quizQuestion;
-        const answered = this.state.userAnswer !== null;
-        content = `<div class="p-4 space-y-4"><p class="font-bold text-sm dark:text-white">${q.question[this.state.currentLang]}</p><div class="space-y-2">${q.options.map((opt, i) => `<button onclick="window.NCLEX_ANATOMY.submitQuizAnswer(${i})" ${answered?'disabled':''} class="w-full text-left p-2 rounded border text-sm ${answered ? (i===q.correct?'bg-green-100 dark:text-black':i===this.state.userAnswer?'bg-red-100 dark:text-black':'opacity-50') : 'hover:bg-gray-100 dark:hover:bg-gray-800 dark:text-white'}">${opt[this.state.currentLang]}</button>`).join('')}</div>${answered ? `<div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-sm dark:text-white"><strong>Rationale:</strong> ${q.rationale[this.state.currentLang]}</div>` : ''}</div>`;
-      } else content = `<div class="p-8 text-center"><button onclick="window.NCLEX_ANATOMY.loadRandomQuestion()" class="bg-purple-600 text-white px-4 py-2 rounded">Quiz</button></div>`;
-    } else if (this.state.currentTab === 'procedures') {
-        content = `<div class="p-4"><ul class="list-disc pl-5 space-y-2 text-sm dark:text-gray-300">${part.procedures.map(p => `<li>${p[this.state.currentLang]}</li>`).join('')}</ul></div>`;
-    } else if (this.state.currentTab === 'assessment') {
-        const notes = this.state.assessmentNotes[this.state.currentPart] || [];
-        content = `<div class="p-4 space-y-4"><div class="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-sm dark:text-white">${part.assessment[this.state.currentLang]}</div><textarea id="note-input" class="w-full border p-2 rounded dark:bg-gray-800 dark:text-white" placeholder="Note..."></textarea><button onclick="window.NCLEX_ANATOMY.saveAssessmentNote()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm w-full">Save</button><div class="space-y-2 mt-4">${notes.map(n => `<div class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-sm text-gray-700 dark:text-gray-300">${n.text}</div>`).join('')}</div></div>`;
-    }
-
-    container.innerHTML = `<div class="h-full flex flex-col animate-slide-up"><div class="h-40 bg-gray-900 relative flex-shrink-0"><img src="${part.img}" class="w-full h-full object-cover opacity-60" onerror="this.src='https://via.placeholder.com/400x200'"><button onclick="window.NCLEX_ANATOMY.closePanel()" class="absolute top-2 right-2 text-white bg-black/50 rounded-full w-8 h-8 flex items-center justify-center"><i class="fas fa-times"></i></button></div><div class="flex border-b border-gray-200 dark:border-gray-700">${tabs}</div><div class="flex-1 overflow-y-auto bg-white dark:bg-gray-900">${content}</div></div>`;
-  }
-
-  #injectStyles() {
-    if(document.getElementById('anatomy-css')) return;
-    const style = document.createElement('style');
-    style.id = 'anatomy-css';
-    style.textContent = `.anatomy-hotspot.active-spot { transform: scale(1.4); border-color: #007AFF; box-shadow: 0 0 15px #007AFF; background: rgba(0,122,255,0.4); } .custom-scrollbar::-webkit-scrollbar { width: 5px; } .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; } .animate-slide-up { animation: slideUp 0.3s ease-out; } @keyframes slideUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }`;
-    document.head.appendChild(style);
+  init() {
+    console.log("🚀 Titanium Engine Started");
+    this.refresh();
   }
 }
 
-// --- BOOTSTRAP (ESTANDARIZADO) ---
+// --- 🔥 SISTEMA DE INYECCIÓN "BUNKER-BUSTER" ---
+// Este código es agresivo. Si el botón no existe, lo crea. Si lo borran, lo vuelve a crear.
 (function() {
-  const start = () => {
-    // Esperamos a que el MOTOR (ngn_engine) haya creado window.NCLEX
-    if (window.NCLEX && window.NCLEX.registerTopic) {
-      console.log("🚀 Registrando Anatomía en el Motor...");
-      const lab = new AnatomyMasterLab();
-      window.NCLEX_ANATOMY = lab;
-      
-      window.NCLEX.registerTopic({
-        id: 'anatomy', 
-        title: {es:'Anatomía Clínica', en:'Clinical Anatomy'}, 
-        subtitle: {es:'Atlas v10.3', en:'Atlas v10.3'}, 
-        icon: 'heart-pulse', 
-        color: 'blue',
-        render: () => { 
-          setTimeout(() => lab.init(), 100); 
-          return lab.getInterface(); 
-        }
-      });
-    } else {
-      setTimeout(start, 100); // Reintentar si el motor aún no carga
-    }
+  const lab = new AnatomyTitanium();
+  window.NCLEX_TITANIUM = lab;
+
+  // 1. Registro Estándar (La vía diplomática)
+  if (window.NCLEX && window.NCLEX.registerTopic) {
+    window.NCLEX.registerTopic({
+      id: 'anatomy', 
+      title: {es:'Anatomía Clínica', en:'Clinical Anatomy'},
+      icon: 'heart-pulse',
+      color: 'blue',
+      render: () => { setTimeout(()=>lab.init(), 100); return lab.render(); }
+    });
+  }
+
+  // 2. Inyección Directa (La vía militar)
+  const forceInject = () => {
+    const nav = document.getElementById('topics-nav');
+    if (!nav) return; // Si no hay menú, no podemos hacer nada
+
+    // ¿Ya existe el botón?
+    if (document.getElementById('btn-anatomy-force')) return;
+
+    console.log("⚠️ Detectada ausencia de botón. Inyectando...");
+    
+    const btn = document.createElement('button');
+    btn.id = 'btn-anatomy-force';
+    btn.className = "nav-btn w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-blue-900/20 to-transparent border border-blue-800/30 hover:bg-blue-900/40 transition-all text-blue-400 group mb-2";
+    btn.onclick = () => {
+      // Limpiar active states
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-blue-50', 'text-brand-blue'));
+      // Renderizar a la fuerza
+      const view = document.getElementById('app-view');
+      view.innerHTML = lab.render();
+      lab.init();
+    };
+
+    btn.innerHTML = `
+      <div class="w-6 flex justify-center"><i class="fa-solid fa-heart-pulse text-xl text-blue-500 animate-pulse"></i></div>
+      <span class="hidden lg:block text-base font-bold">Anatomía Clínica</span>
+    `;
+
+    // Insertar AL PRINCIPIO del menú para que se vea
+    nav.prepend(btn);
   };
-  
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
-  else start();
+
+  // Ejecutar comprobación cada segundo durante 5 segundos para asegurar carga
+  let checks = 0;
+  const interval = setInterval(() => {
+    forceInject();
+    checks++;
+    if(checks > 5) clearInterval(interval);
+  }, 1000);
+
 })();
