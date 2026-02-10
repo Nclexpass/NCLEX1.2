@@ -1,423 +1,242 @@
-// 31_search_service.js — Motor de Búsqueda Global con Drag & Drop
-// VERSIÓN BLINDADA & FLOTANTE: Espera activamente a que los módulos carguen y permite arrastrar el botón.
+/* 31_search_service.js — Global Search Engine (Spotlight/Command Palette Style) */
+/* Optimized for Clinical Terminology & Fast Indexing */
 
-(function() {
-  'use strict';
+(function () {
+    'use strict';
 
-  // Esperamos a que la app principal exponga su API
-  if (!window.nclexApp && !window.NCLEX) return;
+    // --- CONFIGURACIÓN ---
+    const CONFIG = {
+        minChars: 2,
+        maxResults: 10,
+        hotkey: 'k' // Ctrl/Cmd + K
+    };
 
-  const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
+    let searchIndex = [];
+    let isOpen = false;
 
-
-  const normalize = (s) => String(s || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-
-  const stripHTML = (html) => {
-    const div = document.createElement('div');
-    div.innerHTML = html || '';
-    return div.textContent || div.innerText || '';
-  };
-
-  const countOccurrences = (haystack, needle) => {
-    if (!needle) return 0;
-    let c = 0, i = 0;
-    while ((i = haystack.indexOf(needle, i)) !== -1) { c++; i += Math.max(1, needle.length); }
-    return c;
-  };
-
-  const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g, ch => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[ch]));
-
-  const buildNormAndMap = (str) => {
-    const map = [];
-    let norm = '';
-    const src = String(str || '');
-    for (let i = 0; i < src.length; i++) {
-      const base = src[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      for (let j = 0; j < base.length; j++) {
-        norm += base[j].toLowerCase();
-        map.push(i);
-      }
-    }
-    return { norm, map };
-  };
-
-  const snippetFromPlain = (plain, qNorm) => {
-    const text = String(plain || '').trim().replace(/\s+/g, ' ');
-    if (!text) return '';
-    const { norm, map } = buildNormAndMap(text);
-    const found = norm.indexOf(qNorm);
-    if (found === -1) {
-      return escapeHTML(text.slice(0, 160)) + (text.length > 160 ? '…' : '');
-    }
-    const startOrig = map[found] ?? 0;
-    const endOrig = (map[found + qNorm.length - 1] ?? startOrig) + 1;
-
-    const ctxBefore = 70, ctxAfter = 90;
-    const start = Math.max(0, startOrig - ctxBefore);
-    const end = Math.min(text.length, endOrig + ctxAfter);
-
-    const prefix = start > 0 ? '…' : '';
-    const suffix = end < text.length ? '…' : '';
-
-    const before = escapeHTML(text.slice(start, startOrig));
-    const mid = escapeHTML(text.slice(startOrig, endOrig));
-    const after = escapeHTML(text.slice(endOrig, end));
-
-    return `${prefix}${before}<mark class="bg-yellow-200/70 dark:bg-yellow-500/30 px-0.5 rounded-sm">${mid}</mark>${after}${suffix}`;
-  };
-
-  const SearchService = {
-    index: [],
-    attempts: 0,
-    maxAttempts: 15, // Aumentado para dar margen a la carga de módulos
-    
-    // Variables para el Drag & Drop
-    isDragging: false,
-    hasMoved: false,
-
-    init() {
-      console.log("🔍 Search Service: Iniciando...");
-      this.injectUI();
-      this.bindEvents();
-      this.initDrag(); // Iniciar lógica de arrastre
-      
-      // Intentar indexar inmediatamente
-      this.tryBuildIndex();
-    },
-
-    // LÓGICA DE REINTENTO (La clave para que funcione)
-    tryBuildIndex() {
-      // Acceder a los temas a través del método público de logic.js
-      const topics = window.nclexApp && typeof window.nclexApp.getTopics === 'function' 
-        ? window.nclexApp.getTopics() 
-        : [];
-        
-      const count = topics.length;
-
-      if (count > 0) {
-        // ¡ÉXITO! Hay temas cargados
-        this.buildIndex(topics);
-        console.log(`✅ Search Service: Indexación completada. ${this.index.length} entradas generadas de ${count} módulos.`);
-        
-        // Actualizar el contador en el footer del modal
-        const footerCount = document.getElementById('search-count-display');
-        if(footerCount) footerCount.innerText = `${count} Modules Indexed`;
-        
-      } else {
-        // FALLO TEMPORAL: Aún no hay temas, reintentar en 1 segundo
-        this.attempts++;
-        if (this.attempts < this.maxAttempts) {
-          setTimeout(() => this.tryBuildIndex(), 1000);
-        } else {
-          console.error("❌ Search Service: Se agotaron los intentos. Verifique que logic.js esté cargado antes.");
-        }
-      }
-    },
-
-    buildIndex(topics) {
-      this.index = [];
-      topics.forEach(topic => {
-        if (!topic || !topic.id) return;
-
-        // Indexar título/subtítulo + contenido completo (render -> texto plano)
-        const titleES = topic.title?.es || '';
-        const subES = topic.subtitle?.es || '';
-        const titleEN = topic.title?.en || '';
-        const subEN = topic.subtitle?.en || '';
-
-        const metaRaw = `${titleES} ${subES} ${titleEN} ${subEN}`;
-        const metaNorm = normalize(metaRaw);
-
-        // Reusar cache del índice inteligente si existe (evita re-ejecutar render())
-        const cachedPlain = topic.__searchPlain || '';
-        const cachedNorm = topic.__searchNorm || '';
-
-        let plain = cachedPlain;
-        let contentNorm = cachedNorm;
-
-        if (!plain || !contentNorm) {
-          let rawHTML = '';
-          try {
-            rawHTML = typeof topic.render === 'function' ? topic.render() : (typeof topic.content === 'string' ? topic.content : '');
-          } catch (e) {
-            rawHTML = '';
-          }
-          plain = stripHTML(rawHTML);
-          contentNorm = normalize(plain);
-
-          try {
-            topic.__searchPlain = plain;
-            topic.__searchNorm = contentNorm;
-          } catch (e) {}
-        }
-
-        this.index.push({
-          id: String(topic.id),
-          metaNorm,
-          contentNorm,
-          search: (metaNorm + ' ' + contentNorm).trim(),
-          titleObj: topic.title,
-          subtitleObj: topic.subtitle,
-          icon: topic.icon,
-          color: topic.color,
-          plain // para snippets
-        });
-      });
-    },
-
-    injectUI() {
-      if (document.getElementById('global-search-btn')) return;
-
-      // Recuperar posición guardada o usar default (esquina inferior derecha)
-      const savedPos = JSON.parse(localStorage.getItem('nclex_search_pos')) || { bottom: '24px', right: '24px' };
-      
-      // Determinar estilo inicial. Si hay savedPos.top, usamos top/left, sino bottom/right.
-      let styleString = '';
-      if (savedPos.top) {
-          styleString = `top: ${savedPos.top}; left: ${savedPos.left};`;
-      } else {
-          styleString = `bottom: ${savedPos.bottom}; right: ${savedPos.right};`;
-      }
-
-      // IMPORTANTE: Eliminamos las clases 'bottom-6 right-6' para que no interfieran con el estilo inline
-      // Añadimos 'touch-action: none' para evitar scroll mientras se arrastra en móvil
-      const html = `
-        <button id="global-search-btn" 
-                style="${styleString} touch-action: none; position: fixed;"
-                class="z-[100] w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-transform hover:scale-110 group border-2 border-white dark:border-slate-800 cursor-grab active:cursor-grabbing">
-           <i class="fa-solid fa-magnifying-glass text-xl pointer-events-none"></i>
-        </button>
-
-        <div id="search-modal" class="fixed inset-0 z-[110] bg-slate-900/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 flex items-start justify-center pt-24 px-4">
-           <div id="search-container" class="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden transform scale-95 transition-transform duration-300">
-              <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center gap-4">
-                 <i class="fa-solid fa-magnifying-glass text-gray-400 text-lg"></i>
-                 <input type="text" id="global-search-input" 
-                        class="w-full bg-transparent border-none focus:ring-0 text-lg text-slate-800 dark:text-white placeholder-gray-400 font-medium" 
-                        placeholder="Buscar... / Search..." autocomplete="off">
-                 <button id="close-search" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                 </button>
-              </div>
-              <div id="search-results" class="max-h-[60vh] overflow-y-auto p-2 bg-gray-50 dark:bg-slate-950/50 min-h-[100px]">
-                 <div class="text-center py-10 text-gray-400">
-                    <p class="text-sm font-medium">${t('Escribe para buscar...', 'Type to search...')}</p>
-                 </div>
-              </div>
-              <div class="px-4 py-2 bg-gray-100 dark:bg-slate-800 text-[10px] text-gray-500 flex justify-between uppercase font-bold tracking-wider">
-                 <span>ESC to close</span>
-                 <span id="search-count-display">Loading...</span>
-              </div>
-           </div>
-        </div>
-      `;
-      document.body.insertAdjacentHTML('beforeend', html);
-    },
-
-    // NUEVA FUNCIÓN: Lógica para arrastrar el botón
-    initDrag() {
-        const btn = document.getElementById('global-search-btn');
-        if (!btn) return;
-
-        let offsetX, offsetY;
-        let startX, startY;
-
-        const startDrag = (e) => {
-            // Prevenir scroll en móviles
-            if (e.type === 'touchstart') {
-                // e.preventDefault(); // Comentado para permitir tap simple sin bloquear UI
-            }
+    // --- 1. MOTOR DE INDEXADO ---
+    const SearchEngine = {
+        init: () => {
+            // Esperar a que NCLEX esté listo para indexar módulos
+            setTimeout(SearchEngine.buildIndex, 1000);
             
-            this.isDragging = false;
-            this.hasMoved = false;
-
-            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-
-            // Obtener posición actual del botón
-            const rect = btn.getBoundingClientRect();
+            // Inyectar UI
+            SearchUI.inject();
             
-            // Calcular offset desde la esquina del botón
-            offsetX = clientX - rect.left;
-            offsetY = clientY - rect.top;
+            // Event Listeners Globales
+            document.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === CONFIG.hotkey) {
+                    e.preventDefault();
+                    SearchUI.toggle();
+                }
+                if (e.key === 'Escape' && isOpen) {
+                    SearchUI.close();
+                }
+            });
+        },
 
-            startX = clientX;
-            startY = clientY;
+        buildIndex: () => {
+            if (!window.NCLEX) return;
+            
+            const state = window.NCLEX.getState();
+            searchIndex = []; // Reset
 
-            // Listeners globales para el movimiento
-            document.addEventListener('mousemove', onDrag);
-            document.addEventListener('mouseup', endDrag);
-            document.addEventListener('touchmove', onDrag, { passive: false });
-            document.addEventListener('touchend', endDrag);
-        };
-
-        const onDrag = (e) => {
-            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
-            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
-
-            // Verificar si se ha movido lo suficiente para considerarlo un arrastre (umbral 5px)
-            if (Math.abs(clientX - startX) > 5 || Math.abs(clientY - startY) > 5) {
-                this.isDragging = true;
-                this.hasMoved = true;
-            }
-
-            if (this.isDragging) {
-                e.preventDefault(); // Prevenir selección de texto o scroll
-
-                let newLeft = clientX - offsetX;
-                let newTop = clientY - offsetY;
-
-                // Restricciones de bordes (para que no salga de la pantalla)
-                const maxX = window.innerWidth - btn.offsetWidth;
-                const maxY = window.innerHeight - btn.offsetHeight;
-
-                newLeft = Math.max(0, Math.min(newLeft, maxX));
-                newTop = Math.max(0, Math.min(newTop, maxY));
-
-                // Aplicar nuevas coordenadas
-                btn.style.left = `${newLeft}px`;
-                btn.style.top = `${newTop}px`;
-                btn.style.bottom = 'auto';
-                btn.style.right = 'auto';
-            }
-        };
-
-        const endDrag = () => {
-            document.removeEventListener('mousemove', onDrag);
-            document.removeEventListener('mouseup', endDrag);
-            document.removeEventListener('touchmove', onDrag);
-            document.removeEventListener('touchend', endDrag);
-
-            // Guardar posición si hubo movimiento
-            if (this.hasMoved) {
-                const pos = {
-                    top: btn.style.top,
-                    left: btn.style.left
-                };
-                localStorage.setItem('nclex_search_pos', JSON.stringify(pos));
+            // 1. Indexar Módulos
+            Object.values(state.modules).forEach(mod => {
+                const titleEs = typeof mod.title === 'object' ? mod.title.es : mod.title;
+                const titleEn = typeof mod.title === 'object' ? mod.title.en : mod.title;
                 
-                // Pequeño timeout para resetear estado, para evitar conflicto con evento 'click'
-                setTimeout(() => {
-                    this.hasMoved = false;
-                }, 50);
+                searchIndex.push({
+                    id: mod.id,
+                    type: 'module',
+                    title: { es: titleEs, en: titleEn },
+                    keywords: `${titleEs} ${titleEn} ${mod.subtitle?.es || ''} ${mod.subtitle?.en || ''}`.toLowerCase(),
+                    icon: mod.icon || 'book'
+                });
+            });
+
+            // 2. Indexar Conceptos Médicos Clave (Hardcoded para demostración rápida)
+            const medicalTerms = [
+                { id: 'ngn', term: 'Sepsis', desc: { es: 'Caso clínico NGN', en: 'NGN Case Study' } },
+                { id: 'ngn', term: 'Shock', desc: { es: 'Protocolos de emergencia', en: 'Emergency protocols' } },
+                { id: 'anatomy', term: 'Cardio', desc: { es: 'Anatomía del corazón', en: 'Heart anatomy' } },
+                { id: 'simulator', term: 'Examen', desc: { es: 'Simulador NCLEX', en: 'NCLEX Simulator' } }
+            ];
+
+            medicalTerms.forEach(item => {
+                searchIndex.push({
+                    id: item.id,
+                    type: 'concept',
+                    title: { es: item.term, en: item.term },
+                    keywords: `${item.term} ${item.desc.es} ${item.desc.en}`.toLowerCase(),
+                    icon: 'stethoscope'
+                });
+            });
+
+            console.log(`[Search] Index built: ${searchIndex.length} items.`);
+        },
+
+        query: (q) => {
+            const normalized = q.toLowerCase().trim();
+            if (normalized.length < CONFIG.minChars) return [];
+
+            return searchIndex.filter(item => 
+                item.keywords.includes(normalized)
+            ).slice(0, CONFIG.maxResults);
+        }
+    };
+
+    // --- 2. INTERFAZ DE USUARIO (UI) ---
+    const SearchUI = {
+        inject: () => {
+            // 1. Botón Flotante (FAB)
+            const fabContainer = document.getElementById('floating-tools-container');
+            if (fabContainer) {
+                const btn = document.createElement('div');
+                btn.innerHTML = `
+                    <button onclick="window.SearchService.toggle()" class="w-12 h-12 bg-white dark:bg-[#2c2c2e] text-brand-blue rounded-full shadow-lg border border-gray-200 dark:border-white/10 flex items-center justify-center hover:scale-110 transition-transform cursor-pointer group z-40">
+                        <i class="fa-solid fa-magnifying-glass text-lg group-hover:rotate-90 transition-transform duration-300"></i>
+                    </button>
+                `;
+                fabContainer.appendChild(btn);
             }
-        };
 
-        btn.addEventListener('mousedown', startDrag);
-        btn.addEventListener('touchstart', startDrag, { passive: false });
-    },
+            // 2. Modal de Búsqueda
+            const modal = document.createElement('div');
+            modal.id = 'search-modal';
+            modal.className = 'fixed inset-0 z-[100] hidden';
+            modal.innerHTML = `
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.SearchService.close()"></div>
+                
+                <div class="relative w-full max-w-2xl mx-auto mt-20 px-4 animate-slide-up">
+                    <div class="bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-white/10">
+                        
+                        <div class="flex items-center gap-4 p-4 border-b border-gray-100 dark:border-white/5">
+                            <i class="fa-solid fa-magnifying-glass text-gray-400 text-xl ml-2"></i>
+                            <input type="text" id="search-input" 
+                                class="w-full bg-transparent text-xl font-medium text-slate-800 dark:text-white placeholder-gray-400 focus:outline-none"
+                                placeholder="Buscar temas, casos, conceptos..." 
+                                autocomplete="off">
+                            <button onclick="window.SearchService.close()" class="text-xs bg-gray-100 dark:bg-white/10 px-2 py-1 rounded text-gray-500">ESC</button>
+                        </div>
 
-    bindEvents() {
-      const btn = document.getElementById('global-search-btn');
-      const modal = document.getElementById('search-modal');
-      const container = document.getElementById('search-container');
-      const input = document.getElementById('global-search-input');
-      const closeBtn = document.getElementById('close-search');
-
-      if (!btn || !modal) return;
-
-      const open = () => {
-        // SI SE ESTÁ ARRASTRANDO, NO ABRIR
-        if (this.hasMoved) return;
-
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            modal.classList.remove('opacity-0');
-            container.classList.remove('scale-95');
-            container.classList.add('scale-100');
-        }, 10);
-        input.value = '';
-        input.focus();
-      };
-
-      const close = () => {
-        modal.classList.add('opacity-0');
-        container.classList.remove('scale-100');
-        container.classList.add('scale-95');
-        setTimeout(() => modal.classList.add('hidden'), 300);
-      };
-
-      btn.addEventListener('click', open);
-      // Soporte para touch end como click si no se movió
-      btn.addEventListener('touchend', (e) => {
-          if(!this.hasMoved) open();
-      });
-
-      closeBtn.addEventListener('click', close);
-      modal.addEventListener('click', (e) => { if(e.target === modal) close(); });
-      document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); open(); }
-        if (e.key === 'Escape') close();
-      });
-
-      input.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        this.renderResults(query);
-      });
-    },
-
-    renderResults(query) {
-      const container = document.getElementById('search-results');
-      if (query.length < 2) {
-          container.innerHTML = `<div class="text-center py-10 text-gray-400 text-sm">...</div>`;
-          return;
-      }
-
-      const qNorm = normalize(query);
-
-      // Filtrar usando índice combinado (título/subtítulo + contenido)
-      const matches = this.index
-        .filter(item => item.search && item.search.includes(qNorm))
-        .map(item => {
-          const titleBoost = item.metaNorm && item.metaNorm.includes(qNorm) ? 25 : 0;
-          const count = countOccurrences(item.contentNorm || '', qNorm);
-          return { ...item, _score: titleBoost + count, _count: count, _titleHit: titleBoost > 0 };
-        })
-        .sort((a, b) => (b._score - a._score));
-
-      if (matches.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-gray-500">${t('Sin resultados', 'No results found')}</div>`;
-        return;
-      }
-
-      let html = '<div class="space-y-2">';
-      matches.forEach(match => {
-        const titleHTML = t(match.titleObj.es, match.titleObj.en);
-        const subHTML = match.subtitleObj ? t(match.subtitleObj.es, match.subtitleObj.en) : '';
-
-        html += `
-          <button onclick="window.nclexApp.openTopicWithHighlight('${match.id}','${encodeURIComponent(query)}'); document.getElementById('close-search').click();" 
-                  class="w-full text-left p-3 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all flex items-center gap-4 group border border-transparent hover:border-blue-100 dark:hover:border-blue-800">
-             <div class="w-10 h-10 rounded-full bg-${match.color || 'blue'}-100 dark:bg-${match.color || 'blue'}-900/30 text-${match.color || 'blue'}-600 dark:text-${match.color || 'blue'}-400 flex items-center justify-center shrink-0">
-                <i class="fa-solid fa-${match.icon || 'book'}"></i>
-             </div>
-             <div class="flex-1 min-w-0">
-                <div class="font-bold text-slate-800 dark:text-gray-200 text-sm truncate">${titleHTML}</div>
-                <div class="flex items-center justify-between gap-3">
-                  <div class="text-xs text-gray-500 truncate">${subHTML}</div>
-                  <span class="text-[10px] px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 shrink-0">${t(match._count + ' coincidencias', match._count + ' matches')}</span>
+                        <div id="search-results" class="max-h-[60vh] overflow-y-auto p-2">
+                            <div class="p-8 text-center text-gray-400">
+                                <i class="fa-brands fa-searchengin text-4xl mb-3 opacity-50"></i>
+                                <p class="text-sm">Escribe para buscar en la Masterclass.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 dark:bg-black/20 p-2 text-center text-[10px] text-gray-400 font-mono">
+                            NCLEX SEARCH ENGINE V2.0
+                        </div>
+                    </div>
                 </div>
-                <div class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">${snippetFromPlain(match.plain, qNorm)}</div>
-             </div>
-             <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-blue-500"></i>
-          </button>
-        `;
-      });
-      html += '</div>';
-      container.innerHTML = html;
-      
-      // Actualizar idioma manualmente
-      const currentLang = localStorage.getItem('nclex_lang') || 'es';
-      const isEs = currentLang === 'es';
-      container.querySelectorAll('.lang-es').forEach(el => isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-      container.querySelectorAll('.lang-en').forEach(el => !isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-    }
-  };
+            `;
+            document.body.appendChild(modal);
 
-  SearchService.init();
+            // Listener Input
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                SearchUI.renderResults(e.target.value);
+            });
+        },
+
+        toggle: () => {
+            const modal = document.getElementById('search-modal');
+            const input = document.getElementById('search-input');
+            
+            if (isOpen) {
+                SearchUI.close();
+            } else {
+                modal.classList.remove('hidden');
+                isOpen = true;
+                setTimeout(() => input.focus(), 50);
+                document.body.style.overflow = 'hidden'; // Lock scroll
+            }
+        },
+
+        close: () => {
+            const modal = document.getElementById('search-modal');
+            modal.classList.add('hidden');
+            isOpen = false;
+            document.body.style.overflow = ''; // Unlock scroll
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').innerHTML = ''; // Clear
+        },
+
+        renderResults: (query) => {
+            const container = document.getElementById('search-results');
+            const results = SearchEngine.query(query);
+
+            if (query.length < CONFIG.minChars) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-400">
+                        <p class="text-sm">Escribe al menos ${CONFIG.minChars} caracteres...</p>
+                    </div>`;
+                return;
+            }
+
+            if (results.length === 0) {
+                container.innerHTML = `
+                    <div class="p-8 text-center text-gray-400">
+                        <i class="fa-regular fa-face-frown text-2xl mb-2"></i>
+                        <p class="text-sm">No se encontraron resultados para "${query}"</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '<div class="flex flex-col gap-1">';
+            results.forEach(res => {
+                html += `
+                    <button onclick="window.SearchService.go('${res.id}')" 
+                        class="flex items-center gap-4 p-3 rounded-xl hover:bg-brand-blue/5 dark:hover:bg-blue-500/10 hover:border-brand-blue/30 border border-transparent transition-all group text-left">
+                        
+                        <div class="w-10 h-10 rounded-lg bg-gray-100 dark:bg-white/5 text-gray-500 flex items-center justify-center group-hover:bg-brand-blue group-hover:text-white transition-colors">
+                            <i class="fa-solid fa-${res.icon}"></i>
+                        </div>
+                        
+                        <div class="flex-1">
+                            <div class="font-bold text-slate-800 dark:text-gray-200 text-sm">
+                                <span class="lang-es">${res.title.es}</span>
+                                <span class="lang-en hidden-lang" style="display:none">${res.title.en}</span>
+                            </div>
+                            <div class="text-xs text-gray-400">
+                                ${res.type.toUpperCase()}
+                            </div>
+                        </div>
+                        
+                        <i class="fa-solid fa-chevron-right text-gray-300 group-hover:text-brand-blue"></i>
+                    </button>
+                `;
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+            
+            // Re-apply language check
+            if (window.NCLEX) window.NCLEX.toggleLanguage(); window.NCLEX.toggleLanguage();
+        },
+
+        go: (id) => {
+            if (window.NCLEX) {
+                window.NCLEX.navigate(id);
+                SearchUI.close();
+            }
+        }
+    };
+
+    // --- 3. API PÚBLICA ---
+    window.SearchService = {
+        toggle: SearchUI.toggle,
+        close: SearchUI.close,
+        go: SearchUI.go
+    };
+
+    // Inicializar al cargar
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', SearchEngine.init);
+    } else {
+        SearchEngine.init();
+    }
+
 })();
