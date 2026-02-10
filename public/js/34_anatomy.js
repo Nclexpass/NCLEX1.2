@@ -1,5 +1,5 @@
 // 34_anatomy.js — NCLEX Anatomy Master Lab v10.0 - ENFERMERÍA PROFESIONAL
-// 🏥 Sistema Completo de Anatomía Clínica para Enfermeros
+// 🏥 Sistema Completo de Anatomía Clínica para Enfermeros(Creado por Reynier Diaz Gerones)
 // 🎯 Características: 8 Sistemas Corporales + Preguntas NCLEX + Simulaciones + Notas Clínicas
 // 📚 Contenido: Cardiovascular, Respiratorio, Neurológico, Renal, Gastrointestinal, Endocrino, Musculoesquelético, Inmunológico
 // ⚡ ESTADO: SISTEMA HOSPITALARIO COMPLETO - GOLD MASTER
