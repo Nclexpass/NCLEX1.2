@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="description" content="NCLEX-RN Masterclass Study Application - Comprehensive Nursing Education Platform | Plataforma Integral de Educación en Enfermería">
     <meta name="theme-color" content="#F5F5F7">
-    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NCLEX MASTERCLASS | By Reynier Diaz Gerones</title>
     
@@ -267,118 +267,117 @@
     <script src="js/33_library.js?v=20260204"></script>
     <script src="js/34_anatomy.js"></script>
 
-
     <script>
-(function () {
-  const KEY = 'nclex_floating_tools_pos_v1';
-  const el = document.getElementById('floating-tools');
-  if (!el) return;
+    (function () {
+      const KEY = 'nclex_floating_tools_pos_v1';
+      const el = document.getElementById('floating-tools');
+      if (!el) return;
 
-  // Restaurar posición guardada
-  try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-      el.style.left = saved.x + 'px';
-      el.style.top = saved.y + 'px';
-      el.style.right = 'auto';
-    }
-  } catch (e) {}
+      // Restaurar posición guardada
+      try {
+        const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+        if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+          el.style.left = saved.x + 'px';
+          el.style.top = saved.y + 'px';
+          el.style.right = 'auto';
+        }
+      } catch (e) {}
 
-  let dragging = false;
-  let startX = 0, startY = 0;
-  let origX = 0, origY = 0;
+      let dragging = false;
+      let startX = 0, startY = 0;
+      let origX = 0, origY = 0;
 
-  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+      const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-  function point(e) {
-    return e.touches ? e.touches[0] : e;
-  }
+      function point(e) {
+        return e.touches ? e.touches[0] : e;
+      }
 
-  function onDown(e) {
-    // Si haces click en un botón, NO arrastrar
-    if (e.target.closest('button')) return;
+      function onDown(e) {
+        // Si haces click en un botón, NO arrastrar
+        if (e.target.closest('button')) return;
 
-    dragging = true;
-    const p = point(e);
-    startX = p.clientX;
-    startY = p.clientY;
+        dragging = true;
+        const p = point(e);
+        startX = p.clientX;
+        startY = p.clientY;
 
-    const rect = el.getBoundingClientRect();
-    origX = rect.left;
-    origY = rect.top;
+        const rect = el.getBoundingClientRect();
+        origX = rect.left;
+        origY = rect.top;
 
-    // Forzar posicionamiento por left/top
-    el.style.left = origX + 'px';
-    el.style.top = origY + 'px';
-    el.style.right = 'auto';
+        // Forzar posicionamiento por left/top
+        el.style.left = origX + 'px';
+        el.style.top = origY + 'px';
+        el.style.right = 'auto';
 
-    // feedback visual
-    el.style.outline = '2px solid rgba(0,122,255,0.55)';
-    el.style.outlineOffset = '2px';
+        // feedback visual
+        el.style.outline = '2px solid rgba(0,122,255,0.55)';
+        el.style.outlineOffset = '2px';
 
-    document.addEventListener('mousemove', onMove, { passive: false });
-    document.addEventListener('mouseup', onUp);
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('touchend', onUp);
+        document.addEventListener('mousemove', onMove, { passive: false });
+        document.addEventListener('mouseup', onUp);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onUp);
 
-    e.preventDefault();
-  }
+        e.preventDefault();
+      }
 
-  function onMove(e) {
-    if (!dragging) return;
-    const p = point(e);
+      function onMove(e) {
+        if (!dragging) return;
+        const p = point(e);
 
-    let nx = origX + (p.clientX - startX);
-    let ny = origY + (p.clientY - startY);
+        let nx = origX + (p.clientX - startX);
+        let ny = origY + (p.clientY - startY);
 
-    const pad = 8;
-    const maxX = window.innerWidth - el.offsetWidth - pad;
-    const maxY = window.innerHeight - el.offsetHeight - pad;
+        const pad = 8;
+        const maxX = window.innerWidth - el.offsetWidth - pad;
+        const maxY = window.innerHeight - el.offsetHeight - pad;
 
-    nx = clamp(nx, pad, Math.max(pad, maxX));
-    ny = clamp(ny, pad, Math.max(pad, maxY));
+        nx = clamp(nx, pad, Math.max(pad, maxX));
+        ny = clamp(ny, pad, Math.max(pad, maxY));
 
-    el.style.left = nx + 'px';
-    el.style.top = ny + 'px';
+        el.style.left = nx + 'px';
+        el.style.top = ny + 'px';
 
-    e.preventDefault();
-  }
+        e.preventDefault();
+      }
 
-  function onUp() {
-    if (!dragging) return;
-    dragging = false;
+      function onUp() {
+        if (!dragging) return;
+        dragging = false;
 
-    el.style.outline = '';
-    el.style.outlineOffset = '';
+        el.style.outline = '';
+        el.style.outlineOffset = '';
 
-    const rect = el.getBoundingClientRect();
-    try {
-      localStorage.setItem(KEY, JSON.stringify({
-        x: Math.round(rect.left),
-        y: Math.round(rect.top)
-      }));
-    } catch (e) {}
+        const rect = el.getBoundingClientRect();
+        try {
+          localStorage.setItem(KEY, JSON.stringify({
+            x: Math.round(rect.left),
+            y: Math.round(rect.top)
+          }));
+        } catch (e) {}
 
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    document.removeEventListener('touchmove', onMove);
-    document.removeEventListener('touchend', onUp);
-  }
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onUp);
+      }
 
-  // Drag con mouse/touch
-  el.addEventListener('mousedown', onDown);
-  el.addEventListener('touchstart', onDown, { passive: false });
+      // Drag con mouse/touch
+      el.addEventListener('mousedown', onDown);
+      el.addEventListener('touchstart', onDown, { passive: false });
 
-  // Doble click en el fondo para resetear posición
-  el.addEventListener('dblclick', (e) => {
-    if (e.target.closest('button')) return;
-    try { localStorage.removeItem(KEY); } catch (e) {}
-    el.style.top = '1.5rem';
-    el.style.right = '2rem';
-    el.style.left = 'auto';
-  });
-})();
-</script>
+      // Doble click en el fondo para resetear posición
+      el.addEventListener('dblclick', (e) => {
+        if (e.target.closest('button')) return;
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        el.style.top = '1.5rem';
+        el.style.right = '2rem';
+        el.style.left = 'auto';
+      });
+    })();
+    </script>
 
 </body>
 </html>
