@@ -1,4 +1,4 @@
-// premium_books_library.js — Carga directa desde GitHub Releases (SIN JSON)
+// premium_books_library.js — Botón flotante superior derecho + modal Apple
 (function() {
     'use strict';
 
@@ -11,7 +11,6 @@
         error: null
     };
 
-    // --- Utilidades Apple ---
     function t(es, en) {
         const esEl = document.querySelector('.lang-es');
         return esEl && esEl.offsetParent !== null ? es : en;
@@ -23,7 +22,6 @@
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
-    // --- Obtener PDFs desde GitHub ---
     async function fetchBooks() {
         state.isLoading = true;
         state.error = null;
@@ -35,7 +33,6 @@
 
             const release = await response.json();
             
-            // Filtrar solo archivos PDF
             state.books = release.assets
                 .filter(asset => asset.name.toLowerCase().endsWith('.pdf'))
                 .map(asset => ({
@@ -57,15 +54,12 @@
         }
     }
 
-    // --- UI Apple: Modal tipo "Libreta" ---
     function createModal() {
         if (document.getElementById('premium-library-modal')) return;
 
         const modalHTML = `
             <div id="premium-library-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                 <div class="w-full max-w-4xl max-h-[85vh] apple-glass rounded-2xl overflow-hidden flex flex-col animate-slide-up">
-                    
-                    <!-- Header estilo Apple -->
                     <div class="apple-titlebar flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-white/10">
                         <div class="flex items-center gap-3">
                             <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg">
@@ -80,16 +74,12 @@
                             <i class="fa-solid fa-xmark text-lg"></i>
                         </button>
                     </div>
-
-                    <!-- Contenido dinámico -->
                     <div id="lib-content" class="flex-1 overflow-y-auto p-5 apple-scrollbar" style="max-height: calc(85vh - 70px);">
                         <div class="flex flex-col items-center justify-center h-40 text-gray-500">
                             <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3"></i>
                             <p>Cargando catálogo desde GitHub...</p>
                         </div>
                     </div>
-
-                    <!-- Footer -->
                     <div class="px-5 py-3 border-t border-gray-200 dark:border-white/10 text-xs text-gray-500 flex justify-between items-center bg-white/50 dark:bg-black/20">
                         <span><i class="fa-regular fa-circle-check mr-1"></i> Fuente: GitHub Releases</span>
                         <button onclick="window.premiumLibrary.refresh()" class="px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors flex items-center gap-1">
@@ -156,13 +146,10 @@
             return;
         }
 
-        // Renderizar grid de libros
         let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
-        
         state.books.forEach(book => {
             const formattedSize = formatFileSize(book.size);
             const date = book.updatedAt.toLocaleDateString();
-            
             html += `
                 <div class="apple-glass rounded-xl p-4 hover:shadow-lg transition-all hover:-translate-y-1 flex flex-col group">
                     <div class="flex items-start gap-3">
@@ -191,35 +178,32 @@
                 </div>
             `;
         });
-        
         html += '</div>';
         contentEl.innerHTML = html;
     }
 
-    // --- Botón flotante estilo Apple (NO arrastrable) ---
     function createFloatingButton() {
         if (document.getElementById('premium-lib-btn')) return;
 
         const btn = document.createElement('button');
         btn.id = 'premium-lib-btn';
         btn.onclick = () => window.premiumLibrary?.open();
-        btn.className = 'fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-2xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 z-[9980] flex items-center justify-center transition-all duration-300 hover:-translate-y-1 active:scale-95 group apple-glass border border-white/20';
+        btn.className = 'fixed top-6 right-6 w-12 h-12 apple-glass bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-2xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 z-[9980] flex items-center justify-center transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group border border-white/20';
         
         btn.innerHTML = `
             <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent"></div>
             <i class="fa-solid fa-book-open text-xl relative group-hover:scale-110 transition-transform"></i>
             <div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></div>
-            <div class="absolute bottom-full right-0 mb-3 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
-                <span class="lang-es">Biblioteca</span>
-                <span class="lang-en hidden-lang">Library</span>
-                <div class="absolute -bottom-1 right-6 w-2 h-2 bg-gray-900 rotate-45"></div>
+            <div class="absolute top-full right-0 mt-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
+                <span class="lang-es">Biblioteca Premium</span>
+                <span class="lang-en hidden-lang">Premium Library</span>
+                <div class="absolute -top-1 right-6 w-2 h-2 bg-gray-900 rotate-45"></div>
             </div>
         `;
 
         document.body.appendChild(btn);
     }
 
-    // --- API pública ---
     window.premiumLibrary = {
         async open() {
             createModal();
@@ -243,11 +227,9 @@
         }
     };
 
-    // --- Inicialización silenciosa ---
     function init() {
         createFloatingButton();
         createModal();
-        // Precarga silenciosa (sin mostrar modal)
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => fetchBooks());
         } else {
@@ -256,5 +238,4 @@
     }
 
     init();
-
 })();
