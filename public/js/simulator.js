@@ -1,4 +1,8 @@
-/* simulator.js — Motor Cloud FINAL (UI Estética + Multi-Selección de Temas + Parser Inteligente) */
+/* simulator.js — Motor Cloud FINAL (PROD)
+   - UI Estética + Multi-Selección de Temas
+   - CSV parser robusto (comillas + saltos de línea)
+   - Handlers seguros (sin JSON.stringify en onclick)
+*/
 
 (function () {
   'use strict';
@@ -6,6 +10,16 @@
   // --- CONFIGURACIÓN ---
   const SHEET_ID = "2PACX-1vTuJc6DOuIIYv9jOERaUMa8yoo0ZFJY9BiVrvFU7Qa2VMJHGfP_i5C8RZpmXo41jg49IUjDP8lT_ze0";
   const GOOGLE_CSV_URL = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/pub?output=csv`;
+
+  // Debug: cambia a true si quieres logs detallados
+  const DEBUG = false;
+
+  const STORAGE = {
+    lang: 'nclex_lang',
+    selectedCats: 'nclex_sim_selected_cats',
+    limit: 'nclex_sim_limit',
+    font: 'nclex_sim_font'
+  };
 
   // --- ESTADO ---
   const state = {
@@ -21,17 +35,28 @@
     fontSize: 1,
     isRationaleMode: false,
     lastSubmitted: null,
-    selectedCategories: [] // ✅ multi-select
+    selectedCategories: [],
+    pendingShowQuestionIndex: null
   };
 
+  // --- LOGS ---
+  const log = (...a) => { if (DEBUG) console.log(...a); };
+  const warn = (...a) => { if (DEBUG) console.warn(...a); };
+  const errLog = (...a) => { console.error(...a); };
+
   // --- HELPERS ---
-  const bilingual = (es, en) => {
+  function getLang() {
+    try { return localStorage.getItem(STORAGE.lang) || 'es'; }
+    catch (_) { return 'es'; }
+  }
+
+  function bilingual(es, en) {
     return `<span class="lang-es">${es || ''}</span><span class="lang-en hidden-lang">${en || es || ''}</span>`;
-  };
+  }
 
   function applyGlobalLanguage(root) {
     try {
-      const currentLang = localStorage.getItem('nclex_lang') || 'es';
+      const currentLang = getLang();
       const isEs = currentLang === 'es';
       document.documentElement.lang = currentLang;
 
@@ -59,6 +84,7 @@
       .replace(/'/g, '&#39;');
   }
 
+  // Para strings dentro de atributos onclick='...'
   function escapeJsString(s) {
     return (s || '').toString()
       .replace(/\\/g, '\\\\')
@@ -69,37 +95,78 @@
       .replace(/\u2029/g, '\\u2029');
   }
 
-  // --- PARSER CSV ROBUSTO (maneja comillas) ---
-  function parseCSVRow(rowText) {
-    const result = [];
-    let current = '';
+  // Permite un set MUY básico de tags; todo lo demás se escapa.
+  function safeRichText(input) {
+    const raw = (input || '').toString();
+    const escaped = escapeHtml(raw).replace(/\n/g, '<br>');
+
+    // Re-habilitar tags comunes si venían en el texto (como &lt;br&gt;)
+    return escaped
+      .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+      .replace(/&lt;(\/?)strong&gt;/gi, '<$1strong>')
+      .replace(/&lt;(\/?)b&gt;/gi, '<$1b>')
+      .replace(/&lt;(\/?)em&gt;/gi, '<$1em>')
+      .replace(/&lt;(\/?)i&gt;/gi, '<$1i>')
+      .replace(/&lt;(\/?)u&gt;/gi, '<$1u>');
+  }
+
+  function isOnSimulatorRoute() {
+    // Detecta el estado del nav (logic.js marca el botón activo con bg-gray-100 / bg-white/10)
+    const btn = document.querySelector('.nav-btn[data-route="simulator"]');
+    if (!btn) return false;
+    return btn.classList.contains('bg-gray-100') || btn.classList.contains('bg-white/10') || btn.classList.contains('text-brand-blue') || btn.classList.contains('text-white');
+  }
+
+  function scrollToTop() {
+    if (typeof window.scrollToTop === 'function') {
+      window.scrollToTop();
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  // --- CSV PARSER ROBUSTO (comillas + saltos de línea) ---
+  function parseCSV(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
     let inQuote = false;
 
-    for (let i = 0; i < rowText.length; i++) {
-      const char = rowText[i];
-      const nextChar = rowText[i + 1];
+    const src = (text || '').toString().replace(/\r/g, '');
+
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      const nx = src[i + 1];
 
       if (inQuote) {
-        if (char === '"') {
-          if (nextChar === '"') { current += '"'; i++; }
+        if (ch === '"') {
+          if (nx === '"') { field += '"'; i++; }
           else { inQuote = false; }
         } else {
-          current += char;
+          field += ch;
         }
       } else {
-        if (char === '"') {
+        if (ch === '"') {
           inQuote = true;
-        } else if (char === ',') {
-          result.push(current.trim());
-          current = '';
+        } else if (ch === ',') {
+          row.push(field.trim());
+          field = '';
+        } else if (ch === '\n') {
+          row.push(field.trim());
+          if (row.some(c => (c || '').toString().trim() !== '')) rows.push(row);
+          row = [];
+          field = '';
         } else {
-          current += char;
+          field += ch;
         }
       }
     }
 
-    result.push(current.trim());
-    return result;
+    // última celda/fila
+    row.push(field.trim());
+    if (row.some(c => (c || '').toString().trim() !== '')) rows.push(row);
+
+    return rows;
   }
 
   // --- CONEXIÓN RESILIENTE (CORS proxies) ---
@@ -113,7 +180,7 @@
     let lastError = null;
     for (const strategy of strategies) {
       try {
-        console.log(`Attempting connection via ${strategy.name}...`);
+        log(`Attempting connection via ${strategy.name}...`);
 
         const cacheBuster = strategy.url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
         const response = await fetch(strategy.url + cacheBuster, { cache: 'no-store' });
@@ -122,13 +189,18 @@
 
         const text = await response.text();
         const trimmed = text.trim();
+        const low = trimmed.slice(0, 300).toLowerCase();
 
-        if (trimmed.startsWith("<!DOCTYPE") || trimmed.includes("<html")) throw new Error("Invalid HTML response");
-        if (trimmed.length < 50) throw new Error("Response too short");
+        // Evitar páginas HTML de error / auth
+        if (trimmed.startsWith('<') && (low.includes('<!doctype') || low.includes('<html'))) {
+          throw new Error("Invalid HTML response");
+        }
+        // CSV mínimo
+        if (trimmed.length < 20) throw new Error("Response too short");
 
         return text;
       } catch (e) {
-        console.warn(`Strategy ${strategy.name} failed:`, e);
+        warn(`Strategy ${strategy.name} failed:`, e);
         lastError = e;
       }
     }
@@ -184,39 +256,55 @@
     return Array.from(new Set(mapped));
   }
 
+  function getValue(cols, idx) {
+    if (typeof idx !== 'number' || idx < 0 || idx >= cols.length) return '';
+    return (cols[idx] ?? '').toString();
+  }
+
+  // --- SHUFFLE (Fisher-Yates) ---
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = arr[i];
+      arr[i] = arr[j];
+      arr[j] = t;
+    }
+    return arr;
+  }
+
   // --- PARSER CON CABECERAS Y MAPEO INTELIGENTE ---
   function parseAndLoad(csvText) {
     try {
-      const rows = csvText.replace(/\r\n/g, '\n').split('\n').filter(r => r.trim() !== '');
-      if (rows.length < 2) throw new Error("CSV vacío o insuficiente");
+      const table = parseCSV(csvText);
+      if (!table || table.length < 2) throw new Error("CSV vacío o insuficiente");
 
-      const headers = parseCSVRow(rows[0]);
+      const headers = table[0];
 
       const columnDefinitions = [
-        { field: 'id',          possible: ['id', 'questionid', 'code', 'codigo'], defaultIdx: 0 },
-        { field: 'category',    possible: ['category', 'categoria', 'categoría', 'cat', 'tema', 'topic'], defaultIdx: 1 },
+        { field: 'id',          possible: ['id', 'questionid', 'code', 'codigo'], defaultIdx: 0, optional: false },
+        { field: 'category',    possible: ['category', 'categoria', 'categoría', 'cat', 'tema', 'topic'], defaultIdx: 1, optional: false },
 
-        { field: 'textEs',      possible: ['textEs','text_es','textoEs','texto_es','preguntaEs','pregunta_es','questionEs','question_es','question es','pregunta es','spanish'], defaultIdx: 2 },
-        { field: 'textEn',      possible: ['textEn','text_en','textoEn','texto_en','preguntaEn','pregunta_en','questionEn','question_en','question en','english'], defaultIdx: 3 },
+        { field: 'textEs',      possible: ['textEs','text_es','textoEs','texto_es','preguntaEs','pregunta_es','questionEs','question_es','question es','pregunta es','spanish'], defaultIdx: 2, optional: false },
+        { field: 'textEn',      possible: ['textEn','text_en','textoEn','texto_en','preguntaEn','pregunta_en','questionEn','question_en','question en','english'], defaultIdx: 3, optional: true },
 
-        { field: 'optAEs',      possible: ['optAEs','opt_a_es','aEs','a_es','optionAEs','option_a_es','option a es','opcion a es'], defaultIdx: 4 },
-        { field: 'optAEn',      possible: ['optAEn','opt_a_en','aEn','a_en','optionAEn','option_a_en','option a en'], defaultIdx: 5 },
+        { field: 'optAEs',      possible: ['optAEs','opt_a_es','aEs','a_es','optionAEs','option_a_es','option a es','opcion a es'], defaultIdx: 4, optional: false },
+        { field: 'optAEn',      possible: ['optAEn','opt_a_en','aEn','a_en','optionAEn','option_a_en','option a en'], defaultIdx: 5, optional: true },
 
-        { field: 'optBEs',      possible: ['optBEs','opt_b_es','bEs','b_es','optionBEs','option_b_es','option b es','opcion b es'], defaultIdx: 6 },
-        { field: 'optBEn',      possible: ['optBEn','opt_b_en','bEn','b_en','optionBEn','option_b_en','option b en'], defaultIdx: 7 },
+        { field: 'optBEs',      possible: ['optBEs','opt_b_es','bEs','b_es','optionBEs','option_b_es','option b es','opcion b es'], defaultIdx: 6, optional: false },
+        { field: 'optBEn',      possible: ['optBEn','opt_b_en','bEn','b_en','optionBEn','option_b_en','option b en'], defaultIdx: 7, optional: true },
 
-        { field: 'optCEs',      possible: ['optCEs','opt_c_es','cEs','c_es','optionCEs','option_c_es','option c es','opcion c es'], defaultIdx: 8 },
-        { field: 'optCEn',      possible: ['optCEn','opt_c_en','cEn','c_en','optionCEn','option_c_en','option c en'], defaultIdx: 9 },
+        { field: 'optCEs',      possible: ['optCEs','opt_c_es','cEs','c_es','optionCEs','option_c_es','option c es','opcion c es'], defaultIdx: 8, optional: false },
+        { field: 'optCEn',      possible: ['optCEn','opt_c_en','cEn','c_en','optionCEn','option_c_en','option c en'], defaultIdx: 9, optional: true },
 
-        { field: 'optDEs',      possible: ['optDEs','opt_d_es','dEs','d_es','optionDEs','option_d_es','option d es','opcion d es'], defaultIdx: 10 },
-        { field: 'optDEn',      possible: ['optDEn','opt_d_en','dEn','d_en','optionDEn','option_d_en','option d en'], defaultIdx: 11 },
+        { field: 'optDEs',      possible: ['optDEs','opt_d_es','dEs','d_es','optionDEs','option_d_es','option d es','opcion d es'], defaultIdx: 10, optional: true },
+        { field: 'optDEn',      possible: ['optDEn','opt_d_en','dEn','d_en','optionDEn','option_d_en','option d en'], defaultIdx: 11, optional: true },
 
-        { field: 'correct',     possible: ['correct','correcta','correctas','answer','answers','key','respuesta','respuestas','respuesta correcta'], defaultIdx: 12 },
+        { field: 'correct',     possible: ['correct','correcta','correctas','answer','answers','key','respuesta','respuestas','respuesta correcta'], defaultIdx: 12, optional: false },
 
-        { field: 'rationaleEs', possible: ['rationaleEs','rationale_es','explicacionEs','explicacion_es','explicación es','feedback es','rationale es','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 13 },
-        { field: 'rationaleEn', possible: ['rationaleEn','rationale_en','explicacionEn','explicacion_en','explicación en','feedback en','rationale en','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 14 },
+        { field: 'rationaleEs', possible: ['rationaleEs','rationale_es','explicacionEs','explicacion_es','explicación es','feedback es','rationale es','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 13, optional: true },
+        { field: 'rationaleEn', possible: ['rationaleEn','rationale_en','explicacionEn','explicacion_en','explicación en','feedback en','rationale en','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 14, optional: true },
 
-        { field: 'type',        possible: ['type','tipo','format','formato','questiontype'], defaultIdx: 15 }
+        { field: 'type',        possible: ['type','tipo','format','formato','questiontype'], defaultIdx: 15, optional: true }
       ];
 
       const hasHeaders = looksLikeHeaderRow(headers, columnDefinitions);
@@ -227,56 +315,52 @@
       if (hasHeaders) {
         columnDefinitions.forEach(def => {
           const idx = findColumnIndex(headers, def.possible);
-          colMap[def.field] = idx !== -1 ? idx : def.defaultIdx;
-          if (idx === -1 && !['rationaleEs','rationaleEn','type'].includes(def.field)) {
-            console.warn(`Columna "${def.field}" no encontrada, usando índice por defecto ${def.defaultIdx}`);
+          colMap[def.field] = idx !== -1 ? idx : (def.optional ? -1 : def.defaultIdx);
+          if (idx === -1 && !def.optional) {
+            warn(`Columna "${def.field}" no encontrada, usando índice por defecto ${def.defaultIdx}`);
           }
         });
         dataStartRow = 1;
       } else {
-        console.warn("No se detectaron cabeceras, usando orden fijo de columnas (compatibilidad)");
+        warn("No se detectaron cabeceras, usando orden fijo de columnas (compatibilidad)");
         columnDefinitions.forEach(def => { colMap[def.field] = def.defaultIdx; });
         dataStartRow = 0;
       }
 
       const parsed = [];
 
-      for (let i = dataStartRow; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row.trim()) continue;
-
-        const cols = parseCSVRow(row);
-        const maxIdx = Math.max(...Object.values(colMap));
-        if (cols.length <= maxIdx) continue;
+      for (let i = dataStartRow; i < table.length; i++) {
+        const cols = table[i];
+        if (!cols || cols.length === 0) continue;
 
         try {
-          const id = (cols[colMap.id] || `q_${i}`).toString().trim();
-          const category = (cols[colMap.category] || 'General').toString().trim() || 'General';
+          const id = (getValue(cols, colMap.id) || `q_${i}`).trim() || `q_${i}`;
+          const category = (getValue(cols, colMap.category) || 'General').trim() || 'General';
 
-          const textEs = (cols[colMap.textEs] || '').toString();
-          const textEn = (cols[colMap.textEn] || textEs).toString();
+          const textEs = getValue(cols, colMap.textEs);
+          const textEn = getValue(cols, colMap.textEn) || textEs;
 
-          const optAEs = (cols[colMap.optAEs] || '').toString();
-          const optAEn = (cols[colMap.optAEn] || optAEs).toString();
+          const optAEs = getValue(cols, colMap.optAEs);
+          const optAEn = getValue(cols, colMap.optAEn) || optAEs;
 
-          const optBEs = (cols[colMap.optBEs] || '').toString();
-          const optBEn = (cols[colMap.optBEn] || optBEs).toString();
+          const optBEs = getValue(cols, colMap.optBEs);
+          const optBEn = getValue(cols, colMap.optBEn) || optBEs;
 
-          const optCEs = (cols[colMap.optCEs] || '').toString();
-          const optCEn = (cols[colMap.optCEn] || optCEs).toString();
+          const optCEs = getValue(cols, colMap.optCEs);
+          const optCEn = getValue(cols, colMap.optCEn) || optCEs;
 
-          const optDEs = (cols[colMap.optDEs] || '').toString();
-          const optDEn = (cols[colMap.optDEn] || optDEs).toString();
+          const optDEs = getValue(cols, colMap.optDEs);
+          const optDEn = getValue(cols, colMap.optDEn) || optDEs;
 
-          const correctRaw = (cols[colMap.correct] || '').toString();
-          const rationaleEs = (cols[colMap.rationaleEs] || '').toString();
-          const rationaleEn = (cols[colMap.rationaleEn] || rationaleEs).toString();
-          const typeRaw = (cols[colMap.type] || '').toString();
+          const correctRaw = getValue(cols, colMap.correct);
+          const rationaleEs = getValue(cols, colMap.rationaleEs);
+          const rationaleEn = getValue(cols, colMap.rationaleEn) || rationaleEs;
+          const typeRaw = getValue(cols, colMap.type);
 
           const correctLetters = parseCorrectLetters(correctRaw);
 
           if (correctLetters.length === 0) {
-            console.warn(`Pregunta ${id} omitida: no tiene respuestas correctas válidas.`);
+            warn(`Pregunta ${id} omitida: no tiene respuestas correctas válidas.`);
             continue;
           }
 
@@ -289,13 +373,13 @@
 
           if ((!textEs && !textEn) || options.length < 2) continue;
 
-          const lowerType = typeRaw.toLowerCase();
+          const lowerType = (typeRaw || '').toLowerCase();
           const inferredSata =
             lowerType.includes('sata') ||
             lowerType.includes('selectall') ||
             lowerType.includes('select all') ||
             correctLetters.length > 1 ||
-            (textEs.toLowerCase().includes('selecciona todas') || textEn.toLowerCase().includes('select all'));
+            ((textEs || '').toLowerCase().includes('selecciona todas') || (textEn || '').toLowerCase().includes('select all'));
 
           parsed.push({
             id,
@@ -308,8 +392,8 @@
             type: inferredSata ? 'sata' : 'single',
             tags: [category, typeRaw].filter(Boolean)
           });
-        } catch (err) {
-          console.warn("Error parseando fila", i, err);
+        } catch (e) {
+          warn("Error parseando fila", i, e);
         }
       }
 
@@ -323,21 +407,59 @@
         state.categories[cat] = (state.categories[cat] || 0) + 1;
       });
 
-      // Si había selecciones previas, filtra las que ya no existan
+      // Reconciliar selecciones guardadas
       const existingCats = new Set(Object.keys(state.categories));
       state.selectedCategories = (state.selectedCategories || []).filter(c => existingCats.has(c));
 
       window.SIMULATOR_QUESTIONS = parsed;
       state.isLoading = false;
       state.error = null;
+
+      // Si había un "jump to question" pendiente
+      if (typeof state.pendingShowQuestionIndex === 'number') {
+        const idx = state.pendingShowQuestionIndex;
+        state.pendingShowQuestionIndex = null;
+        showQuestionByIndex(idx);
+        return;
+      }
+
       checkAndRender();
 
     } catch (parseError) {
-      console.error("Error en parseAndLoad:", parseError);
+      errLog("Error en parseAndLoad:", parseError);
       state.error = "Error de formato en la base de datos. Verifica que las columnas sean correctas.";
       state.isLoading = false;
       checkAndRender();
     }
+  }
+
+  // --- PERSISTENCIA ---
+  function loadPrefs() {
+    try {
+      const rawCats = localStorage.getItem(STORAGE.selectedCats);
+      if (rawCats) {
+        const parsed = JSON.parse(rawCats);
+        if (Array.isArray(parsed)) state.selectedCategories = parsed.filter(Boolean).map(String);
+      }
+      const rawLimit = localStorage.getItem(STORAGE.limit);
+      if (rawLimit) {
+        const n = Number(rawLimit);
+        if (Number.isFinite(n) && n > 0) state.limit = Math.max(1, Math.floor(n));
+      }
+      const rawFont = localStorage.getItem(STORAGE.font);
+      if (rawFont) {
+        const f = Number(rawFont);
+        if (Number.isFinite(f)) state.fontSize = Math.max(0.8, Math.min(1.6, f));
+      }
+    } catch (_) {}
+  }
+
+  function savePrefs() {
+    try {
+      localStorage.setItem(STORAGE.selectedCats, JSON.stringify(state.selectedCategories || []));
+      localStorage.setItem(STORAGE.limit, String(state.limit || 10));
+      localStorage.setItem(STORAGE.font, String(state.fontSize || 1));
+    } catch (_) {}
   }
 
   // --- CARGA PRINCIPAL ---
@@ -349,7 +471,7 @@
       const csvData = await fetchWithFallback(GOOGLE_CSV_URL);
       parseAndLoad(csvData);
     } catch (e) {
-      console.error("🔥 Simulator Critical Failure:", e);
+      errLog("🔥 Simulator Critical Failure:", e);
       state.error = `Error de conexión: no se pudo acceder a la base de datos.<br><span class="text-xs text-gray-400">${(e && e.message) ? escapeHtml(e.message) : 'Unknown error'}</span>`;
       state.isLoading = false;
       checkAndRender();
@@ -387,16 +509,19 @@
     const list = state.selectedCategories || [];
     if (list.includes(cat)) state.selectedCategories = list.filter(x => x !== cat);
     else state.selectedCategories = [...list, cat];
+    savePrefs();
     renderNow();
   }
 
   function clearSelectedCategories() {
     state.selectedCategories = [];
+    savePrefs();
     renderNow();
   }
 
   function selectAllCategories() {
     state.selectedCategories = Object.keys(state.categories || {}).sort();
+    savePrefs();
     renderNow();
   }
 
@@ -412,7 +537,7 @@
       pool = state.allQuestions.filter(q => set.has(q.category));
     }
 
-    pool.sort(() => Math.random() - 0.5);
+    shuffle(pool);
     if (state.limit < pool.length) pool = pool.slice(0, state.limit);
 
     state.activeSession = pool;
@@ -427,16 +552,14 @@
 
   // --- RENDERIZADO ---
   function checkAndRender() {
-    if (window.nclexApp && window.nclexApp.currentRoute === 'simulator') {
-      renderNow();
-    }
+    if (isOnSimulatorRoute()) renderNow();
   }
 
   function renderNow() {
     const view = document.getElementById('app-view');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollToTop();
 
-    if (view && window.renderSimulatorPage) {
+    if (view && typeof window.renderSimulatorPage === 'function') {
       view.innerHTML = window.renderSimulatorPage();
       applyGlobalLanguage(view);
     }
@@ -701,7 +824,7 @@
           <div class="flex items-start gap-3">
             ${badge}
             <div class="flex-1" style="font-size:${state.fontSize}rem">
-              ${bilingual(opt.textEs, opt.textEn)}
+              ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
             </div>
           </div>
         </button>
@@ -733,7 +856,7 @@
           <div class="p-6">
             <div class="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-5"
               style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
-              ${bilingual(q.textEs, q.textEn)}
+              ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
             </div>
 
             <div class="space-y-3">
@@ -798,7 +921,7 @@
           <div class="flex items-start gap-3">
             <div class="shrink-0">${tag}</div>
             <div class="flex-1" style="font-size:${state.fontSize}rem">
-              ${bilingual(opt.textEs, opt.textEn)}
+              ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
             </div>
           </div>
         </div>
@@ -817,7 +940,7 @@
       ? `<div class="mt-5 p-5 rounded-3xl bg-slate-900 text-white shadow-inner">
           <div class="font-black text-lg mb-2">${bilingual("Razonamiento", "Rationale")}</div>
           <div class="text-sm text-slate-200" style="font-size:${Math.max(0.95, state.fontSize)}rem">
-            ${bilingual(q.rationaleEs, q.rationaleEn)}
+            ${bilingual(safeRichText(q.rationaleEs), safeRichText(q.rationaleEn))}
           </div>
         </div>`
       : '';
@@ -837,7 +960,7 @@
           <div class="p-6">
             <div class="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-5"
               style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
-              ${bilingual(q.textEs, q.textEn)}
+              ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
             </div>
 
             <div class="space-y-3">
@@ -924,24 +1047,41 @@
     return renderLobby();
   };
 
+  // --- FLOW HELPERS ---
+  function showQuestionByIndex(index) {
+    const q = state.allQuestions[index];
+    if (!q) return;
+
+    state.activeSession = [q];
+    state.currentIndex = 0;
+    state.score = 0;
+    state.userSelection = [];
+    state.isRationaleMode = false;
+    state.lastSubmitted = null;
+
+    renderNow();
+  }
+
   // --- CONTROLADOR GLOBAL ---
   window.simController = {
-    setLimit(n) { state.limit = Math.max(1, Number(n) || 10); renderNow(); },
+    setLimit(n) {
+      state.limit = Math.max(1, Number(n) || 10);
+      savePrefs();
+      renderNow();
+    },
     adjustFont(delta) {
       state.fontSize = Math.max(0.8, Math.min(1.6, state.fontSize + (Number(delta) || 0)));
+      savePrefs();
       renderNow();
     },
 
-    // ✅ mantiene compatibilidad: iniciar SOLO una categoría o ALL
+    // compatibilidad: iniciar SOLO una categoría o ALL
     startQuiz(c) {
-      if (c === 'ALL') {
-        startQuizWithCategories([]);
-      } else {
-        startQuizWithCategories([c]);
-      }
+      if (c === 'ALL') startQuizWithCategories([]);
+      else startQuizWithCategories([c]);
     },
 
-    // ✅ multi-select
+    // multi-select
     toggleCategory(cat) { toggleSelectedCategory(cat); },
     clearSelected() { clearSelectedCategories(); },
     selectAll() { selectAllCategories(); },
@@ -955,10 +1095,8 @@
       if (q.type === 'single') {
         state.userSelection = [id];
       } else {
-        if (state.userSelection.includes(id))
-          state.userSelection = state.userSelection.filter(x => x !== id);
-        else
-          state.userSelection.push(id);
+        if (state.userSelection.includes(id)) state.userSelection = state.userSelection.filter(x => x !== id);
+        else state.userSelection.push(id);
       }
       renderNow();
     },
@@ -1023,17 +1161,20 @@
   };
 
   window.showSimulatorQuestion = function (index) {
-    if (!state.allQuestions[index]) return;
-    state.activeSession = [state.allQuestions[index]];
-    state.currentIndex = 0;
-    state.score = 0;
-    state.userSelection = [];
-    state.isRationaleMode = false;
-    state.lastSubmitted = null;
-    renderNow();
+    const idx = Number(index);
+    if (!Number.isFinite(idx) || idx < 0) return;
+
+    if (!state.allQuestions || state.allQuestions.length === 0) {
+      state.pendingShowQuestionIndex = idx;
+      if (!state.isLoading) loadQuestions();
+      return;
+    }
+
+    showQuestionByIndex(idx);
   };
 
   // Inicialización
+  loadPrefs();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', loadQuestions);
   } else {
