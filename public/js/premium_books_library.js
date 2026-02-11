@@ -1,16 +1,16 @@
-// premium_books_library.js — Apple Library + Real PDF covers
+// premium_books_library.js — Apple Books redesign + real covers
 (function() {
     'use strict';
 
     const GITHUB_RELEASE_URL = 'https://api.github.com/repos/Nclexpass/NCLEX1.2/releases/tags/BOOKS';
     const GITHUB_DOWNLOAD_BASE = 'https://github.com/Nclexpass/NCLEX1.2/releases/download/BOOKS/';
 
-    // --- Estado global ---
+    // --- Estado ---
     const state = {
         books: [],
         isLoading: false,
         error: null,
-        thumbnails: {}      // cache de carátulas (dataURL)
+        thumbnails: {}      // caché de carátulas
     };
 
     // --- Utilidades ---
@@ -25,27 +25,31 @@
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
-    // --- Inyectar estilos Apple + thumbnails ---
+    // --- Estilos Apple Books puros ---
     function injectAppleStyles() {
-        if (document.getElementById('apple-library-styles')) return;
+        if (document.getElementById('apple-books-styles')) return;
         const style = document.createElement('style');
-        style.id = 'apple-library-styles';
+        style.id = 'apple-books-styles';
         style.innerHTML = `
-            /* Apple Glassmorphism refinado */
-            .apple-glass {
-                background: rgba(255,255,255,0.75);
-                backdrop-filter: blur(20px) saturate(180%);
-                -webkit-backdrop-filter: blur(20px) saturate(180%);
-                border: 0.5px solid rgba(255,255,255,0.3);
-                box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05), 0 2px 5px rgba(0,0,0,0.02);
-            }
-            .dark .apple-glass {
-                background: rgba(30,30,32,0.8);
-                border-color: rgba(255,255,255,0.1);
-                box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            /* Base Apple SF */
+            .font-apple {
+                font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+                letter-spacing: -0.01em;
             }
 
-            /* Scroll tipo macOS */
+            /* Cristal suave Apple */
+            .apple-glass {
+                background: rgba(255,255,255,0.88);
+                backdrop-filter: blur(20px) saturate(180%);
+                -webkit-backdrop-filter: blur(20px) saturate(180%);
+                border: 0.5px solid rgba(0,0,0,0.04);
+            }
+            .dark .apple-glass {
+                background: rgba(30,30,32,0.92);
+                border-color: rgba(255,255,255,0.06);
+            }
+
+            /* Scroll nativo macOS */
             .apple-scrollbar::-webkit-scrollbar {
                 width: 8px;
             }
@@ -60,66 +64,162 @@
             }
             .dark .apple-scrollbar::-webkit-scrollbar-thumb {
                 background: rgba(255,255,255,0.2);
-                background-clip: padding-box;
             }
 
-            /* Contenedor de carátula (formato libro) */
+            /* Contenedor de carátula estilo Apple Books */
             .thumbnail-container {
-                width: 80px;
-                height: 100px;
-                border-radius: 8px;
+                width: 120px;
+                height: 160px;
+                border-radius: 12px;
                 background: #f5f5f7;
-                box-shadow: 0 5px 15px -5px rgba(0,0,0,0.1);
-                transition: transform 0.2s ease, box-shadow 0.2s ease;
+                box-shadow: 0 8px 20px -6px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.02);
+                transition: transform 0.2s ease, box-shadow 0.3s ease;
+                overflow: hidden;
+                flex-shrink: 0;
             }
             .dark .thumbnail-container {
                 background: #1c1c1e;
-                box-shadow: 0 5px 15px -5px rgba(0,0,0,0.5);
+                box-shadow: 0 8px 20px -6px rgba(0,0,0,0.5);
             }
             .group:hover .thumbnail-container {
                 transform: scale(1.02);
-                box-shadow: 0 12px 25px -8px rgba(0,0,0,0.15);
+                box-shadow: 0 16px 30px -8px rgba(0,0,0,0.15);
             }
 
-            /* Placeholder de carga */
-            .thumbnail-loader {
-                background: rgba(0,0,0,0.3);
-                backdrop-filter: blur(2px);
+            /* Placeholder PDF (minimalista) */
+            .pdf-placeholder {
+                background: #e8e8ed;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #8e8e93;
+                font-size: 36px;
+            }
+            .dark .pdf-placeholder {
+                background: #2c2c2e;
+                color: #aeaeb2;
             }
 
-            /* Tarjetas con efecto Apple */
+            /* Tarjetas de libro — diseño Apple Books */
             .apple-book-card {
-                transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
-                border: 0.5px solid transparent;
+                background: white;
+                border-radius: 20px;
+                padding: 20px;
+                display: flex;
+                gap: 20px;
+                transition: all 0.2s ease;
+                border: 1px solid rgba(0,0,0,0.04);
+                box-shadow: 0 2px 12px rgba(0,0,0,0.02);
+            }
+            .dark .apple-book-card {
+                background: #1c1c1e;
+                border-color: rgba(255,255,255,0.06);
+                box-shadow: 0 2px 12px rgba(0,0,0,0.2);
             }
             .apple-book-card:hover {
-                border-color: rgba(0,122,255,0.3);
-                background: rgba(255,255,255,0.9);
+                background: #fafafc;
+                border-color: rgba(0,122,255,0.2);
+                box-shadow: 0 8px 24px rgba(0,122,255,0.08);
             }
             .dark .apple-book-card:hover {
-                background: rgba(50,50,55,0.9);
-                border-color: rgba(10,132,255,0.5);
+                background: #242426;
+                border-color: rgba(10,132,255,0.3);
             }
 
-            /* Botón flotante estilo Live Activity */
+            /* Título de libro */
+            .book-title {
+                font-size: 1.1rem;
+                font-weight: 600;
+                line-height: 1.3;
+                margin-bottom: 6px;
+                color: #1d1d1f;
+            }
+            .dark .book-title {
+                color: #fff;
+            }
+
+            /* Metadatos */
+            .book-meta {
+                font-size: 0.75rem;
+                color: #8e8e93;
+                display: flex;
+                gap: 12px;
+                margin-bottom: 16px;
+                letter-spacing: -0.01em;
+            }
+
+            /* Botón de descarga — estilo link */
+            .download-link {
+                display: inline-flex;
+                align-items: center;
+                padding: 8px 16px;
+                border-radius: 40px;
+                font-size: 0.85rem;
+                font-weight: 500;
+                color: #007aff;
+                background: rgba(0,122,255,0.05);
+                border: 0.5px solid rgba(0,122,255,0.2);
+                transition: all 0.2s;
+                text-decoration: none;
+                width: fit-content;
+            }
+            .dark .download-link {
+                color: #0a84ff;
+                background: rgba(10,132,255,0.1);
+                border-color: rgba(10,132,255,0.3);
+            }
+            .download-link:hover {
+                background: rgba(0,122,255,0.1);
+                border-color: #007aff;
+            }
+
+            /* Modal Apple Books */
+            .apple-modal {
+                background: rgba(255,255,255,0.7);
+                backdrop-filter: blur(40px);
+                -webkit-backdrop-filter: blur(40px);
+                border-radius: 32px;
+                border: 0.5px solid rgba(255,255,255,0.5);
+                box-shadow: 0 24px 48px -16px rgba(0,0,0,0.2);
+            }
+            .dark .apple-modal {
+                background: rgba(20,20,22,0.8);
+                border-color: rgba(255,255,255,0.1);
+            }
+
+            /* Botón flotante — discreto Apple */
             #library-btn {
-                backdrop-filter: blur(15px);
-                border: 1px solid rgba(255,255,255,0.3);
-                box-shadow: 0 10px 25px -5px rgba(0,113,227,0.4);
+                width: 52px;
+                height: 52px;
+                border-radius: 28px;
+                background: white;
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border: 0.5px solid rgba(0,0,0,0.1);
+                box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+                color: #007aff;
+                transition: all 0.2s ease;
+            }
+            .dark #library-btn {
+                background: #1c1c1e;
+                border-color: rgba(255,255,255,0.15);
+                color: #0a84ff;
+                box-shadow: 0 8px 20px rgba(0,0,0,0.3);
             }
             #library-btn:hover {
-                box-shadow: 0 15px 30px -5px rgba(0,113,227,0.6);
+                transform: scale(1.04);
+                box-shadow: 0 12px 28px rgba(0,122,255,0.2);
+                background: #f8f8fc;
             }
-
-            /* Tipografía sistema */
-            .font-apple {
-                font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            .dark #library-btn:hover {
+                background: #2c2c2e;
+                box-shadow: 0 12px 28px rgba(10,132,255,0.2);
             }
         `;
         document.head.appendChild(style);
     }
 
-    // --- Cargar pdf.js bajo demanda ---
+    // --- pdf.js lazy loader ---
     function ensurePdfJs() {
         return new Promise((resolve, reject) => {
             if (window.pdfjsLib) {
@@ -139,19 +239,18 @@
         });
     }
 
-    // --- Generar miniatura desde primera página del PDF ---
+    // --- Generar miniatura desde primera página del PDF (alta calidad) ---
     async function renderThumbnail(pdfUrl, container) {
         if (!pdfUrl || !container) return;
         if (state.thumbnails[pdfUrl]) {
-            // Usar caché
             const img = container.querySelector('img');
             const placeholder = container.querySelector('.pdf-placeholder');
             const loader = container.querySelector('.thumbnail-loader');
-            if (placeholder) placeholder.classList.add('hidden');
-            if (loader) loader.classList.add('hidden');
+            if (placeholder) placeholder.style.display = 'none';
+            if (loader) loader.style.display = 'none';
             if (img) {
                 img.src = state.thumbnails[pdfUrl];
-                img.classList.remove('hidden');
+                img.style.display = 'block';
             }
             return;
         }
@@ -161,38 +260,33 @@
             const loadingTask = pdfjs.getDocument(pdfUrl);
             const pdf = await loadingTask.promise;
             const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 0.5 });
-
+            // Escala para que ocupe 120x160 aprox
+            const viewport = page.getViewport({ scale: 0.9 });
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
-
             await page.render({ canvasContext: context, viewport: viewport }).promise;
-            const dataURL = canvas.toDataURL('image/jpeg', 0.85);
-            
-            // Guardar en caché
+            const dataURL = canvas.toDataURL('image/jpeg', 0.9);
             state.thumbnails[pdfUrl] = dataURL;
 
-            // Actualizar UI
             const img = container.querySelector('img');
             const placeholder = container.querySelector('.pdf-placeholder');
             const loader = container.querySelector('.thumbnail-loader');
-            if (placeholder) placeholder.classList.add('hidden');
-            if (loader) loader.classList.add('hidden');
+            if (placeholder) placeholder.style.display = 'none';
+            if (loader) loader.style.display = 'none';
             if (img) {
                 img.src = dataURL;
-                img.classList.remove('hidden');
+                img.style.display = 'block';
             }
         } catch (err) {
-            console.warn('Error generando carátula:', pdfUrl, err);
-            // Fallback: mantener el icono, ocultar loader
+            console.warn('Error generating thumbnail:', err);
             const loader = container.querySelector('.thumbnail-loader');
-            if (loader) loader.classList.add('hidden');
+            if (loader) loader.style.display = 'none';
         }
     }
 
-    // --- Observador de intersección para lazy loading de thumbnails ---
+    // --- Lazy loading observer ---
     let thumbnailObserver;
     function observeThumbnails() {
         if (!thumbnailObserver) {
@@ -203,11 +297,11 @@
                         const pdfUrl = container.dataset.pdfUrl;
                         if (pdfUrl) {
                             renderThumbnail(pdfUrl, container);
-                            thumbnailObserver.unobserve(container); // una sola vez
+                            thumbnailObserver.unobserve(container);
                         }
                     }
                 });
-            }, { rootMargin: '100px' }); // precargar antes de entrar
+            }, { rootMargin: '200px' });
         }
 
         document.querySelectorAll('.thumbnail-container[data-pdf-url]:not(.observed)').forEach(el => {
@@ -216,7 +310,7 @@
         });
     }
 
-    // --- Obtener lista de PDFs desde GitHub (sin cambios) ---
+    // --- Fetch desde GitHub (sin cambios funcionales) ---
     async function fetchBooks() {
         state.isLoading = true;
         state.error = null;
@@ -239,7 +333,7 @@
                 }))
                 .sort((a, b) => a.name.localeCompare(b.name));
 
-            // Limpiar caché de thumbnails si hay nuevos libros (para refrescar)
+            // Limpiar caché de thumbnails si ya no existen
             const currentUrls = new Set(state.books.map(b => b.downloadUrl));
             Object.keys(state.thumbnails).forEach(url => {
                 if (!currentUrls.has(url)) delete state.thumbnails[url];
@@ -252,36 +346,39 @@
         } finally {
             state.isLoading = false;
             renderModalContent();
-            observeThumbnails(); // activar lazy loading
+            observeThumbnails();
         }
     }
 
-    // --- Crear modal (estructura Apple mejorada) ---
+    // --- Crear modal con diseño Apple Books ---
     function createModal() {
         if (document.getElementById('library-modal')) return;
 
         const modalHTML = `
-            <div id="library-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-black/40 backdrop-blur-md">
-                <div class="w-full max-w-5xl max-h-[85vh] apple-glass rounded-3xl overflow-hidden flex flex-col animate-slide-up shadow-2xl">
-                    <div class="apple-titlebar flex items-center justify-between px-6 py-4 border-b border-white/20 dark:border-white/5">
-                        <div class="flex items-center gap-4">
-                            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                                <i class="fa-solid fa-book-open text-white text-base"></i>
+            <div id="library-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-6 bg-black/30 backdrop-blur-sm">
+                <div class="w-full max-w-6xl max-h-[90vh] apple-modal overflow-hidden flex flex-col animate-slide-up">
+                    <!-- Header minimalista -->
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/5">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-blue-500/10 flex items-center justify-center">
+                                <i class="fa-solid fa-book text-blue-600 dark:text-blue-400 text-base"></i>
                             </div>
                             <div>
-                                <h2 class="font-semibold text-gray-800 dark:text-white text-lg font-apple tracking-tight">Library</h2>
-                                <p id="lib-subtitle" class="text-xs text-gray-500 dark:text-gray-400 font-apple">NCLEX PDF Collection</p>
+                                <h2 class="font-semibold text-gray-800 dark:text-white text-lg font-apple tracking-tight">Biblioteca NCLEX</h2>
+                                <p id="lib-subtitle" class="text-xs text-gray-500 dark:text-gray-400 font-apple">PDFs actualizados desde GitHub</p>
                             </div>
                         </div>
-                        <button onclick="window.library?.close()" class="w-9 h-9 rounded-full hover:bg-gray-200/70 dark:hover:bg-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 transition-all">
+                        <button onclick="window.library?.close()" class="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 transition-colors">
                             <i class="fa-solid fa-xmark text-xl"></i>
                         </button>
                     </div>
-                    <div id="lib-content" class="flex-1 overflow-y-auto p-6 apple-scrollbar" style="max-height: calc(85vh - 80px);"></div>
-                    <div class="px-6 py-4 border-t border-white/20 dark:border-white/5 text-xs text-gray-500 flex justify-between items-center bg-white/30 dark:bg-black/30 backdrop-blur-sm">
-                        <span class="flex items-center gap-1"><i class="fa-regular fa-circle-check text-blue-500"></i> GitHub Releases · Actualizado automáticamente</span>
-                        <button onclick="window.library.refresh()" class="px-4 py-2 rounded-xl hover:bg-gray-200/70 dark:hover:bg-white/10 transition-all flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium">
-                            <i class="fa-solid fa-arrow-rotate-right"></i> ${t('Actualizar', 'Refresh')}
+                    <!-- Contenido -->
+                    <div id="lib-content" class="flex-1 overflow-y-auto p-6 apple-scrollbar" style="max-height: calc(90vh - 80px);"></div>
+                    <!-- Footer simple -->
+                    <div class="px-6 py-3 border-t border-black/5 dark:border-white/5 flex justify-between items-center text-xs text-gray-500">
+                        <span><i class="fa-regular fa-circle-check text-blue-500 mr-1"></i> Fuente: GitHub Releases</span>
+                        <button onclick="window.library.refresh()" class="px-4 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrow-rotate-right"></i> Actualizar
                         </button>
                     </div>
                 </div>
@@ -292,7 +389,7 @@
         injectAppleStyles();
     }
 
-    // --- Renderizar contenido del modal con carátulas Apple ---
+    // --- Renderizar contenido con carátulas grandes ---
     function renderModalContent() {
         const contentEl = document.getElementById('lib-content');
         const subtitleEl = document.getElementById('lib-subtitle');
@@ -300,19 +397,18 @@
 
         if (subtitleEl) {
             subtitleEl.textContent = state.books.length 
-                ? `${state.books.length} PDFs disponibles` 
+                ? `${state.books.length} libros disponibles` 
                 : 'NCLEX PDF Collection';
         }
 
         if (state.isLoading) {
             contentEl.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-                    <div class="relative w-16 h-16 mb-4">
-                        <div class="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full"></div>
-                        <div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
+                    <div class="relative w-14 h-14 mb-4">
+                        <div class="absolute inset-0 border-3 border-gray-200 dark:border-gray-700 rounded-full"></div>
+                        <div class="absolute inset-0 border-3 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
                     </div>
-                    <p class="font-medium font-apple">Conectando con GitHub...</p>
-                    <p class="text-xs mt-2 opacity-75">Obteniendo catálogo de libros</p>
+                    <p class="font-medium font-apple">Cargando biblioteca...</p>
                 </div>
             `;
             return;
@@ -321,12 +417,12 @@
         if (state.error) {
             contentEl.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-64 text-center px-6">
-                    <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
-                        <i class="fa-solid fa-exclamation-triangle text-2xl text-red-600 dark:text-red-400"></i>
+                    <div class="w-14 h-14 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-exclamation-triangle text-xl text-red-600 dark:text-red-400"></i>
                     </div>
                     <h3 class="font-semibold text-gray-800 dark:text-white mb-1 font-apple">Error de conexión</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${state.error}</p>
-                    <button onclick="window.library.refresh()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2">
+                    <button onclick="window.library.refresh()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-full shadow-sm transition-all flex items-center gap-2">
                         <i class="fa-solid fa-rotate"></i> Reintentar
                     </button>
                 </div>
@@ -337,51 +433,46 @@
         if (state.books.length === 0) {
             contentEl.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-64">
-                    <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                        <i class="fa-solid fa-box-open text-2xl text-gray-500"></i>
+                    <div class="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-box-open text-xl text-gray-500"></i>
                     </div>
-                    <p class="text-gray-600 dark:text-gray-400 font-apple">No se encontraron PDFs en el release BOOKS</p>
+                    <p class="text-gray-600 dark:text-gray-400 font-apple">No hay PDFs en este release</p>
                 </div>
             `;
             return;
         }
 
-        // Grid de libros con carátulas reales
-        let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-5">`;
+        // Grid de libros — estilo Apple Books
+        let html = `<div class="grid grid-cols-1 gap-5">`;
         state.books.forEach(book => {
             const formattedSize = formatFileSize(book.size);
             const date = book.updatedAt.toLocaleDateString();
             html += `
-                <div class="apple-book-card apple-glass rounded-2xl p-4 flex gap-4 group transition-all">
-                    <!-- Contenedor de carátula con lazy loading -->
-                    <div class="thumbnail-container relative flex-shrink-0 rounded-xl overflow-hidden" data-pdf-url="${book.downloadUrl}">
-                        <!-- Placeholder con icono PDF -->
-                        <div class="pdf-placeholder absolute inset-0 bg-gradient-to-br from-blue-500/90 to-purple-600/90 flex items-center justify-center text-white">
-                            <i class="fa-solid fa-file-pdf text-2xl"></i>
+                <div class="apple-book-card group">
+                    <!-- Thumbnail grande 120x160 -->
+                    <div class="thumbnail-container relative" data-pdf-url="${book.downloadUrl}">
+                        <div class="pdf-placeholder absolute inset-0">
+                            <i class="fa-regular fa-file-pdf"></i>
                         </div>
-                        <!-- Imagen de carátula (oculta inicialmente) -->
-                        <img class="w-full h-full object-cover hidden" alt="${book.name}">
-                        <!-- Loader durante generación -->
-                        <div class="thumbnail-loader absolute inset-0 hidden items-center justify-center bg-black/30 backdrop-blur-sm">
+                        <img class="absolute inset-0 w-full h-full object-cover hidden" alt="${book.name}">
+                        <div class="thumbnail-loader absolute inset-0 hidden items-center justify-center bg-black/20 backdrop-blur-sm">
                             <i class="fa-solid fa-circle-notch fa-spin text-white text-lg"></i>
                         </div>
                     </div>
-                    
-                    <div class="flex-1 min-w-0 flex flex-col">
-                        <h3 class="font-bold text-gray-900 dark:text-white text-base line-clamp-2 mb-1 font-apple tracking-tight" title="${book.name}">
+                    <!-- Info -->
+                    <div class="flex-1 flex flex-col">
+                        <h3 class="book-title font-apple line-clamp-2" title="${book.name}">
                             ${book.name}
                         </h3>
-                        <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        <div class="book-meta font-apple">
                             <span class="flex items-center gap-1"><i class="fa-regular fa-file-pdf"></i>PDF</span>
-                            <span>•</span>
                             <span class="flex items-center gap-1"><i class="fa-regular fa-hard-drive"></i>${formattedSize}</span>
-                            <span>•</span>
                             <span class="flex items-center gap-1"><i class="fa-regular fa-calendar"></i>${date}</span>
                         </div>
                         <a href="${book.downloadUrl}" 
                            target="_blank"
-                           class="inline-flex items-center justify-center w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md shadow-blue-600/20 hover:shadow-blue-600/40 transition-all">
-                            <i class="fa-solid fa-cloud-arrow-down mr-2"></i>
+                           class="download-link font-apple">
+                            <i class="fa-solid fa-arrow-down mr-1.5"></i>
                             ${t('Descargar', 'Download')}
                         </a>
                     </div>
@@ -392,30 +483,28 @@
         contentEl.innerHTML = html;
     }
 
-    // --- Botón flotante (estilo Live Activity) ---
+    // --- Botón flotante minimalista Apple ---
     function createFloatingButton() {
         if (document.getElementById('library-btn')) return;
 
         const btn = document.createElement('button');
         btn.id = 'library-btn';
         btn.onclick = () => window.library?.open();
-        btn.className = 'fixed top-6 right-6 w-14 h-14 apple-glass bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-2xl shadow-2xl z-[9980] flex items-center justify-center transition-all duration-300 hover:-translate-y-1 active:scale-95 group border border-white/30';
+        btn.className = 'fixed top-6 right-6 z-[9980] flex items-center justify-center shadow-lg';
         
         btn.innerHTML = `
-            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <i class="fa-solid fa-book-open text-xl relative group-hover:scale-110 transition-transform"></i>
-            <div class="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse"></div>
-            <div class="absolute top-full right-0 mt-3 px-4 py-2 bg-gray-900/90 backdrop-blur-md text-white text-xs font-bold rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl border border-white/10">
-                <span class="lang-es">Biblioteca NCLEX</span>
-                <span class="lang-en hidden-lang">NCLEX Library</span>
-                <div class="absolute -top-1.5 right-6 w-3 h-3 bg-gray-900/90 rotate-45 border-l border-t border-white/10"></div>
+            <i class="fa-solid fa-book text-2xl"></i>
+            <div class="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white dark:border-gray-900"></div>
+            <div class="absolute top-full right-0 mt-3 px-4 py-2 bg-white/90 backdrop-blur-xl text-gray-800 text-xs font-medium rounded-full opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg border border-black/5 dark:bg-gray-800/90 dark:text-white dark:border-white/10">
+                <span class="lang-es">Biblioteca</span>
+                <span class="lang-en hidden-lang">Library</span>
             </div>
         `;
 
         document.body.appendChild(btn);
     }
 
-    // --- API pública (sin cambios) ---
+    // --- API pública (idéntica) ---
     window.library = {
         async open() {
             createModal();
@@ -426,7 +515,7 @@
                 if (state.books.length === 0 && !state.isLoading) {
                     await fetchBooks();
                 } else {
-                    observeThumbnails(); // Si ya hay libros, observar igualmente
+                    observeThumbnails();
                 }
             }
         },
@@ -437,7 +526,6 @@
         },
 
         async refresh() {
-            // Limpiar caché de thumbnails para regenerar
             state.thumbnails = {};
             await fetchBooks();
         }
@@ -448,8 +536,7 @@
         injectAppleStyles();
         createFloatingButton();
         createModal();
-        // Precargar pdf.js en segundo plano
-        ensurePdfJs().catch(e => console.warn('PDF.js no disponible, se usará icono por defecto', e));
+        ensurePdfJs().catch(() => {});
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => fetchBooks());
         } else {
