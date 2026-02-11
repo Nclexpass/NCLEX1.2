@@ -1,586 +1,184 @@
-// 17_bnotepad.js — Super Libreta Sticky con Diseño Apple
-// VERSIÓN: 5.0 (Apple Design System)
+// 17_bnotepad.js — Libreta Virtual Apple (Arrglable & No Intrusiva)
+// NO MODIFICA TU HTML - TODO SE CREA DINÁMICAMENTE
 (function() {
     'use strict';
-
+    
     // CONFIGURACIÓN
     const CONFIG = {
-        STORAGE_KEY: 'nclex_notebook_apple',
+        STORAGE_KEY: 'nclex_draggable_notebook_v4',
+        POSITION_KEY: 'nclex_notebook_position',
         AUTO_SAVE_DELAY: 1500,
-        MAX_PAGES: 50,
-        DEFAULT_COLORS: [
-            { name: 'yellow', value: '#FFD60A', darkValue: '#FFB800' },
-            { name: 'blue', value: '#007AFF', darkValue: '#0A84FF' },
-            { name: 'pink', value: '#FF2D55', darkValue: '#FF375F' },
-            { name: 'green', value: '#34C759', darkValue: '#30D158' },
-            { name: 'purple', value: '#AF52DE', darkValue: '#BF5AF2' },
-            { name: 'orange', value: '#FF9500', darkValue: '#FF9F0A' }
-        ]
+        DEFAULT_COLORS: ['#007AFF', '#34C759', '#FF9500', '#FF2D55', '#5856D6', '#5AC8FA'],
+        MAX_PAGES_PER_NOTEBOOK: 100,
+        MAX_NOTEBOOKS: 20
     };
-
+    
     // ESTADO
     const state = {
-        pages: [],
-        currentIndex: 0,
-        isDragging: false,
+        notebooks: [],
+        currentNotebook: null,
+        currentPageIndex: 0,
+        editingNotebook: null,
+        selectedColor: '#007AFF',
         autoSaveTimer: null,
-        isFullscreen: false,
-        sidebarOpen: true,
-        selectedTool: 'select'
+        isNotebookOpen: false,
+        isDragging: false,
+        dragOffset: { x: 0, y: 0 }
     };
-
-    // -------------------------------------------------------------------------
-    // 1. GESTIÓN DE DATOS
-    // -------------------------------------------------------------------------
     
+    // UTILIDADES
+    function t(es, en) {
+        const lang = localStorage.getItem('nclex_lang') || 'es';
+        return lang === 'en' ? en : es;
+    }
+    
+    function generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+    
+    function formatDate(date) {
+        const d = new Date(date);
+        const now = new Date();
+        const diff = now - d;
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        
+        if (hours < 24) {
+            if (hours === 0) return t('Hace unos minutos', 'Just now');
+            if (hours === 1) return t('Hace 1 hora', '1 hour ago');
+            return t(`Hace ${hours} horas`, `${hours} hours ago`);
+        }
+        
+        return d.toLocaleDateString();
+    }
+    
+    function countWords(text) {
+        return text.trim() ? text.trim().split(/\s+/).length : 0;
+    }
+    
+    // GESTIÓN DE DATOS
     function loadData() {
         try {
-            const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
-            state.pages = raw ? JSON.parse(raw) : [];
+            const data = localStorage.getItem(CONFIG.STORAGE_KEY);
+            if (data) {
+                state.notebooks = JSON.parse(data);
+            }
         } catch (e) {
-            console.error("Error loading notes:", e);
-            state.pages = [];
-        }
-
-        if (state.pages.length === 0) {
-            createNewPage();
+            console.error('Error loading notebooks:', e);
+            state.notebooks = [];
         }
     }
-
+    
     function saveData() {
         clearTimeout(state.autoSaveTimer);
         state.autoSaveTimer = setTimeout(() => {
             try {
-                localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state.pages));
-                showSaveIndicator();
+                localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state.notebooks));
             } catch (e) {
-                console.error("Error saving notes:", e);
+                console.error('Error saving notebooks:', e);
             }
         }, CONFIG.AUTO_SAVE_DELAY);
     }
-
-    function createNewPage(colorIndex = 0) {
-        const color = CONFIG.DEFAULT_COLORS[colorIndex % CONFIG.DEFAULT_COLORS.length];
-        const newPage = {
-            id: Date.now() + Math.random(),
-            content: '',
-            color: color.name,
-            colorValue: color.value,
-            darkColorValue: color.darkValue,
-            date: new Date().toISOString(),
-            title: `New Note ${state.pages.length + 1}`,
-            tags: [],
-            starred: false
-        };
-        
-        state.pages.push(newPage);
-        return newPage;
-    }
-
-    // -------------------------------------------------------------------------
-    // 2. UTILIDADES APPLE
-    // -------------------------------------------------------------------------
     
-    function showSaveIndicator() {
-        const indicator = document.getElementById('save-indicator');
-        if (indicator) {
-            indicator.classList.remove('opacity-0');
-            indicator.classList.add('opacity-100');
-            setTimeout(() => {
-                indicator.classList.remove('opacity-100');
-                indicator.classList.add('opacity-0');
-            }, 2000);
-        }
-    }
-
-    function formatAppleDate(dateString) {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffTime = Math.abs(now - date);
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // INYECCIÓN DINÁMICA DE ELEMENTOS
+    function injectStyles() {
+        if (document.getElementById('notebook-styles')) return;
         
-        if (diffDays === 0) {
-            return 'Today at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else if (diffDays === 1) {
-            return 'Yesterday at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else if (diffDays < 7) {
-            return date.toLocaleDateString([], { weekday: 'long' });
-        } else {
-            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // 3. INTERFAZ APPLE - VENTANA PRINCIPAL
-    // -------------------------------------------------------------------------
-    
-    window.toggleNotepad = function() {
-        const win = document.getElementById('notepad-window');
-        if (!win) return;
-
-        if (win.classList.contains('hidden')) {
-            openNotepad();
-        } else {
-            closeNotepad();
-        }
-    };
-
-    window.openNotepad = function() {
-        const win = document.getElementById('notepad-window');
-        if (!win) return;
-        
-        win.classList.remove('hidden');
-        win.classList.add('flex');
-        
-        // Efecto de apertura Apple
-        win.style.opacity = '0';
-        win.style.transform = 'scale(0.95)';
-        
-        setTimeout(() => {
-            win.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
-            win.style.opacity = '1';
-            win.style.transform = 'scale(1)';
-        }, 10);
-        
-        // Centrar en pantalla
-        centerWindow();
-        
-        // Bloquear scroll del body
-        document.body.style.overflow = 'hidden';
-        
-        renderPage();
-    };
-
-    window.closeNotepad = function() {
-        const win = document.getElementById('notepad-window');
-        if (!win) return;
-        
-        // Efecto de cierre Apple
-        win.style.opacity = '0';
-        win.style.transform = 'scale(0.95)';
-        
-        setTimeout(() => {
-            win.classList.add('hidden');
-            win.classList.remove('flex');
-            win.style.opacity = '1';
-            win.style.transform = 'scale(1)';
-        }, 300);
-        
-        // Restaurar scroll
-        document.body.style.overflow = '';
-        
-        // Guardar datos inmediatamente
-        saveData();
-    };
-
-    function centerWindow() {
-        const win = document.getElementById('notepad-window');
-        if (!win) return;
-        
-        const width = win.offsetWidth || 800;
-        const height = win.offsetHeight || 600;
-        
-        const left = (window.innerWidth - width) / 2;
-        const top = (window.innerHeight - height) / 2;
-        
-        win.style.left = `${Math.max(20, left)}px`;
-        win.style.top = `${Math.max(20, top)}px`;
-    }
-
-    // -------------------------------------------------------------------------
-    // 4. RENDERIZADO APPLE
-    // -------------------------------------------------------------------------
-    
-    function renderPage() {
-        const page = state.pages[state.currentIndex];
-        if (!page) return;
-        
-        // Actualizar área de texto
-        const textArea = document.getElementById('notepad-editor');
-        if (textArea) {
-            textArea.value = page.content;
-            updateEditorTheme(page.color);
-        }
-        
-        // Actualizar UI
-        updatePageCounter();
-        updatePageTitle();
-        updateColorTheme(page.colorValue);
-        updateSidebar();
-    }
-
-    function updateEditorTheme(colorName) {
-        const editor = document.getElementById('notepad-editor');
-        if (!editor) return;
-        
-        // Limpiar clases anteriores
-        editor.classList.remove(
-            'bg-yellow-50', 'dark:bg-yellow-950/20',
-            'bg-blue-50', 'dark:bg-blue-950/20',
-            'bg-pink-50', 'dark:bg-pink-950/20',
-            'bg-green-50', 'dark:bg-green-950/20',
-            'bg-purple-50', 'dark:bg-purple-950/20',
-            'bg-orange-50', 'dark:bg-orange-950/20'
-        );
-        
-        // Aplicar nuevo tema
-        switch(colorName) {
-            case 'yellow':
-                editor.classList.add('bg-yellow-50', 'dark:bg-yellow-950/20');
-                break;
-            case 'blue':
-                editor.classList.add('bg-blue-50', 'dark:bg-blue-950/20');
-                break;
-            case 'pink':
-                editor.classList.add('bg-pink-50', 'dark:bg-pink-950/20');
-                break;
-            case 'green':
-                editor.classList.add('bg-green-50', 'dark:bg-green-950/20');
-                break;
-            case 'purple':
-                editor.classList.add('bg-purple-50', 'dark:bg-purple-950/20');
-                break;
-            case 'orange':
-                editor.classList.add('bg-orange-50', 'dark:bg-orange-950/20');
-                break;
-        }
-    }
-
-    function updateColorTheme(colorValue) {
-        const root = document.documentElement;
-        root.style.setProperty('--accent-color', colorValue);
-        
-        // Actualizar botones y elementos con color acento
-        document.querySelectorAll('.accent-button').forEach(btn => {
-            btn.style.backgroundColor = colorValue;
-        });
-    }
-
-    function updatePageCounter() {
-        const counter = document.getElementById('page-counter');
-        if (counter) {
-            counter.textContent = `${state.currentIndex + 1} of ${state.pages.length}`;
-        }
-    }
-
-    function updatePageTitle() {
-        const page = state.pages[state.currentIndex];
-        if (!page) return;
-        
-        const titleElement = document.getElementById('page-title-display');
-        const titleInput = document.getElementById('page-title-input');
-        
-        if (titleElement) titleElement.textContent = page.title;
-        if (titleInput) titleInput.value = page.title;
-    }
-
-    function updateSidebar() {
-        const sidebar = document.getElementById('notepad-sidebar');
-        if (!sidebar) return;
-        
-        let html = '<div class="space-y-1">';
-        
-        state.pages.forEach((page, index) => {
-            const isActive = index === state.currentIndex;
-            const color = CONFIG.DEFAULT_COLORS.find(c => c.name === page.color) || CONFIG.DEFAULT_COLORS[0];
-            
-            html += `
-                <div class="sidebar-page ${isActive ? 'active' : ''}" 
-                     onclick="window.notepadActions.goToPage(${index})">
-                    <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer">
-                        <div class="w-2 h-2 rounded-full" style="background-color: ${page.colorValue}"></div>
-                        <div class="flex-1 min-w-0">
-                            <div class="font-medium text-sm truncate">${page.title}</div>
-                            <div class="text-xs text-gray-500 truncate">${formatAppleDate(page.date)}</div>
-                        </div>
-                        ${page.starred ? '<i class="fa-solid fa-star text-yellow-500 text-xs"></i>' : ''}
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-        sidebar.innerHTML = html;
-    }
-
-    // -------------------------------------------------------------------------
-    // 5. ACCIONES APPLE
-    // -------------------------------------------------------------------------
-    
-    window.notepadActions = {
-        updateContent: function(text) {
-            if (!state.pages[state.currentIndex]) return;
-            
-            state.pages[state.currentIndex].content = text;
-            state.pages[state.currentIndex].date = new Date().toISOString();
-            saveData();
-        },
-
-        updateTitle: function(newTitle) {
-            if (!newTitle?.trim()) return;
-            
-            state.pages[state.currentIndex].title = newTitle.trim();
-            updatePageTitle();
-            updateSidebar();
-            saveData();
-        },
-
-        nextPage: function() {
-            if (state.currentIndex < state.pages.length - 1) {
-                state.currentIndex++;
-                renderPage();
-            } else {
-                this.addPage();
-            }
-        },
-
-        prevPage: function() {
-            if (state.currentIndex > 0) {
-                state.currentIndex--;
-                renderPage();
-            }
-        },
-
-        goToPage: function(index) {
-            if (index >= 0 && index < state.pages.length) {
-                state.currentIndex = index;
-                renderPage();
-            }
-        },
-
-        addPage: function() {
-            if (state.pages.length >= CONFIG.MAX_PAGES) {
-                this.showAlert('Maximum Pages', `You've reached the maximum of ${CONFIG.MAX_PAGES} pages.`);
-                return;
-            }
-            
-            const newPage = createNewPage(state.pages.length);
-            state.currentIndex = state.pages.length - 1;
-            renderPage();
-            saveData();
-            
-            // Animar nueva página
-            const sidebarItem = document.querySelector(`.sidebar-page:nth-child(${state.pages.length})`);
-            if (sidebarItem) {
-                sidebarItem.style.opacity = '0';
-                setTimeout(() => {
-                    sidebarItem.style.transition = 'opacity 0.3s';
-                    sidebarItem.style.opacity = '1';
-                }, 10);
-            }
-        },
-
-        deletePage: function() {
-            if (state.pages.length <= 1) {
-                state.pages[0].content = '';
-                state.pages[0].title = 'New Note 1';
-                renderPage();
-                saveData();
-                return;
-            }
-            
-            this.showDeleteConfirmation();
-        },
-
-        confirmDelete: function() {
-            state.pages.splice(state.currentIndex, 1);
-            
-            if (state.currentIndex >= state.pages.length) {
-                state.currentIndex = state.pages.length - 1;
-            }
-            
-            renderPage();
-            saveData();
-        },
-
-        changeColor: function(colorIndex) {
-            const color = CONFIG.DEFAULT_COLORS[colorIndex];
-            if (!color) return;
-            
-            const page = state.pages[state.currentIndex];
-            if (!page) return;
-            
-            page.color = color.name;
-            page.colorValue = color.value;
-            page.darkColorValue = color.darkValue;
-            
-            renderPage();
-            saveData();
-        },
-
-        toggleStar: function() {
-            const page = state.pages[state.currentIndex];
-            if (!page) return;
-            
-            page.starred = !page.starred;
-            updateSidebar();
-            saveData();
-        },
-
-        toggleSidebar: function() {
-            state.sidebarOpen = !state.sidebarOpen;
-            const sidebar = document.getElementById('notepad-sidebar');
-            const content = document.getElementById('notepad-content');
-            
-            if (state.sidebarOpen) {
-                sidebar.classList.remove('hidden', 'w-0');
-                sidebar.classList.add('flex', 'w-64');
-                content.classList.remove('ml-0');
-                content.classList.add('ml-64');
-            } else {
-                sidebar.classList.add('hidden', 'w-0');
-                sidebar.classList.remove('flex', 'w-64');
-                content.classList.remove('ml-64');
-                content.classList.add('ml-0');
-            }
-        },
-
-        showDeleteConfirmation: function() {
-            const modal = document.getElementById('delete-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-            }
-        },
-
-        showAlert: function(title, message) {
-            const alert = document.getElementById('alert-modal');
-            const alertTitle = document.getElementById('alert-title');
-            const alertMessage = document.getElementById('alert-message');
-            
-            if (alert && alertTitle && alertMessage) {
-                alertTitle.textContent = title;
-                alertMessage.textContent = message;
-                alert.classList.remove('hidden');
-            }
-        },
-
-        exportPage: function() {
-            const page = state.pages[state.currentIndex];
-            if (!page) return;
-            
-            const content = `# ${page.title}\n\n${page.content}\n\n---\n*Exported from NCLEX Notebook on ${new Date().toLocaleString()}*`;
-            const blob = new Blob([content], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${page.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.md`;
-            a.click();
-            URL.revokeObjectURL(url);
-        },
-
-        toggleFullscreen: function() {
-            const win = document.getElementById('notepad-window');
-            if (!win) return;
-            
-            state.isFullscreen = !state.isFullscreen;
-            
-            if (state.isFullscreen) {
-                win.classList.add('fullscreen');
-                win.style.width = '100vw';
-                win.style.height = '100vh';
-                win.style.top = '0';
-                win.style.left = '0';
-                win.style.borderRadius = '0';
-            } else {
-                win.classList.remove('fullscreen');
-                win.style.width = '';
-                win.style.height = '';
-                centerWindow();
-            }
-        }
-    };
-
-    // -------------------------------------------------------------------------
-    // 6. INYECCIÓN DE ESTILOS APPLE
-    // -------------------------------------------------------------------------
-    
-    function injectAppleStyles() {
         const style = document.createElement('style');
+        style.id = 'notebook-styles';
         style.textContent = `
-            :root {
-                --accent-color: #007AFF;
-                --system-gray-6: #F2F2F7;
-                --system-gray-5: #E5E5EA;
-                --system-gray-3: #C7C7CC;
-                --system-blue: #007AFF;
-                --system-green: #34C759;
-                --system-red: #FF3B30;
-            }
-            
-            .apple-window {
+            /* Estilos para la ventana arrastrable */
+            .draggable-notebook-window {
                 backdrop-filter: blur(20px) saturate(180%);
                 -webkit-backdrop-filter: blur(20px) saturate(180%);
-                background: rgba(242, 242, 247, 0.8);
-                border: 1px solid rgba(255, 255, 255, 0.8);
-                box-shadow: 
-                    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-                    0 2px 4px -1px rgba(0, 0, 0, 0.06),
-                    inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
-            }
-            
-            .dark .apple-window {
-                background: rgba(28, 28, 30, 0.8);
-                border: 1px solid rgba(44, 44, 46, 0.8);
-                box-shadow: 
-                    0 4px 6px -1px rgba(0, 0, 0, 0.3),
-                    0 2px 4px -1px rgba(0, 0, 0, 0.2),
-                    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-            }
-            
-            .apple-titlebar {
-                background: linear-gradient(to bottom, 
-                    rgba(255, 255, 255, 0.9), 
-                    rgba(242, 242, 247, 0.9)
-                );
-                border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-                backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
-            }
-            
-            .dark .apple-titlebar {
-                background: linear-gradient(to bottom, 
-                    rgba(44, 44, 46, 0.9), 
-                    rgba(28, 28, 30, 0.9)
-                );
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            }
-            
-            .apple-button {
-                background: linear-gradient(180deg, 
-                    rgba(255, 255, 255, 0.9) 0%, 
-                    rgba(242, 242, 247, 0.9) 100%
-                );
+                background: rgba(255, 255, 255, 0.95);
                 border: 1px solid rgba(0, 0, 0, 0.1);
-                border-radius: 6.5px;
-                padding: 4px 12px;
-                font-size: 13px;
-                font-weight: 500;
-                color: #007AFF;
-                transition: all 0.2s ease;
+                box-shadow: 
+                    0 20px 60px rgba(0, 0, 0, 0.15),
+                    0 10px 40px rgba(0, 0, 0, 0.1),
+                    0 1px 0 rgba(255, 255, 255, 0.5) inset;
+                border-radius: 16px;
+                transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             }
             
-            .apple-button:hover {
-                background: linear-gradient(180deg, 
-                    rgba(255, 255, 255, 1) 0%, 
-                    rgba(242, 242, 247, 1) 100%
-                );
-                border-color: rgba(0, 0, 0, 0.15);
-                transform: translateY(-1px);
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            .dark .draggable-notebook-window {
+                background: rgba(28, 28, 30, 0.95);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 
+                    0 20px 60px rgba(0, 0, 0, 0.4),
+                    0 10px 40px rgba(0, 0, 0, 0.3),
+                    0 1px 0 rgba(255, 255, 255, 0.05) inset;
             }
             
-            .apple-button:active {
-                transform: translateY(0);
-                box-shadow: none;
+            .notebook-drag-handle {
+                cursor: move;
+                user-select: none;
+                -webkit-user-drag: none;
             }
             
+            .notebook-drag-handle:hover {
+                background: rgba(0, 0, 0, 0.05);
+            }
+            
+            .dark .notebook-drag-handle:hover {
+                background: rgba(255, 255, 255, 0.05);
+            }
+            
+            /* Resaltado al arrastrar */
+            .dragging {
+                opacity: 0.95;
+                box-shadow: 
+                    0 30px 80px rgba(0, 0, 0, 0.25),
+                    0 15px 50px rgba(0, 0, 0, 0.2),
+                    0 1px 0 rgba(255, 255, 255, 0.5) inset !important;
+            }
+            
+            /* Efecto de elevación */
+            .elevated {
+                transform: translateY(-2px);
+                box-shadow: 
+                    0 30px 80px rgba(0, 0, 0, 0.2),
+                    0 15px 50px rgba(0, 0, 0, 0.15),
+                    0 1px 0 rgba(255, 255, 255, 0.5) inset;
+            }
+            
+            .dark .elevated {
+                box-shadow: 
+                    0 30px 80px rgba(0, 0, 0, 0.5),
+                    0 15px 50px rgba(0, 0, 0, 0.4),
+                    0 1px 0 rgba(255, 255, 255, 0.1) inset;
+            }
+            
+            /* Animaciones */
+            @keyframes notebookSlideIn {
+                from { 
+                    opacity: 0; 
+                    transform: translateX(30px) scale(0.95); 
+                }
+                to { 
+                    opacity: 1; 
+                    transform: translateX(0) scale(1); 
+                }
+            }
+            
+            @keyframes notebookFadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            .notebook-slide-in {
+                animation: notebookSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            
+            .notebook-fade-in {
+                animation: notebookFadeIn 0.3s ease-out forwards;
+            }
+            
+            /* Estilos Apple para controles */
             .apple-control {
                 width: 12px;
                 height: 12px;
                 border-radius: 50%;
-                display: inline-block;
-                margin-right: 8px;
-                transition: transform 0.2s ease;
+                transition: all 0.2s ease;
             }
             
             .apple-control:hover {
@@ -591,6 +189,28 @@
             .apple-control-minimize { background: #FFBD2E; }
             .apple-control-maximize { background: #28CA42; }
             
+            /* Página estilo Apple */
+            .apple-page {
+                background: linear-gradient(to right, #f5f5f7 0%, #f5f5f7 1px, #ffffff 1px, #ffffff 100%);
+                background-size: 40px 100%;
+            }
+            
+            .dark .apple-page {
+                background: linear-gradient(to right, #1a1a1c 0%, #1a1a1c 1px, #1C1C1E 1px, #1C1C1E 100%);
+                background-size: 40px 100%;
+            }
+            
+            .apple-lines {
+                background: linear-gradient(to bottom, transparent 0%, transparent 94%, #e0e0e0 94%, #e0e0e0 100%);
+                background-size: 100% 28px;
+            }
+            
+            .dark .apple-lines {
+                background: linear-gradient(to bottom, transparent 0%, transparent 94%, #2C2C2E 94%, #2C2C2E 100%);
+                background-size: 100% 28px;
+            }
+            
+            /* Scrollbar estilo Apple */
             .apple-scrollbar::-webkit-scrollbar {
                 width: 8px;
             }
@@ -605,469 +225,910 @@
                 border-radius: 4px;
             }
             
-            .apple-scrollbar::-webkit-scrollbar-thumb:hover {
-                background: rgba(0, 0, 0, 0.2);
-            }
-            
             .dark .apple-scrollbar::-webkit-scrollbar-thumb {
                 background: rgba(255, 255, 255, 0.1);
+            }
+            
+            .apple-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(0, 0, 0, 0.2);
             }
             
             .dark .apple-scrollbar::-webkit-scrollbar-thumb:hover {
                 background: rgba(255, 255, 255, 0.2);
             }
             
-            .apple-editor {
-                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                font-size: 15px;
-                line-height: 1.6;
-                letter-spacing: -0.01em;
-            }
-            
-            .apple-sidebar {
-                background: rgba(242, 242, 247, 0.6);
-                border-right: 1px solid rgba(0, 0, 0, 0.1);
-                backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
-            }
-            
-            .dark .apple-sidebar {
-                background: rgba(28, 28, 30, 0.6);
-                border-right: 1px solid rgba(255, 255, 255, 0.1);
-            }
-            
-            .sidebar-page.active {
-                background: rgba(0, 122, 255, 0.1);
-                border: 1px solid rgba(0, 122, 255, 0.2);
-            }
-            
-            .apple-modal {
-                background: rgba(242, 242, 247, 0.95);
-                backdrop-filter: blur(30px) saturate(200%);
-                -webkit-backdrop-filter: blur(30px) saturate(200%);
-                border: 1px solid rgba(255, 255, 255, 0.8);
+            /* Botón flotante estilo Apple */
+            .apple-floating-btn {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 box-shadow: 
-                    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-                    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                    0 10px 30px rgba(102, 126, 234, 0.3),
+                    0 1px 8px rgba(102, 126, 234, 0.2),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             }
             
-            .dark .apple-modal {
-                background: rgba(28, 28, 30, 0.95);
-                border: 1px solid rgba(44, 44, 46, 0.8);
+            .apple-floating-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 
+                    0 15px 40px rgba(102, 126, 234, 0.4),
+                    0 2px 10px rgba(102, 126, 234, 0.3),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
             }
             
-            .apple-input {
-                background: rgba(255, 255, 255, 0.8);
-                border: 1px solid rgba(0, 0, 0, 0.1);
-                border-radius: 8px;
-                padding: 8px 12px;
-                font-size: 14px;
-                transition: all 0.2s ease;
-            }
-            
-            .apple-input:focus {
-                outline: none;
-                border-color: var(--accent-color);
-                box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
-            }
-            
-            .dark .apple-input {
-                background: rgba(44, 44, 46, 0.8);
-                border-color: rgba(255, 255, 255, 0.1);
-                color: white;
-            }
-            
-            @keyframes appleBounce {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(0.95); }
-            }
-            
-            .apple-bounce {
-                animation: appleBounce 0.3s ease;
-            }
-            
-            .accent-button {
-                background: var(--accent-color);
-                color: white;
-                border: none;
-                border-radius: 6.5px;
-                padding: 4px 12px;
-                font-size: 13px;
-                font-weight: 500;
-                transition: all 0.2s ease;
-            }
-            
-            .accent-button:hover {
-                opacity: 0.9;
-                transform: translateY(-1px);
-                box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.3);
+            .apple-floating-btn:active {
+                transform: translateY(0);
+                box-shadow: 
+                    0 5px 20px rgba(102, 126, 234, 0.3),
+                    0 1px 5px rgba(102, 126, 234, 0.2),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
             }
         `;
         document.head.appendChild(style);
     }
-
-    // -------------------------------------------------------------------------
-    // 7. INYECCIÓN DE HTML APPLE
-    // -------------------------------------------------------------------------
     
-    function injectAppleHTML() {
-        const container = document.getElementById('notepad-container');
-        if (!container) return;
+    function createFloatingButton() {
+        // Crear botón flotante en la esquina inferior derecha
+        if (document.getElementById('notebook-floating-btn')) return;
         
-        // Ventana principal
-        container.innerHTML = `
-            <div id="notepad-window" 
-                 class="fixed z-[9999] hidden flex-col w-[800px] h-[600px] max-w-[90vw] max-h-[90vh] apple-window rounded-2xl overflow-hidden transition-all duration-300">
-                
-                <!-- Titlebar estilo macOS -->
-                <div class="apple-titlebar flex items-center justify-between px-4 py-2.5 cursor-move select-none">
-                    <!-- Controles de ventana -->
-                    <div class="flex items-center">
-                        <div class="apple-control apple-control-close" onclick="window.closeNotepad()"></div>
-                        <div class="apple-control apple-control-minimize"></div>
-                        <div class="apple-control apple-control-maximize" onclick="window.notepadActions.toggleFullscreen()"></div>
+        const btn = document.createElement('button');
+        btn.id = 'notebook-floating-btn';
+        btn.className = 'fixed bottom-8 right-8 z-[60] w-14 h-14 rounded-2xl apple-floating-btn text-white flex items-center justify-center transition-all duration-300 group';
+        btn.innerHTML = `
+            <i class="fa-solid fa-book text-xl"></i>
+            <div class="absolute -top-12 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+                ${t('Libreta Virtual', 'Virtual Notebook')}
+                <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+            </div>
+        `;
+        btn.onclick = () => window.NotebookManager.toggleNotebook();
+        
+        document.body.appendChild(btn);
+    }
+    
+    function createNotebookWindow() {
+        // Crear ventana arrastrable de libreta
+        if (document.getElementById('notebook-window')) return;
+        
+        const windowDiv = document.createElement('div');
+        windowDiv.id = 'notebook-window';
+        windowDiv.className = 'fixed z-[70] hidden draggable-notebook-window notebook-slide-in';
+        
+        // Obtener posición guardada o usar posición por defecto (derecha)
+        const savedPos = localStorage.getItem(CONFIG.POSITION_KEY);
+        let initialPosition = { top: '100px', right: '20px', left: 'auto' };
+        
+        if (savedPos) {
+            try {
+                const pos = JSON.parse(savedPos);
+                if (pos.top && pos.left) {
+                    initialPosition = { 
+                        top: pos.top, 
+                        left: pos.left, 
+                        right: 'auto',
+                        width: pos.width || '380px',
+                        height: pos.height || '500px'
+                    };
+                }
+            } catch (e) {
+                console.error('Error loading notebook position:', e);
+            }
+        }
+        
+        // Aplicar posición inicial
+        Object.assign(windowDiv.style, {
+            width: initialPosition.width || '380px',
+            height: initialPosition.height || '500px',
+            top: initialPosition.top,
+            left: initialPosition.left || 'auto',
+            right: initialPosition.right || 'auto'
+        });
+        
+        windowDiv.innerHTML = `
+            <!-- Barra de título Apple Style -->
+            <div class="notebook-drag-handle flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-white/10 rounded-t-16">
+                <div class="flex items-center gap-2">
+                    <div class="flex gap-2">
+                        <div class="apple-control apple-control-close" onclick="window.NotebookManager.closeNotebook()"></div>
+                        <div class="apple-control apple-control-minimize" onclick="window.NotebookManager.toggleMinimize()"></div>
+                        <div class="apple-control apple-control-maximize" onclick="window.NotebookManager.toggleMaximize()"></div>
                     </div>
-                    
-                    <!-- Título centrado -->
-                    <div class="flex items-center gap-3 absolute left-1/2 transform -translate-x-1/2">
-                        <i class="fa-solid fa-book text-gray-600 dark:text-gray-300 text-sm"></i>
-                        <span id="page-title-display" class="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate max-w-[200px]"></span>
-                        <span id="page-counter" class="text-xs text-gray-500 font-medium"></span>
-                    </div>
-                    
-                    <!-- Botones de acción -->
-                    <div class="flex items-center gap-2">
-                        <button onclick="window.notepadActions.toggleStar()" 
-                                class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10">
-                            <i class="fa-regular fa-star text-sm"></i>
-                        </button>
-                        <button onclick="window.notepadActions.toggleSidebar()" 
-                                class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10">
-                            <i class="fa-solid fa-sidebar text-sm"></i>
-                        </button>
-                        <button onclick="window.notepadActions.exportPage()" 
-                                class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10">
-                            <i class="fa-solid fa-arrow-up-from-bracket text-sm"></i>
-                        </button>
+                    <div class="ml-3 flex items-center gap-2">
+                        <i class="fa-solid fa-book text-blue-600 dark:text-blue-400"></i>
+                        <span class="font-semibold text-sm text-gray-800 dark:text-gray-200">
+                            ${t('Libreta', 'Notebook')}
+                        </span>
                     </div>
                 </div>
                 
-                <!-- Contenido principal -->
-                <div class="flex flex-1 overflow-hidden">
-                    <!-- Sidebar -->
-                    <div id="notepad-sidebar" class="apple-sidebar flex flex-col w-64 transition-all duration-300">
-                        <div class="p-4 border-b border-gray-200 dark:border-white/10">
-                            <div class="flex items-center justify-between mb-3">
-                                <h3 class="font-semibold text-gray-800 dark:text-gray-200">Notes</h3>
-                                <button onclick="window.notepadActions.addPage()" 
-                                        class="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500 text-white hover:bg-blue-600">
-                                    <i class="fa-solid fa-plus text-sm"></i>
-                                </button>
-                            </div>
-                            <input id="page-title-input" type="text" 
-                                   class="apple-input w-full mb-2" 
-                                   placeholder="Note title..."
-                                   oninput="window.notepadActions.updateTitle(this.value)">
-                        </div>
-                        
-                        <div class="flex-1 overflow-y-auto p-2 apple-scrollbar" id="sidebar-content">
-                            <!-- Las notas se cargarán aquí dinámicamente -->
-                        </div>
-                        
-                        <!-- Paleta de colores -->
-                        <div class="p-4 border-t border-gray-200 dark:border-white/10">
-                            <div class="mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">COLORS</div>
-                            <div class="flex gap-2">
-                                ${CONFIG.DEFAULT_COLORS.map((color, index) => `
-                                    <button onclick="window.notepadActions.changeColor(${index})" 
-                                            class="w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 shadow-sm hover:scale-110 transition-transform"
-                                            style="background-color: ${color.value}"
-                                            title="${color.name.charAt(0).toUpperCase() + color.name.slice(1)}">
-                                    </button>
-                                `).join('')}
-                            </div>
-                        </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.NotebookManager.createNewNotebook()" 
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10">
+                        <i class="fa-solid fa-plus text-sm"></i>
+                    </button>
+                    <button onclick="window.NotebookManager.downloadCurrentPage()" 
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10">
+                        <i class="fa-solid fa-download text-sm"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Contenido principal -->
+            <div class="flex flex-col h-[calc(100%-56px)]">
+                <!-- Selector de libretas -->
+                <div class="px-4 py-3 border-b border-gray-200 dark:border-white/10">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                            ${t('Libretas', 'Notebooks')}
+                        </h3>
+                        <button onclick="window.NotebookManager.showNotebooksModal()" 
+                                class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                            ${t('Administrar', 'Manage')}
+                        </button>
                     </div>
                     
-                    <!-- Área del editor -->
-                    <div id="notepad-content" class="flex-1 flex flex-col transition-all duration-300 ml-64">
-                        <!-- Barra de herramientas -->
-                        <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-white/10">
-                            <div class="flex items-center gap-2">
-                                <button onclick="window.notepadActions.prevPage()" 
-                                        class="apple-button flex items-center gap-1">
-                                    <i class="fa-solid fa-chevron-left text-xs"></i>
-                                </button>
-                                <button onclick="window.notepadActions.addPage()" 
-                                        class="apple-button flex items-center gap-1">
-                                    <i class="fa-solid fa-plus text-xs"></i> New
-                                </button>
-                                <button onclick="window.notepadActions.nextPage()" 
-                                        class="apple-button flex items-center gap-1">
-                                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                                </button>
+                    <div class="flex items-center gap-2 overflow-x-auto pb-2 apple-scrollbar">
+                        <div id="notebooks-tabs" class="flex gap-1">
+                            <!-- Las libretas se cargarán aquí como pestañas -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Área de escritura -->
+                <div class="flex-1 p-4 overflow-hidden">
+                    <div class="apple-page h-full rounded-xl shadow-inner overflow-hidden">
+                        <div class="h-full p-6 apple-lines">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h4 id="current-notebook-title" class="font-bold text-gray-800 dark:text-gray-200 text-lg"></h4>
+                                    <p id="current-page-info" class="text-xs text-gray-500 mt-1"></p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="window.NotebookManager.prevPage()" 
+                                            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10">
+                                        <i class="fa-solid fa-chevron-left"></i>
+                                    </button>
+                                    <span id="current-page-number" class="text-sm font-bold text-gray-700 dark:text-gray-300 min-w-[20px] text-center">1</span>
+                                    <button onclick="window.NotebookManager.nextPage()" 
+                                            class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </button>
+                                </div>
                             </div>
                             
-                            <div class="flex items-center gap-2">
-                                <span id="save-indicator" class="text-xs text-green-500 opacity-0 transition-opacity">
-                                    <i class="fa-solid fa-check"></i> Saved
-                                </span>
-                                <span class="text-xs text-gray-500">
-                                    ${new Date().toLocaleDateString()}
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <!-- Editor principal -->
-                        <textarea id="notepad-editor"
-                                  class="flex-1 w-full apple-editor text-gray-900 dark:text-gray-100 p-6 focus:outline-none resize-none placeholder-gray-400 dark:placeholder-gray-500"
-                                  placeholder="Start writing your notes here..."
-                                  spellcheck="true"
-                                  autocomplete="off"
-                                  oninput="window.notepadActions.updateContent(this.value)"
-                                  onkeydown="if(event.key === 'Tab'){event.preventDefault();const start=this.selectionStart;this.value=this.value.substring(0,start)+'\\t'+this.value.substring(this.selectionEnd);this.selectionStart=this.selectionEnd=start+1;}"
-                        ></textarea>
-                        
-                        <!-- Barra de estado -->
-                        <div class="px-4 py-2 border-t border-gray-200 dark:border-white/10 text-xs text-gray-500 flex justify-between">
-                            <div>
-                                <i class="fa-regular fa-clock mr-1"></i>
-                                <span id="last-saved">Last saved just now</span>
-                            </div>
-                            <div>
-                                <i class="fa-solid fa-keyboard mr-1"></i>
-                                <span id="char-count">0 characters</span>
-                            </div>
+                            <textarea id="notebook-editor" 
+                                      class="w-full h-[calc(100%-60px)] bg-transparent text-gray-900 dark:text-gray-100 font-sans text-base leading-relaxed resize-none focus:outline-none focus:ring-0 placeholder-gray-400 dark:placeholder-gray-500"
+                                      placeholder="${t('Escribe tus notas aquí...', 'Write your notes here...')}"
+                                      spellcheck="true"
+                                      autocomplete="off"></textarea>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Modal de confirmación estilo Apple -->
-            <div id="delete-modal" class="fixed inset-0 z-[10000] hidden">
-                <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-                <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 apple-modal rounded-2xl p-6 w-96">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                            <i class="fa-solid fa-trash text-red-600 dark:text-red-400"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold text-gray-900 dark:text-white">Delete Note</h3>
-                            <p class="text-sm text-gray-600 dark:text-gray-300">This action cannot be undone.</p>
-                        </div>
+                
+                <!-- Barra de estado -->
+                <div class="px-4 py-2 border-t border-gray-200 dark:border-white/10 flex items-center justify-between text-xs text-gray-500 bg-gray-50/50 dark:bg-white/5">
+                    <div class="flex items-center gap-4">
+                        <span id="word-count">0 ${t('palabras', 'words')}</span>
+                        <span id="char-count">0 ${t('caracteres', 'characters')}</span>
                     </div>
-                    
-                    <p class="text-gray-700 dark:text-gray-300 mb-6">Are you sure you want to delete this note? The content will be permanently removed.</p>
-                    
-                    <div class="flex justify-end gap-3">
-                        <button onclick="document.getElementById('delete-modal').classList.add('hidden')" 
-                                class="apple-button">
-                            Cancel
+                    <div class="flex items-center gap-2">
+                        <button onclick="window.NotebookManager.addPage()" 
+                                class="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                            + ${t('Nueva página', 'New page')}
                         </button>
-                        <button onclick="window.notepadActions.confirmDelete(); document.getElementById('delete-modal').classList.add('hidden')" 
-                                class="accent-button bg-red-500 hover:bg-red-600">
-                            Delete
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Modal de alerta -->
-            <div id="alert-modal" class="fixed inset-0 z-[10000] hidden">
-                <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-                <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 apple-modal rounded-2xl p-6 w-96">
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
-                            <i class="fa-solid fa-exclamation-triangle text-yellow-600 dark:text-yellow-400"></i>
-                        </div>
-                        <div>
-                            <h3 id="alert-title" class="font-semibold text-gray-900 dark:text-white"></h3>
-                            <p id="alert-message" class="text-sm text-gray-600 dark:text-gray-300"></p>
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-end">
-                        <button onclick="document.getElementById('alert-modal').classList.add('hidden')" 
-                                class="accent-button">
-                            OK
-                        </button>
+                        <span id="save-status" class="text-green-500 hidden">
+                            <i class="fa-solid fa-check"></i> ${t('Guardado', 'Saved')}
+                        </span>
                     </div>
                 </div>
             </div>
         `;
+        
+        document.body.appendChild(windowDiv);
+        setupDraggableWindow();
+        setupEditorEvents();
     }
-
-    // -------------------------------------------------------------------------
-    // 8. INICIALIZACIÓN
-    // -------------------------------------------------------------------------
     
-    function init() {
-        // Cargar datos
-        loadData();
+    function createNotebooksModal() {
+        // Crear modal para administrar libretas
+        if (document.getElementById('notebooks-modal')) return;
         
-        // Inyectar estilos Apple
-        injectAppleStyles();
+        const modal = document.createElement('div');
+        modal.id = 'notebooks-modal';
+        modal.className = 'fixed inset-0 z-[80] hidden bg-black/40 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="absolute inset-0 flex items-center justify-center p-4">
+                <div class="w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden draggable-notebook-window notebook-fade-in">
+                    <div class="px-6 py-5 border-b border-gray-200 dark:border-white/10">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-white">
+                                ${t('Administrar Libretas', 'Manage Notebooks')}
+                            </h3>
+                            <button onclick="window.NotebookManager.closeNotebooksModal()" 
+                                    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                                <i class="fa-solid fa-times text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="mb-6">
+                            <button onclick="window.NotebookManager.createNewNotebookModal()" 
+                                    class="w-full py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-bold">
+                                <i class="fa-solid fa-plus"></i>
+                                ${t('Crear Nueva Libreta', 'Create New Notebook')}
+                            </button>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="relative">
+                                <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                <input type="text" id="modal-search-notebooks" 
+                                       placeholder="${t('Buscar libretas...', 'Search notebooks...')}" 
+                                       class="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                            </div>
+                        </div>
+                        
+                        <div id="modal-notebooks-list" class="space-y-2 max-h-[300px] overflow-y-auto apple-scrollbar">
+                            <!-- Lista de libretas en el modal -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
         
-        // Inyectar HTML Apple
-        injectAppleHTML();
+        document.body.appendChild(modal);
         
-        // Configurar arrastre de ventana
-        setupWindowDrag();
-        
-        // Configurar atajos de teclado
-        setupKeyboardShortcuts();
-        
-        // Renderizar primera página
-        renderPage();
-        
-        console.log('📓 Apple Notepad v5.0 initialized 🍎');
+        // Cerrar modal al hacer clic fuera
+        modal.addEventListener('click', (e) => {
+            if (e.target.id === 'notebooks-modal') {
+                window.NotebookManager.closeNotebooksModal();
+            }
+        });
     }
-
-    function setupWindowDrag() {
-        const win = document.getElementById('notepad-window');
-        const header = document.querySelector('.apple-titlebar');
+    
+    function createNewNotebookModal() {
+        // Modal para crear nueva libreta
+        if (document.getElementById('new-notebook-modal')) return;
         
-        if (!win || !header) return;
-
+        const modal = document.createElement('div');
+        modal.id = 'new-notebook-modal';
+        modal.className = 'fixed inset-0 z-[90] hidden bg-black/40 backdrop-blur-sm';
+        modal.innerHTML = `
+            <div class="absolute inset-0 flex items-center justify-center p-4">
+                <div class="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden draggable-notebook-window notebook-fade-in">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                            ${t('Nueva Libreta', 'New Notebook')}
+                        </h3>
+                        <p class="text-gray-600 dark:text-gray-400 mb-6">
+                            ${t('Dale un nombre a tu libreta y elige un color', 'Give your notebook a name and choose a color')}
+                        </p>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    ${t('Nombre de la libreta', 'Notebook Name')}
+                                </label>
+                                <input type="text" id="new-notebook-name" 
+                                       class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                                       placeholder="${t('Ej: Farmacología', 'E.g.: Pharmacology')}">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    ${t('Color', 'Color')}
+                                </label>
+                                <div class="grid grid-cols-6 gap-2">
+                                    ${CONFIG.DEFAULT_COLORS.map(color => `
+                                        <button onclick="window.NotebookManager.selectNotebookColor('${color}')" 
+                                                class="color-option w-8 h-8 rounded-lg border-2 border-white dark:border-gray-800 hover:scale-110 transition-transform"
+                                                style="background-color: ${color}">
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end gap-3 mt-8">
+                            <button onclick="window.NotebookManager.closeNewNotebookModal()" 
+                                    class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                ${t('Cancelar', 'Cancel')}
+                            </button>
+                            <button onclick="window.NotebookManager.saveNewNotebook()" 
+                                    class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                ${t('Crear', 'Create')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Cerrar modal al hacer clic fuera
+        modal.addEventListener('click', (e) => {
+            if (e.target.id === 'new-notebook-modal') {
+                window.NotebookManager.closeNewNotebookModal();
+            }
+        });
+    }
+    
+    // FUNCIONES DE ARRASTRE
+    function setupDraggableWindow() {
+        const windowEl = document.getElementById('notebook-window');
+        const dragHandle = windowEl.querySelector('.notebook-drag-handle');
+        
+        if (!windowEl || !dragHandle) return;
+        
+        let isDragging = false;
         let startX, startY, initialLeft, initialTop;
-
+        
         const startDrag = (e) => {
             if (e.target.closest('button') || e.target.closest('.apple-control')) return;
-            if (state.isFullscreen) return;
-
+            
+            isDragging = true;
             state.isDragging = true;
-            const isTouch = e.type === 'touchstart';
-            const clientX = isTouch ? e.touches[0].clientX : e.clientX;
-            const clientY = isTouch ? e.touches[0].clientY : e.clientY;
-
+            
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            
             startX = clientX;
             startY = clientY;
-
-            const rect = win.getBoundingClientRect();
+            
+            const rect = windowEl.getBoundingClientRect();
             initialLeft = rect.left;
             initialTop = rect.top;
-
-            win.style.cursor = 'grabbing';
-            win.style.userSelect = 'none';
             
-            const moveEvent = isTouch ? 'touchmove' : 'mousemove';
-            const endEvent = isTouch ? 'touchend' : 'mouseup';
+            windowEl.classList.add('dragging', 'elevated');
             
-            document.addEventListener(moveEvent, onDrag);
-            document.addEventListener(endEvent, endDrag);
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchmove', onDrag, { passive: false });
+            document.addEventListener('touchend', endDrag);
         };
-
+        
         const onDrag = (e) => {
-            if (!state.isDragging) return;
+            if (!isDragging) return;
+            e.preventDefault();
             
-            const isTouch = e.type === 'touchmove';
-            const clientX = isTouch ? e.touches[0].clientX : e.clientX;
-            const clientY = isTouch ? e.touches[0].clientY : e.clientY;
-
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+            
             const dx = clientX - startX;
             const dy = clientY - startY;
-
+            
             let newLeft = initialLeft + dx;
             let newTop = initialTop + dy;
-
+            
             // Limitar a los bordes de la pantalla
-            const maxX = window.innerWidth - win.offsetWidth;
-            const maxY = window.innerHeight - win.offsetHeight;
+            const maxX = window.innerWidth - windowEl.offsetWidth;
+            const maxY = window.innerHeight - windowEl.offsetHeight;
             
             newLeft = Math.max(0, Math.min(newLeft, maxX));
             newTop = Math.max(0, Math.min(newTop, maxY));
-
-            win.style.left = `${newLeft}px`;
-            win.style.top = `${newTop}px`;
+            
+            windowEl.style.left = `${newLeft}px`;
+            windowEl.style.top = `${newTop}px`;
+            windowEl.style.right = 'auto';
         };
-
+        
         const endDrag = () => {
+            if (!isDragging) return;
+            
+            isDragging = false;
             state.isDragging = false;
-            win.style.cursor = '';
-            win.style.userSelect = '';
+            
+            windowEl.classList.remove('dragging');
+            setTimeout(() => windowEl.classList.remove('elevated'), 300);
             
             document.removeEventListener('mousemove', onDrag);
             document.removeEventListener('mouseup', endDrag);
             document.removeEventListener('touchmove', onDrag);
             document.removeEventListener('touchend', endDrag);
+            
+            // Guardar posición
+            saveWindowPosition();
         };
-
-        header.addEventListener('mousedown', startDrag);
-        header.addEventListener('touchstart', startDrag, { passive: false });
-    }
-
-    function setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            const win = document.getElementById('notepad-window');
-            if (!win || win.classList.contains('hidden')) return;
-            
-            const textarea = document.getElementById('notepad-editor');
-            
-            // Solo procesar atajos si el textarea está enfocado o si son globales
-            if (document.activeElement === textarea || !document.activeElement.matches('input, textarea, select, button')) {
-                if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
-                    switch(e.key) {
-                        case 'N':
-                            e.preventDefault();
-                            window.notepadActions.addPage();
-                            break;
-                        case 'S':
-                            e.preventDefault();
-                            saveData();
-                            showSaveIndicator();
-                            break;
-                    }
-                } else if (e.ctrlKey || e.metaKey) {
-                    switch(e.key) {
-                        case 's':
-                            e.preventDefault();
-                            saveData();
-                            showSaveIndicator();
-                            break;
-                        case 'n':
-                            e.preventDefault();
-                            window.notepadActions.addPage();
-                            break;
-                        case 'ArrowLeft':
-                            e.preventDefault();
-                            window.notepadActions.prevPage();
-                            break;
-                        case 'ArrowRight':
-                            e.preventDefault();
-                            window.notepadActions.nextPage();
-                            break;
-                        case 'b':
-                            e.preventDefault();
-                            window.notepadActions.toggleSidebar();
-                            break;
-                    }
-                }
-            }
-            
-            // Atajos globales
-            if (e.key === 'Escape') {
-                const modal = document.getElementById('delete-modal');
-                const alert = document.getElementById('alert-modal');
-                
-                if (!modal.classList.contains('hidden')) {
-                    modal.classList.add('hidden');
-                } else if (!alert.classList.contains('hidden')) {
-                    alert.classList.add('hidden');
-                } else {
-                    window.closeNotepad();
-                }
-            }
+        
+        dragHandle.addEventListener('mousedown', startDrag);
+        dragHandle.addEventListener('touchstart', startDrag, { passive: false });
+        
+        // Prevenir selección de texto durante el arrastre
+        dragHandle.addEventListener('selectstart', (e) => {
+            if (isDragging) e.preventDefault();
         });
     }
-
-    // -------------------------------------------------------------------------
-    // 9. INICIALIZAR APLICACIÓN
-    // -------------------------------------------------------------------------
     
+    function saveWindowPosition() {
+        const windowEl = document.getElementById('notebook-window');
+        if (!windowEl) return;
+        
+        const position = {
+            top: windowEl.style.top,
+            left: windowEl.style.left,
+            width: windowEl.style.width,
+            height: windowEl.style.height
+        };
+        
+        localStorage.setItem(CONFIG.POSITION_KEY, JSON.stringify(position));
+    }
+    
+    function setupEditorEvents() {
+        const editor = document.getElementById('notebook-editor');
+        if (editor) {
+            editor.addEventListener('input', () => {
+                window.NotebookManager.updateCounters();
+                window.NotebookManager.saveCurrentPage();
+            });
+        }
+    }
+    
+    // API PÚBLICA
+    window.NotebookManager = {
+        // Gestión de ventana
+        toggleNotebook: function() {
+            const windowEl = document.getElementById('notebook-window');
+            if (!windowEl) return;
+            
+            if (windowEl.classList.contains('hidden')) {
+                this.openNotebook();
+            } else {
+                this.closeNotebook();
+            }
+        },
+        
+        openNotebook: function() {
+            const windowEl = document.getElementById('notebook-window');
+            if (!windowEl) return;
+            
+            windowEl.classList.remove('hidden');
+            state.isNotebookOpen = true;
+            
+            // Cargar primera libreta si existe
+            if (state.notebooks.length > 0 && !state.currentNotebook) {
+                this.openNotebookById(state.notebooks[0].id);
+            } else if (state.currentNotebook) {
+                this.loadCurrentNotebook();
+            }
+        },
+        
+        closeNotebook: function() {
+            const windowEl = document.getElementById('notebook-window');
+            if (!windowEl) return;
+            
+            windowEl.classList.add('hidden');
+            state.isNotebookOpen = false;
+            this.saveCurrentPage();
+            saveWindowPosition();
+        },
+        
+        toggleMinimize: function() {
+            const windowEl = document.getElementById('notebook-window');
+            if (!windowEl) return;
+            
+            const isMinimized = windowEl.style.height === '56px';
+            
+            if (isMinimized) {
+                windowEl.style.height = '500px';
+                windowEl.querySelector('.fa-chevron-up')?.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            } else {
+                windowEl.style.height = '56px';
+                windowEl.querySelector('.fa-chevron-down')?.classList.replace('fa-chevron-down', 'fa-chevron-up');
+                saveWindowPosition();
+            }
+        },
+        
+        toggleMaximize: function() {
+            const windowEl = document.getElementById('notebook-window');
+            if (!windowEl) return;
+            
+            const isMaximized = windowEl.style.width === '90vw';
+            
+            if (isMaximized) {
+                windowEl.style.width = '380px';
+                windowEl.style.height = '500px';
+                windowEl.style.top = '100px';
+                windowEl.style.left = 'calc(100% - 400px)';
+            } else {
+                windowEl.style.width = '90vw';
+                windowEl.style.height = '90vh';
+                windowEl.style.top = '5vh';
+                windowEl.style.left = '5vw';
+            }
+            
+            saveWindowPosition();
+        },
+        
+        // Gestión de libretas
+        createNewNotebookModal: function() {
+            state.editingNotebook = null;
+            state.selectedColor = CONFIG.DEFAULT_COLORS[0];
+            document.getElementById('new-notebook-name').value = '';
+            
+            document.querySelectorAll('.color-option').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
+            });
+            
+            document.getElementById('new-notebook-modal').classList.remove('hidden');
+        },
+        
+        selectNotebookColor: function(color) {
+            state.selectedColor = color;
+            document.querySelectorAll('.color-option').forEach(btn => {
+                btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
+                if (btn.style.backgroundColor === color) {
+                    btn.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500');
+                }
+            });
+        },
+        
+        saveNewNotebook: function() {
+            const nameInput = document.getElementById('new-notebook-name');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                alert(t('Por favor ingresa un nombre para la libreta', 'Please enter a notebook name'));
+                return;
+            }
+            
+            if (state.notebooks.length >= CONFIG.MAX_NOTEBOOKS) {
+                alert(t('Has alcanzado el límite máximo de libretas', 'You have reached the maximum number of notebooks'));
+                return;
+            }
+            
+            const newNotebook = {
+                id: generateId(),
+                name: name,
+                color: state.selectedColor,
+                createdAt: new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                pages: [{
+                    id: generateId(),
+                    content: '',
+                    createdAt: new Date().toISOString(),
+                    pageNumber: 1
+                }]
+            };
+            
+            state.notebooks.unshift(newNotebook);
+            state.currentNotebook = newNotebook;
+            state.currentPageIndex = 0;
+            
+            saveData();
+            this.loadNotebooksTabs();
+            this.loadCurrentNotebook();
+            this.closeNewNotebookModal();
+            
+            if (!state.isNotebookOpen) {
+                this.openNotebook();
+            }
+        },
+        
+        openNotebookById: function(notebookId) {
+            const notebook = state.notebooks.find(n => n.id === notebookId);
+            if (!notebook) return;
+            
+            state.currentNotebook = notebook;
+            state.currentPageIndex = 0;
+            
+            if (!notebook.pages || notebook.pages.length === 0) {
+                notebook.pages = [{
+                    id: generateId(),
+                    content: '',
+                    createdAt: new Date().toISOString(),
+                    pageNumber: 1
+                }];
+                saveData();
+            }
+            
+            this.loadCurrentNotebook();
+            this.loadNotebooksTabs();
+        },
+        
+        loadCurrentNotebook: function() {
+            if (!state.currentNotebook) return;
+            
+            const editor = document.getElementById('notebook-editor');
+            const title = document.getElementById('current-notebook-title');
+            const pageInfo = document.getElementById('current-page-info');
+            const pageNumber = document.getElementById('current-page-number');
+            
+            if (title) {
+                title.textContent = state.currentNotebook.name;
+                title.style.color = state.currentNotebook.color;
+            }
+            
+            if (pageInfo) {
+                pageInfo.textContent = t('Última modificación: ', 'Last modified: ') + 
+                    formatDate(state.currentNotebook.lastModified);
+            }
+            
+            if (state.currentNotebook.pages[state.currentPageIndex]) {
+                const page = state.currentNotebook.pages[state.currentPageIndex];
+                
+                if (editor) editor.value = page.content;
+                if (pageNumber) pageNumber.textContent = page.pageNumber;
+                
+                this.updateCounters();
+            }
+        },
+        
+        loadNotebooksTabs: function() {
+            const container = document.getElementById('notebooks-tabs');
+            if (!container) return;
+            
+            let html = '';
+            state.notebooks.forEach(notebook => {
+                const isActive = state.currentNotebook && state.currentNotebook.id === notebook.id;
+                
+                html += `
+                    <button onclick="window.NotebookManager.openNotebookById('${notebook.id}')" 
+                            class="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${isActive ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10'}"
+                            style="${isActive ? `border-left: 3px solid ${notebook.color}` : ''}">
+                        <i class="fa-solid fa-book mr-1" style="color: ${notebook.color}"></i>
+                        ${notebook.name}
+                    </button>
+                `;
+            });
+            
+            container.innerHTML = html;
+        },
+        
+        // Gestión de páginas
+        prevPage: function() {
+            if (state.currentPageIndex > 0) {
+                this.saveCurrentPage();
+                state.currentPageIndex--;
+                this.loadCurrentNotebook();
+            }
+        },
+        
+        nextPage: function() {
+            if (state.currentNotebook && state.currentPageIndex < state.currentNotebook.pages.length - 1) {
+                this.saveCurrentPage();
+                state.currentPageIndex++;
+                this.loadCurrentNotebook();
+            } else {
+                this.addPage();
+            }
+        },
+        
+        addPage: function() {
+            if (!state.currentNotebook) return;
+            
+            if (state.currentNotebook.pages.length >= CONFIG.MAX_PAGES_PER_NOTEBOOK) {
+                alert(t('Has alcanzado el límite máximo de páginas por libreta', 'You have reached the maximum pages per notebook'));
+                return;
+            }
+            
+            this.saveCurrentPage();
+            
+            const newPage = {
+                id: generateId(),
+                content: '',
+                createdAt: new Date().toISOString(),
+                pageNumber: state.currentNotebook.pages.length + 1
+            };
+            
+            state.currentNotebook.pages.push(newPage);
+            state.currentPageIndex = state.currentNotebook.pages.length - 1;
+            state.currentNotebook.lastModified = new Date().toISOString();
+            
+            saveData();
+            this.loadCurrentNotebook();
+            
+            // Mostrar indicador de guardado
+            this.showSaveIndicator();
+        },
+        
+        saveCurrentPage: function() {
+            if (!state.currentNotebook || !state.currentNotebook.pages[state.currentPageIndex]) return;
+            
+            const editor = document.getElementById('notebook-editor');
+            if (editor) {
+                state.currentNotebook.pages[state.currentPageIndex].content = editor.value;
+                state.currentNotebook.lastModified = new Date().toISOString();
+                saveData();
+                this.updateCounters();
+            }
+        },
+        
+        updateCounters: function() {
+            if (!state.currentNotebook || !state.currentNotebook.pages[state.currentPageIndex]) return;
+            
+            const content = state.currentNotebook.pages[state.currentPageIndex].content;
+            const wordCount = document.getElementById('word-count');
+            const charCount = document.getElementById('char-count');
+            
+            if (wordCount) {
+                wordCount.textContent = `${countWords(content)} ${t('palabras', 'words')}`;
+            }
+            if (charCount) {
+                charCount.textContent = `${content.length} ${t('caracteres', 'characters')}`;
+            }
+        },
+        
+        showSaveIndicator: function() {
+            const indicator = document.getElementById('save-status');
+            if (indicator) {
+                indicator.classList.remove('hidden');
+                setTimeout(() => {
+                    indicator.classList.add('hidden');
+                }, 2000);
+            }
+        },
+        
+        // Modal de libretas
+        showNotebooksModal: function() {
+            this.loadModalNotebooksList();
+            document.getElementById('notebooks-modal').classList.remove('hidden');
+        },
+        
+        closeNotebooksModal: function() {
+            document.getElementById('notebooks-modal').classList.add('hidden');
+        },
+        
+        loadModalNotebooksList: function() {
+            const container = document.getElementById('modal-notebooks-list');
+            if (!container) return;
+            
+            if (state.notebooks.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fa-solid fa-book-open text-4xl mb-4 opacity-50"></i>
+                        <p class="text-sm">${t('No hay libretas aún', 'No notebooks yet')}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div class="space-y-2">';
+            state.notebooks.forEach(notebook => {
+                const pageCount = notebook.pages ? notebook.pages.length : 0;
+                const lastModified = formatDate(notebook.lastModified);
+                const isCurrent = state.currentNotebook && state.currentNotebook.id === notebook.id;
+                
+                html += `
+                    <div class="p-3 rounded-lg border ${isCurrent ? 'border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-800'} transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg" style="background-color: ${notebook.color}"></div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800 dark:text-white">${notebook.name}</h4>
+                                    <p class="text-xs text-gray-500">
+                                        ${pageCount} ${t('páginas', 'pages')} • ${lastModified}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                ${isCurrent ? `
+                                    <span class="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded">
+                                        ${t('Actual', 'Current')}
+                                    </span>
+                                ` : ''}
+                                <button onclick="event.stopPropagation(); window.NotebookManager.openNotebookById('${notebook.id}'); window.NotebookManager.closeNotebooksModal()" 
+                                        class="px-3 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700">
+                                    ${t('Abrir', 'Open')}
+                                </button>
+                                <button onclick="event.stopPropagation(); window.NotebookManager.deleteNotebook('${notebook.id}')" 
+                                        class="px-3 py-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-800/50">
+                                    ${t('Eliminar', 'Delete')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            
+            // Configurar búsqueda en modal
+            const searchInput = document.getElementById('modal-search-notebooks');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const items = container.querySelectorAll('div > div');
+                    
+                    items.forEach(item => {
+                        const title = item.querySelector('h4').textContent.toLowerCase();
+                        item.style.display = title.includes(searchTerm) ? 'flex' : 'none';
+                    });
+                });
+            }
+        },
+        
+        deleteNotebook: function(notebookId) {
+            if (!confirm(t('¿Estás seguro de que quieres eliminar esta libreta? Esta acción no se puede deshacer.', 'Are you sure you want to delete this notebook? This action cannot be undone.'))) {
+                return;
+            }
+            
+            const index = state.notebooks.findIndex(n => n.id === notebookId);
+            if (index !== -1) {
+                state.notebooks.splice(index, 1);
+                saveData();
+                
+                if (state.currentNotebook && state.currentNotebook.id === notebookId) {
+                    state.currentNotebook = state.notebooks[0] || null;
+                    state.currentPageIndex = 0;
+                    this.loadCurrentNotebook();
+                }
+                
+                this.loadNotebooksTabs();
+                this.loadModalNotebooksList();
+            }
+        },
+        
+        closeNewNotebookModal: function() {
+            document.getElementById('new-notebook-modal').classList.add('hidden');
+        },
+        
+        // Exportación
+        downloadCurrentPage: function() {
+            if (!state.currentNotebook || !state.currentNotebook.pages[state.currentPageIndex]) return;
+            
+            this.saveCurrentPage();
+            const page = state.currentNotebook.pages[state.currentPageIndex];
+            const content = `${t('Página', 'Page')} ${page.pageNumber} - ${state.currentNotebook.name}\n\n${page.content}\n\n---\n${t('Exportado', 'Exported')}: ${new Date().toLocaleString()}`;
+            
+            this.downloadFile(content, `${state.currentNotebook.name}_${t('Página', 'Page')}_${page.pageNumber}.txt`);
+        },
+        
+        downloadFile: function(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename.replace(/[^a-z0-9]/gi, '_');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showSaveIndicator();
+        },
+        
+        // Crear nueva libreta desde barra de título
+        createNewNotebook: function() {
+            this.createNewNotebookModal();
+        }
+    };
+    
+    // INICIALIZACIÓN
+    function init() {
+        // Cargar datos
+        loadData();
+        
+        // Inyectar estilos
+        injectStyles();
+        
+        // Crear elementos dinámicamente
+        createFloatingButton();
+        createNotebookWindow();
+        createNotebooksModal();
+        createNewNotebookModal();
+        
+        // Configurar auto-guardado periódico
+        setInterval(() => {
+            if (state.currentNotebook && state.isNotebookOpen) {
+                window.NotebookManager.saveCurrentPage();
+            }
+        }, 30000);
+        
+        // Cargar primera libreta si existe
+        if (state.notebooks.length > 0) {
+            state.currentNotebook = state.notebooks[0];
+            state.currentPageIndex = 0;
+        }
+        
+        console.log('📓 Draggable Apple Notebook v4.0 inicializado');
+    }
+    
+    // Iniciar cuando el DOM esté listo
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-
+    
 })();
