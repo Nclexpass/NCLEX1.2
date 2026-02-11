@@ -1,4 +1,4 @@
-// premium_books_library.js — Botón flotante superior derecho + modal Apple
+// premium_books_library.js — Botón superior derecho "Library" + modal Apple
 (function() {
     'use strict';
 
@@ -55,10 +55,10 @@
     }
 
     function createModal() {
-        if (document.getElementById('premium-library-modal')) return;
+        if (document.getElementById('library-modal')) return;
 
         const modalHTML = `
-            <div id="premium-library-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div id="library-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                 <div class="w-full max-w-4xl max-h-[85vh] apple-glass rounded-2xl overflow-hidden flex flex-col animate-slide-up">
                     <div class="apple-titlebar flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-white/10">
                         <div class="flex items-center gap-3">
@@ -66,11 +66,11 @@
                                 <i class="fa-solid fa-book-open text-white text-sm"></i>
                             </div>
                             <div>
-                                <h2 class="font-semibold text-gray-800 dark:text-white text-base">Premium Library</h2>
+                                <h2 class="font-semibold text-gray-800 dark:text-white text-base">Library</h2>
                                 <p id="lib-subtitle" class="text-xs text-gray-500 dark:text-gray-400">NCLEX PDF Collection</p>
                             </div>
                         </div>
-                        <button onclick="window.premiumLibrary?.close()" class="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 transition-colors">
+                        <button onclick="window.library?.close()" class="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 transition-colors">
                             <i class="fa-solid fa-xmark text-lg"></i>
                         </button>
                     </div>
@@ -82,7 +82,7 @@
                     </div>
                     <div class="px-5 py-3 border-t border-gray-200 dark:border-white/10 text-xs text-gray-500 flex justify-between items-center bg-white/50 dark:bg-black/20">
                         <span><i class="fa-regular fa-circle-check mr-1"></i> Fuente: GitHub Releases</span>
-                        <button onclick="window.premiumLibrary.refresh()" class="px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors flex items-center gap-1">
+                        <button onclick="window.library.refresh()" class="px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors flex items-center gap-1">
                             <i class="fa-solid fa-rotate"></i> Actualizar
                         </button>
                     </div>
@@ -126,7 +126,7 @@
                     </div>
                     <h3 class="font-semibold text-gray-800 dark:text-white mb-1">Error de conexión</h3>
                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${state.error}</p>
-                    <button onclick="window.premiumLibrary.refresh()" class="apple-button flex items-center gap-2">
+                    <button onclick="window.library.refresh()" class="apple-button flex items-center gap-2">
                         <i class="fa-solid fa-rotate"></i> Reintentar
                     </button>
                 </div>
@@ -183,11 +183,11 @@
     }
 
     function createFloatingButton() {
-        if (document.getElementById('premium-lib-btn')) return;
+        if (document.getElementById('library-btn')) return;
 
         const btn = document.createElement('button');
-        btn.id = 'premium-lib-btn';
-        btn.onclick = () => window.premiumLibrary?.open();
+        btn.id = 'library-btn';
+        btn.onclick = () => window.library?.open();
         btn.className = 'fixed top-6 right-6 w-12 h-12 apple-glass bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-2xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 z-[9980] flex items-center justify-center transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group border border-white/20';
         
         btn.innerHTML = `
@@ -195,8 +195,8 @@
             <i class="fa-solid fa-book-open text-xl relative group-hover:scale-110 transition-transform"></i>
             <div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></div>
             <div class="absolute top-full right-0 mt-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
-                <span class="lang-es">Biblioteca Premium</span>
-                <span class="lang-en hidden-lang">Premium Library</span>
+                <span class="lang-es">Biblioteca</span>
+                <span class="lang-en hidden-lang">Library</span>
                 <div class="absolute -top-1 right-6 w-2 h-2 bg-gray-900 rotate-45"></div>
             </div>
         `;
@@ -204,10 +204,10 @@
         document.body.appendChild(btn);
     }
 
-    window.premiumLibrary = {
+    window.library = {
         async open() {
             createModal();
-            const modal = document.getElementById('premium-library-modal');
+            const modal = document.getElementById('library-modal');
             if (modal) {
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
@@ -218,7 +218,7 @@
         },
 
         close() {
-            const modal = document.getElementById('premium-library-modal');
+            const modal = document.getElementById('library-modal');
             if (modal) modal.classList.add('hidden');
         },
 
