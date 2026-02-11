@@ -59,13 +59,14 @@
       .replace(/'/g, '&#39;');
   }
 
-  // ✅ para usar strings en onclick="" sin romper HTML
   function escapeJsString(s) {
     return (s || '').toString()
       .replace(/\\/g, '\\\\')
       .replace(/'/g, "\\'")
       .replace(/\r/g, '\\r')
-      .replace(/\n/g, '\\n');
+      .replace(/\n/g, '\\n')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
   }
 
   // --- PARSER CSV ROBUSTO (maneja comillas) ---
@@ -212,8 +213,8 @@
 
         { field: 'correct',     possible: ['correct','correcta','correctas','answer','answers','key','respuesta','respuestas','respuesta correcta'], defaultIdx: 12 },
 
-        { field: 'rationaleEs', possible: ['rationaleEs','rationale_es','explicacionEs','explicacion_es','explicación es','feedback es','rationale es'], defaultIdx: 13 },
-        { field: 'rationaleEn', possible: ['rationaleEn','rationale_en','explicacionEn','explicacion_en','explicación en','feedback en','rationale en'], defaultIdx: 14 },
+        { field: 'rationaleEs', possible: ['rationaleEs','rationale_es','explicacionEs','explicacion_es','explicación es','feedback es','rationale es','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 13 },
+        { field: 'rationaleEn', possible: ['rationaleEn','rationale_en','explicacionEn','explicacion_en','explicación en','feedback en','rationale en','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 14 },
 
         { field: 'type',        possible: ['type','tipo','format','formato','questiontype'], defaultIdx: 15 }
       ];
@@ -227,7 +228,7 @@
         columnDefinitions.forEach(def => {
           const idx = findColumnIndex(headers, def.possible);
           colMap[def.field] = idx !== -1 ? idx : def.defaultIdx;
-          if (idx === -1) {
+          if (idx === -1 && !['rationaleEs','rationaleEn','type'].includes(def.field)) {
             console.warn(`Columna "${def.field}" no encontrada, usando índice por defecto ${def.defaultIdx}`);
           }
         });
@@ -503,9 +504,8 @@
 
     const selectedChips = (state.selectedCategories || []).slice(0, 8).map(cat => {
       const style = getCategoryStyle(cat);
-      const catJs = escapeJsString(cat);
       return `
-        <button onclick="window.simController.toggleCategory('${catJs}')"
+        <button onclick="window.simController.toggleCategory('${escapeJsString(cat)}')"
           class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black ${style.badge} border border-slate-200/50 dark:border-white/10 hover:opacity-90 transition">
           <i class="fa-solid fa-${style.i}"></i>
           ${escapeHtml(cat)}
@@ -522,7 +522,6 @@
       const style = getCategoryStyle(cat);
       const count = state.categories[cat] || 0;
       const selected = isSelectedCategory(cat);
-      const catJs = escapeJsString(cat);
 
       const ring = selected ? 'ring-2 ring-brand-blue ring-offset-2 ring-offset-white dark:ring-offset-brand-card' : '';
       const bg = selected ? 'bg-brand-blue/5 dark:bg-brand-blue/10 border-brand-blue/40' : 'bg-white dark:bg-brand-card border-slate-200 dark:border-white/10';
@@ -532,7 +531,7 @@
 
       return `
         <div class="rounded-3xl border ${bg} shadow-sm hover:shadow-lg transition ${ring}">
-          <button onclick="window.simController.toggleCategory('${catJs}')" class="w-full text-left p-5">
+          <button onclick="window.simController.toggleCategory('${escapeJsString(cat)}')" class="w-full text-left p-5">
             <div class="flex items-start justify-between gap-3">
               <div class="flex items-start gap-3">
                 <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-white/10 flex items-center justify-center">
@@ -554,7 +553,7 @@
             <span class="text-[11px] font-bold text-slate-500 dark:text-slate-300">
               ${selected ? bilingual("Incluido en mezcla", "Included in mix") : bilingual("Toca para agregar", "Tap to add")}
             </span>
-            <button onclick="window.simController.startQuiz('${catJs}')"
+            <button onclick="window.simController.startQuiz('${escapeJsString(cat)}')"
               class="px-4 py-2 rounded-2xl text-xs font-black bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white hover:opacity-90 transition">
               ${bilingual("Solo", "Only")}
             </button>
