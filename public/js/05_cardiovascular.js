@@ -19,28 +19,26 @@
   const activeIntervals = {};
 
   let masterGain = null;
-  let masterComp = null;
-  let cachedNoiseBuffer = null;
+  let compressor = null;
+  let noiseBuffer = null;
 
   function initAudio() {
     if (!audioContext) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
-
-    // Cadena básica tipo monitor: master gain -> compressor -> destination
     if (!masterGain) {
       masterGain = audioContext.createGain();
-      masterGain.gain.value = 0.65;
+      masterGain.gain.value = 0.75;
 
-      masterComp = audioContext.createDynamicsCompressor();
-      masterComp.threshold.setValueAtTime(-24, audioContext.currentTime);
-      masterComp.knee.setValueAtTime(24, audioContext.currentTime);
-      masterComp.ratio.setValueAtTime(10, audioContext.currentTime);
-      masterComp.attack.setValueAtTime(0.003, audioContext.currentTime);
-      masterComp.release.setValueAtTime(0.12, audioContext.currentTime);
+      compressor = audioContext.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-22, audioContext.currentTime);
+      compressor.knee.setValueAtTime(18, audioContext.currentTime);
+      compressor.ratio.setValueAtTime(10, audioContext.currentTime);
+      compressor.attack.setValueAtTime(0.003, audioContext.currentTime);
+      compressor.release.setValueAtTime(0.12, audioContext.currentTime);
 
-      masterGain.connect(masterComp);
-      masterComp.connect(audioContext.destination);
+      masterGain.connect(compressor);
+      compressor.connect(audioContext.destination);
     }
   }
 
@@ -49,19 +47,58 @@
     if (audioContext.state === 'suspended') audioContext.resume();
   }
 
-  // Beep tipo monitor (seno + armónico leve + filtro + envolvente corta)
-  function beep(frequency = 950, duration = 75) {
+  function getNoiseBuffer() {
+    if (noiseBuffer) return noiseBuffer;
+    const len = Math.floor(audioContext.sampleRate * 1.0);
+    const buffer = audioContext.createBuffer(1, len, audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    noiseBuffer = buffer;
+    return noiseBuffer;
+  }
+
+  // Click corto tipo "QRS tick"
+  function clickTransient() {
     if (isMuted) return;
     ensureAudioRunning();
 
     const now = audioContext.currentTime;
-    const dur = Math.max(20, duration) / 1000;
+    const src = audioContext.createBufferSource();
+    src.buffer = getNoiseBuffer();
+    src.loop = false;
+    src.playbackRate.setValueAtTime(2.2, now);
+
+    const bp = audioContext.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(1800, now);
+    bp.Q.setValueAtTime(1.2, now);
 
     const gain = audioContext.createGain();
-    const filter = audioContext.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(2600, now);
-    filter.Q.setValueAtTime(0.7, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.02);
+
+    src.connect(bp);
+    bp.connect(gain);
+    gain.connect(masterGain);
+
+    src.start(now);
+    src.stop(now + 0.03);
+  }
+
+  // Beep tipo monitor (más realista)
+  function beep(frequency = 950, duration = 70) {
+    if (isMuted) return;
+    ensureAudioRunning();
+
+    const now = audioContext.currentTime;
+    const dur = Math.max(25, duration) / 1000;
+
+    const gain = audioContext.createGain();
+    const lp = audioContext.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(2600, now);
+    lp.Q.setValueAtTime(0.7, now);
 
     const osc1 = audioContext.createOscillator();
     const osc2 = audioContext.createOscillator();
@@ -70,42 +107,31 @@
     osc1.type = 'sine';
     osc2.type = 'triangle';
 
-    // leve "chirp" inicial típico de monitor
     osc1.frequency.setValueAtTime(frequency * 0.98, now);
     osc1.frequency.exponentialRampToValueAtTime(frequency, now + 0.012);
-
     osc2.frequency.setValueAtTime(frequency * 2, now);
     osc2Gain.gain.setValueAtTime(0.08, now);
 
-    // Envolvente: ataque muy rápido, caída natural
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.28, now + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.30, now + 0.004);
     gain.gain.exponentialRampToValueAtTime(0.0012, now + dur);
     gain.gain.setValueAtTime(0.0001, now + dur + 0.02);
 
     osc1.connect(gain);
     osc2.connect(osc2Gain);
     osc2Gain.connect(gain);
-    gain.connect(filter);
-    filter.connect(masterGain);
+    gain.connect(lp);
+    lp.connect(masterGain);
 
     osc1.start(now);
     osc2.start(now);
     osc1.stop(now + dur + 0.03);
     osc2.stop(now + dur + 0.03);
+
+    clickTransient();
   }
 
-  function getNoiseBuffer() {
-    if (cachedNoiseBuffer) return cachedNoiseBuffer;
-    const len = Math.floor(audioContext.sampleRate * 1.0);
-    const buffer = audioContext.createBuffer(1, len, audioContext.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-    cachedNoiseBuffer = buffer;
-    return cachedNoiseBuffer;
-  }
-
-  // Ruido filtrado para V-Fib (más parecido a "static" de monitor)
+  // Ruido filtrado para V-Fib (static realista)
   function vfibNoise() {
     if (isMuted) return;
     ensureAudioRunning();
@@ -119,8 +145,8 @@
 
     const band = audioContext.createBiquadFilter();
     band.type = 'bandpass';
-    band.frequency.setValueAtTime(700, now);
-    band.Q.setValueAtTime(0.8, now);
+    band.frequency.setValueAtTime(650, now);
+    band.Q.setValueAtTime(0.9, now);
 
     const gain = audioContext.createGain();
     gain.gain.setValueAtTime(0.0001, now);
@@ -135,6 +161,12 @@
     src.stop(now + 0.12);
   }
 
+  function clearTimer(handle) {
+    if (!handle) return;
+    try { clearInterval(handle); } catch (_) {}
+    try { clearTimeout(handle); } catch (_) {}
+  }
+
   // Iniciar animación y sonido al hacer hover
   window.startEKG = function (id, rhythm, bpm = 75) {
     const el = document.getElementById(id);
@@ -144,23 +176,37 @@
     const trace = el.querySelector('.ekg-trace');
     if (trace) trace.classList.add('ekg-glow');
 
-    if (activeIntervals[id]) clearInterval(activeIntervals[id]);
+    if (activeIntervals[id]) {
+      clearTimer(activeIntervals[id]);
+      delete activeIntervals[id];
+    }
 
-    // --- ASISTOLIA: Pitido característico cada 1 segundo ---
+    // --- ASISTOLIA: alarma baja cada 1s ---
     if (rhythm === 'asystole') {
       activeIntervals[id] = setInterval(() => {
-        if (el.matches(':hover')) beep(440, 220);
+        if (el.matches(':hover')) beep(420, 200);
       }, 1000);
       return;
     }
 
+    // --- V-FIB: ruido + alarma rápida (todos con sonido) ---
     if (rhythm === 'vfib') {
-      activeIntervals[id] = setInterval(() => {
-        if (el.matches(':hover')) vfibNoise();
-      }, 110);
+      const tick = () => {
+        if (!el.matches(':hover')) return;
+        vfibNoise();
+      };
+      const alarm = () => {
+        if (!el.matches(':hover')) return;
+        beep(1150, 45);
+      };
+      const noiseHandle = setInterval(tick, 110);
+      const alarmHandle = setInterval(alarm, 420);
+      // Guardamos un "composite handle" simple
+      activeIntervals[id] = { noiseHandle, alarmHandle, kind: 'vfib' };
       return;
     }
 
+    // --- A-FIB: beeps irregulares (RR irregular) ---
     if (rhythm === 'afib') {
       const nextBeep = () => {
         if (!el.matches(':hover')) return;
@@ -189,8 +235,15 @@
       const trace = el.querySelector('.ekg-trace');
       if (trace) trace.classList.remove('ekg-glow');
     }
-    if (activeIntervals[id]) {
-      clearInterval(activeIntervals[id]);
+
+    const h = activeIntervals[id];
+    if (h) {
+      if (typeof h === 'object' && h.kind === 'vfib') {
+        clearTimer(h.noiseHandle);
+        clearTimer(h.alarmHandle);
+      } else {
+        clearTimer(h);
+      }
       delete activeIntervals[id];
     }
   };
@@ -207,8 +260,8 @@
   };
 
   // ============================================================
-  //   GENERADOR EKG CON TRAZADOS CLÍNICAMENTE EXACTOS
-  //   (Diseñado con asesoría de especialista en ECG)
+  //   GENERADOR EKG CON TRAZADOS CLÍNICAMENTE REPRESENTATIVOS
+  //   (Paper speed constante; RR cambia con BPM como en máquina)
   // ============================================================
   const getEKG = (type, bpm = 75, rhythm = type) => {
     const strokeColor = 'stroke-green-600 dark:stroke-green-400';
@@ -216,10 +269,15 @@
     const uniqueId = `ekg-${type}-${ekgCounter++}`;
     const gridId = `grid-${uniqueId}`;
 
+    // Sistema de referencia "papel ECG":
+    // asumimos small box = 0.04s y aquí = 10 unidades => 250 unidades/seg.
     const VIEW_W = 2000;
     const H = 100;
     const BASE = 50;
-    const STEP = 2;
+    const STEP = 1;
+    const PX_PER_SEC = 250;          // 25 mm/s equivalente
+    const VIEW_SECONDS = VIEW_W / PX_PER_SEC; // 8s
+    const animDuration = VIEW_SECONDS; // velocidad constante tipo monitor
 
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
     const gauss = (x, mu, sigma) => {
@@ -244,272 +302,321 @@
       return h >>> 0;
     };
 
-    const cfgByType = (tp) => {
-      switch (tp) {
-        case 'sinus':
-          return { pacePx: 250 };
-        case 'brady':
-          return { pacePx: 250 };
-        case 'svt':
-          return { pacePx: 200 };
-        case 'vtach':
-          return { pacePx: 200 };
-        case 'torsades':
-          return { pacePx: 200 };
-        case 'aflutter':
-          return { pacePx: 250 };
-        case 'afib':
-          return { pacePx: 220 };
-        case 'block3':
-          return { pacePx: 300 };
-        case 'vfib':
-          return { pacePx: 200 };
-        case 'asystole':
-          return { pacePx: 250 };
-        default:
-          return { pacePx: 250 };
-      }
-    };
-
-    const { pacePx } = cfgByType(type);
-
-    // Velocidad (scroll) para que el ritmo visual corresponda al BPM:
-    // bpm = 60 * (VIEW_W / duration) / pacePx  => duration = (VIEW_W * 60) / (bpm * pacePx)
-    const animDuration = (type === 'asystole' || !bpm || bpm <= 0)
-      ? 10
-      : clamp((VIEW_W * 60) / (bpm * pacePx), 1.8, 14);
-
-    // Precomputos (deterministas) para ritmos irregulares/caóticos
     const seed = hashSeed(`${type}|${Math.round(bpm)}`);
     const rng = makeLCG(seed);
 
-    // V-Fib noise knots
-    const vfibStep = 20;
-    const vfibKnots = [];
-    if (type === 'vfib') {
-      const knotCount = Math.ceil(VIEW_W / vfibStep) + 2;
-      for (let i = 0; i < knotCount; i++) {
-        // distribución más realista: mucho rango medio, algunos picos
-        const r = (rng() + rng() + rng()) / 3; // suaviza
-        vfibKnots.push((r * 2 - 1) * (0.7 + rng() * 0.6));
-      }
-    }
+    const rrPx = (rate) => {
+      const r = rate > 0 ? rate : 60;
+      return (PX_PER_SEC * 60) / r;
+    };
 
-    // AFib QRS positions (irregular RR)
+    // Morfología P-QRS-T (ajustada para look tipo ECG)
+    const pqrst = (ph, beatPx, opts) => {
+      const pAmp = opts.pAmp ?? 5.0;
+      const tAmp = opts.tAmp ?? 10.0;
+      const rAmp = opts.rAmp ?? 32.0;
+      const qAmp = opts.qAmp ?? -5.0;
+      const sAmp = opts.sAmp ?? -12.0;
+
+      const pMu = 0.18 * beatPx;
+      const qMu = 0.40 * beatPx;
+      const rMu = 0.42 * beatPx;
+      const sMu = 0.445 * beatPx;
+      const tMu = 0.72 * beatPx;
+
+      const pSig = clamp(0.06 * beatPx, 7, 18);
+      const qSig = clamp(0.010 * beatPx, 1.2, 3.2);
+      const rSig = clamp(0.008 * beatPx, 1.0, 2.8);
+      const sSig = clamp(0.015 * beatPx, 2.0, 6.0);
+      const tSig = clamp(0.10 * beatPx, 12, 30);
+
+      let v = 0;
+      // P wave
+      v += pAmp * gauss(ph, pMu, pSig);
+      // QRS
+      v += qAmp * gauss(ph, qMu, qSig);
+      v += rAmp * gauss(ph, rMu, rSig);
+      v += sAmp * gauss(ph, sMu, sSig);
+      // T wave
+      v += tAmp * gauss(ph, tMu, tSig);
+      // ST casi isoeléctrico
+      v += 0.7 * gauss(ph, 0.55 * beatPx, clamp(0.16 * beatPx, 16, 60));
+
+      return v;
+    };
+
+    // VT monomórfica (QRS ancho repetitivo)
+    const vtWide = (ph, beatPx) => {
+      const rMu = 0.48 * beatPx;
+      const rSig = clamp(0.055 * beatPx, 6, 14);
+      const sMu = 0.62 * beatPx;
+      const sSig = clamp(0.070 * beatPx, 8, 18);
+      const qMu = 0.35 * beatPx;
+      const qSig = clamp(0.040 * beatPx, 5, 12);
+
+      let v = 0;
+      v += -10.0 * gauss(ph, qMu, qSig);
+      v += 44.0 * gauss(ph, rMu, rSig);
+      v += -26.0 * gauss(ph, sMu, sSig);
+      v += 7.0 * gauss(ph, 0.80 * beatPx, clamp(0.12 * beatPx, 14, 40));
+      return v;
+    };
+
+    // Torsades: VT polimórfica con “twisting of the points”
+    const torsades = (x, beatPx) => {
+      const idx = Math.floor(x / beatPx);
+      const ph = x - idx * beatPx;
+
+      // ciclo de “twist” en beats
+      const twistBeats = 14;
+      const twist = Math.sin((2 * Math.PI * idx) / twistBeats);
+
+      // amplitud variable + inversión gradual del eje
+      const amp = 18 + 18 * Math.abs(twist);
+      const sign = twist >= 0 ? 1 : -1;
+
+      // complejos anchos con ligera variación
+      const jitter = (rng() * 2 - 1) * 0.06;
+      const localBeat = beatPx * (1 + jitter);
+
+      const v = vtWide(ph * (beatPx / localBeat), localBeat);
+      return sign * (v * (amp / 44));
+    };
+
+    // Flutter: baseline “sawtooth” + QRS regular (2:1 típico)
+    const flutterBaseline = (x, atrialRate) => {
+      const period = rrPx(atrialRate); // px por onda flutter
+      const p = (x % period) / period;
+      // sawtooth con subida rápida y caída lenta (más ECG-like)
+      const saw = p < 0.15 ? (p / 0.15) : (1 - (p - 0.15) / 0.85);
+      return (saw * 2 - 1) * 6.0; // amplitud
+    };
+
+    // AFib baseline: “fine squiggle” (pequeña ondulación irregular)
+    const afibBaseline = (x) => {
+      // 6–10 Hz aproximado: periodos 25–40 px (0.10–0.16s)
+      const a = 1.7 * Math.sin((2 * Math.PI * x) / (28 + 6 * rng()));
+      const b = 1.2 * Math.sin((2 * Math.PI * x) / (35 + 8 * rng()) + 1.3);
+      const c = 0.9 * Math.sin((2 * Math.PI * x) / (22 + 5 * rng()) + 2.4);
+      return a + b + c;
+    };
+
+    // Precompute QRS positions for irregular rhythms
     const afibQrs = [];
-    if (type === 'afib') {
-      let x = 80 + rng() * 40;
-      while (x < VIEW_W - 60) {
-        afibQrs.push(x);
-        const mean = 220;
-        const jitter = (rng() * 2 - 1) * 85;
-        x += clamp(mean + jitter, 120, 360);
-      }
-    }
-
-    // 3rd degree AV block: P regular + QRS lento e independiente
     const blockP = [];
     const blockQrs = [];
+
+    if (type === 'afib') {
+      const meanRR = rrPx(bpm);
+      let x = 60 + rng() * 50;
+      while (x < (VIEW_W * 2) - 120) { // para doble buffer
+        afibQrs.push(x);
+        const jitter = (rng() * 2 - 1) * 0.38 * meanRR;
+        const next = clamp(meanRR + jitter, 0.55 * meanRR, 1.65 * meanRR);
+        x += next;
+      }
+    }
+
     if (type === 'block3') {
-      const qrsRR = 300; // ventricular
-      const pRR = Math.round(qrsRR * (40 / 90)); // atrial ~90
+      const atrialRate = 90;
+      const pRR = rrPx(atrialRate);
+      const vRR = rrPx(bpm);
+
       let xp = 40;
-      while (xp < VIEW_W - 40) {
+      while (xp < (VIEW_W * 2) - 40) {
         blockP.push(xp);
         xp += pRR;
       }
-      let xq = 120;
-      while (xq < VIEW_W - 80) {
+
+      let xq = 140;
+      while (xq < (VIEW_W * 2) - 120) {
         blockQrs.push(xq);
-        xq += qrsRR;
+        xq += vRR;
       }
     }
 
-    const baseSinus = (x, beatPx, variant = 'sinus') => {
-      const ph = x % beatPx;
+    // VFib: multi-scale chaotic (sin complejos identificables)
+    const vfibKnotsA = [];
+    const vfibKnotsB = [];
+    if (type === 'vfib') {
+      const stepA = 18;
+      const stepB = 55;
+      const countA = Math.ceil((VIEW_W * 2) / stepA) + 3;
+      const countB = Math.ceil((VIEW_W * 2) / stepB) + 3;
 
-      // Baseline wander sutil (monitor)
-      const wander = 0.7 * Math.sin((2 * Math.PI * x) / 1200);
-
-      // Componentes P-QRS-T (gaussian)
-      let v = 0;
-
-      // P wave
-      const pAmp = variant === 'brady' ? 7.0 : 6.0;
-      v += pAmp * gauss(ph, 0.18 * beatPx, 0.045 * beatPx);
-
-      // QRS (estrecho)
-      v += -4.0 * gauss(ph, 0.34 * beatPx, 0.010 * beatPx);  // Q
-      v += (variant === 'svt' ? 28.0 : 32.0) * gauss(ph, 0.36 * beatPx, 0.0075 * beatPx); // R
-      v += -10.5 * gauss(ph, 0.385 * beatPx, 0.014 * beatPx); // S
-
-      // T wave
-      const tAmp = variant === 'brady' ? 11.5 : 10.0;
-      v += tAmp * gauss(ph, 0.62 * beatPx, 0.065 * beatPx);
-
-      // ST leve (casi isoeléctrico)
-      v += 0.6 * gauss(ph, 0.50 * beatPx, 0.09 * beatPx);
-
-      return BASE - v + wander;
-    };
-
-    const baseVtach = (x, beatPx) => {
-      const ph = x % beatPx;
-      const wander = 0.4 * Math.sin((2 * Math.PI * x) / 1400);
-
-      // Complejo ancho monomórfico (QRS amplio)
-      let v = 0;
-      v += -10.0 * gauss(ph, 0.38 * beatPx, 0.030 * beatPx);
-      v += 46.0 * gauss(ph, 0.50 * beatPx, 0.070 * beatPx);
-      v += -28.0 * gauss(ph, 0.62 * beatPx, 0.070 * beatPx);
-      v += 6.0 * gauss(ph, 0.78 * beatPx, 0.10 * beatPx); // repolarización leve
-
-      return BASE - v + wander;
-    };
-
-    const baseTorsades = (x) => {
-      // Polimórfica: portadora rápida con envolvente de amplitud (waxing/waning)
-      const env = 10 + 22 * (0.5 + 0.5 * Math.sin((2 * Math.PI * x) / 780));
-      const carrier = Math.sin((2 * Math.PI * x) / 36 + 0.45 * Math.sin((2 * Math.PI * x) / 420));
-      const drift = 0.6 * Math.sin((2 * Math.PI * x) / 1600);
-      const v = env * carrier;
-
-      return BASE - v + drift;
-    };
-
-    const baseFlutter = (x) => {
-      // Atrial flutter: "sawtooth" continuo + QRS regulares
-      const sawPx = 50;
-      const p = (x % sawPx) / sawPx;
-      const saw = 1 - 2 * p; // rampa descendente
-      const flutter = 6.5 * saw;
-
-      // QRS cada ~250px (2:1 aprox visual) + T leve
-      const beatPx = 250;
-      const ph = x % beatPx;
-
-      let v = 0;
-      v += -3.5 * gauss(ph, 0.34 * beatPx, 0.010 * beatPx);
-      v += 30.0 * gauss(ph, 0.36 * beatPx, 0.0075 * beatPx);
-      v += -9.0 * gauss(ph, 0.385 * beatPx, 0.014 * beatPx);
-      v += 8.5 * gauss(ph, 0.62 * beatPx, 0.070 * beatPx);
-
-      const wander = 0.5 * Math.sin((2 * Math.PI * x) / 1200);
-
-      return BASE - v - flutter + wander;
-    };
-
-    const baseAfib = (x) => {
-      // fibrilación auricular: baseline fibrilatorio + QRS irregulares
-      const f1 = 1.6 * Math.sin((2 * Math.PI * x) / 38);
-      const f2 = 1.1 * Math.sin((2 * Math.PI * x) / 27 + 1.2);
-      const f3 = 0.8 * Math.sin((2 * Math.PI * x) / 19 + 2.4);
-      const wander = 0.7 * Math.sin((2 * Math.PI * x) / 1500);
-
-      let v = 0;
-
-      // sumar solo QRS cercanos para rendimiento
-      for (let i = 0; i < afibQrs.length; i++) {
-        const dx = x - afibQrs[i];
-        if (dx < -80 || dx > 160) continue;
-
-        // QRS estrecho
-        v += -4.2 * gauss(dx, 0, 2.8);
-        v += 34.0 * gauss(dx, 10, 2.2);
-        v += -11.0 * gauss(dx, 18, 4.0);
-
-        // T wave
-        v += 9.5 * gauss(dx, 95, 18.0);
+      for (let i = 0; i < countA; i++) {
+        const r = (rng() + rng() + rng()) / 3;
+        vfibKnotsA.push((r * 2 - 1) * (0.9 + rng() * 0.8));
       }
-
-      return BASE - v - (f1 + f2 + f3) + wander;
-    };
-
-    const baseBlock3 = (x) => {
-      // P waves regulares + QRS independientes (lentos y anchos)
-      const wander = 0.6 * Math.sin((2 * Math.PI * x) / 1500);
-      let v = 0;
-
-      // P waves
-      for (let i = 0; i < blockP.length; i++) {
-        const dx = x - blockP[i];
-        if (dx < -40 || dx > 60) continue;
-        v += 6.5 * gauss(dx, 10, 10);
+      for (let i = 0; i < countB; i++) {
+        const r = (rng() + rng()) / 2;
+        vfibKnotsB.push((r * 2 - 1) * (0.7 + rng() * 0.6));
       }
+    }
 
-      // QRS waves (ancho) + T
-      for (let i = 0; i < blockQrs.length; i++) {
-        const dx = x - blockQrs[i];
-        if (dx < -120 || dx > 220) continue;
-
-        v += -9.0 * gauss(dx, 0, 10);
-        v += 40.0 * gauss(dx, 28, 14);
-        v += -22.0 * gauss(dx, 58, 18);
-
-        v += 10.0 * gauss(dx, 155, 34);
-      }
-
-      return BASE - v + wander;
-    };
-
-    const baseVfib = (x) => {
-      // ruido interpolado + envolvente ligera para "chaos" orgánico
-      const i = Math.floor(x / vfibStep);
-      const f = (x % vfibStep) / vfibStep;
-      const a = vfibKnots[i] ?? 0;
-      const b = vfibKnots[i + 1] ?? a;
-      const n = a + (b - a) * f;
-
-      const env = 0.75 + 0.25 * Math.sin((2 * Math.PI * x) / 500);
-      const drift = 0.9 * Math.sin((2 * Math.PI * x) / 900);
-
-      const v = (n * 24 * env) + drift;
-      return BASE - v;
+    const interp = (arr, step, x) => {
+      const i = Math.floor(x / step);
+      const f = (x % step) / step;
+      const a = arr[i] ?? 0;
+      const b = arr[i + 1] ?? a;
+      // smoothstep
+      const t = f * f * (3 - 2 * f);
+      return a + (b - a) * t;
     };
 
     const computeY = (x) => {
-      switch (type) {
-        case 'sinus':
-          return clamp(baseSinus(x, 250, 'sinus'), 4, H - 4);
-        case 'brady':
-          return clamp(baseSinus(x, 250, 'brady'), 4, H - 4);
-        case 'svt': {
-          // SVT: QRS estrecho rápido, P no visible
-          const y = baseSinus(x, 200, 'svt');
-          return clamp(y, 4, H - 4);
-        }
-        case 'vtach':
-          return clamp(baseVtach(x, 200), 4, H - 4);
-        case 'torsades':
-          return clamp(baseTorsades(x), 4, H - 4);
-        case 'aflutter':
-          return clamp(baseFlutter(x), 4, H - 4);
-        case 'afib':
-          return clamp(baseAfib(x), 4, H - 4);
-        case 'block3':
-          return clamp(baseBlock3(x), 4, H - 4);
-        case 'vfib':
-          return clamp(baseVfib(x), 4, H - 4);
-        case 'asystole':
-          return BASE;
-        default:
-          return clamp(baseSinus(x, 250, 'sinus'), 4, H - 4);
+      const wander = 0.8 * Math.sin((2 * Math.PI * x) / (PX_PER_SEC * 7.5)); // baseline wander suave
+      let v = 0;
+
+      if (type === 'asystole') {
+        v = 0;
+        return BASE + wander;
       }
+
+      if (type === 'sinus' || type === 'brady' || type === 'svt') {
+        const beatPx = rrPx(bpm);
+        const ph = x % beatPx;
+
+        if (type === 'svt') {
+          // SVT: P ausente o pegada; aquí la eliminamos para claridad
+          v += pqrst(ph, beatPx, {
+            pAmp: 0.0,
+            rAmp: 30.0,
+            qAmp: -4.0,
+            sAmp: -10.0,
+            tAmp: 8.0,
+          });
+        } else {
+          v += pqrst(ph, beatPx, {
+            pAmp: 5.0,
+            rAmp: 32.0,
+            qAmp: -5.0,
+            sAmp: -12.0,
+            tAmp: 10.0,
+          });
+        }
+
+        const y = BASE - v + wander;
+        return clamp(y, 4, H - 4);
+      }
+
+      if (type === 'vtach') {
+        const beatPx = rrPx(bpm);
+        const ph = x % beatPx;
+        v += vtWide(ph, beatPx);
+        const y = BASE - v + 0.4 * wander;
+        return clamp(y, 4, H - 4);
+      }
+
+      if (type === 'torsades') {
+        const beatPx = rrPx(bpm);
+        v += torsades(x, beatPx);
+        const y = BASE - v + 0.3 * wander;
+        return clamp(y, 4, H - 4);
+      }
+
+      if (type === 'aflutter') {
+        // atrial flutter ~300/min, ventricular típico 150 (2:1)
+        const atrialRate = 300;
+        const beatPx = rrPx(bpm);
+        const ph = x % beatPx;
+
+        // baseline “sawtooth” continuo
+        v += flutterBaseline(x, atrialRate);
+
+        // QRS + T regular
+        v += pqrst(ph, beatPx, {
+          pAmp: 0.0,
+          rAmp: 30.0,
+          qAmp: -4.5,
+          sAmp: -10.5,
+          tAmp: 8.5,
+        });
+
+        const y = BASE - v + 0.35 * wander;
+        return clamp(y, 4, H - 4);
+      }
+
+      if (type === 'afib') {
+        // baseline “fine squiggle” + QRS irregulares
+        v += afibBaseline(x);
+
+        // sumar solo QRS cercanos
+        for (let i = 0; i < afibQrs.length; i++) {
+          const dx = x - afibQrs[i];
+          if (dx < -70) continue;
+          if (dx > 160) break; // afibQrs está en orden creciente
+
+          // QRS estrecho
+          v += -4.0 * gauss(dx, 0, 2.2);
+          v += 34.0 * gauss(dx, 10, 1.8);
+          v += -11.0 * gauss(dx, 18, 3.8);
+
+          // T
+          v += 9.0 * gauss(dx, 95, 18);
+        }
+
+        const y = BASE - v + 0.35 * wander;
+        return clamp(y, 4, H - 4);
+      }
+
+      if (type === 'block3') {
+        // P regulares independientes + QRS lentos (escape), disociación AV
+        for (let i = 0; i < blockP.length; i++) {
+          const dx = x - blockP[i];
+          if (dx < -30) continue;
+          if (dx > 60) break;
+          v += 6.0 * gauss(dx, 12, 10);
+        }
+
+        for (let i = 0; i < blockQrs.length; i++) {
+          const dx = x - blockQrs[i];
+          if (dx < -120) continue;
+          if (dx > 240) break;
+
+          // QRS ancho (escape)
+          v += -9.0 * gauss(dx, 0, 10);
+          v += 38.0 * gauss(dx, 28, 14);
+          v += -22.0 * gauss(dx, 58, 18);
+          // T
+          v += 10.0 * gauss(dx, 155, 34);
+        }
+
+        const y = BASE - v + 0.35 * wander;
+        return clamp(y, 4, H - 4);
+      }
+
+      if (type === 'vfib') {
+        // Caótico, amplitud variable, sin QRS identificable
+        const a = interp(vfibKnotsA, 18, x);
+        const b = interp(vfibKnotsB, 55, x);
+        const mix = 0.65 * a + 0.35 * b;
+        const env = 0.9 + 0.35 * Math.sin((2 * Math.PI * x) / (PX_PER_SEC * 1.8));
+        v = mix * 26 * env + 0.8 * wander;
+        const y = BASE - v;
+        return clamp(y, 4, H - 4);
+      }
+
+      // fallback
+      const beatPx = rrPx(bpm);
+      const ph = x % beatPx;
+      v += pqrst(ph, beatPx, { pAmp: 5, rAmp: 32, qAmp: -5, sAmp: -12, tAmp: 10 });
+      return clamp(BASE - v + wander, 4, H - 4);
     };
 
-    const buildSegment = (xOffset) => {
+    const buildSegment = (xOffset, limit) => {
       let d = '';
       let first = true;
-      for (let x = 0; x <= VIEW_W; x += STEP) {
-        const y = computeY(x);
+      for (let x = 0; x <= limit; x += STEP) {
+        const y = computeY(x + xOffset);
         d += `${first ? 'M' : 'L'}${(x + xOffset).toFixed(1)},${y.toFixed(1)} `;
         first = false;
       }
       return d.trim();
     };
 
-    // Doble buffer: 0..2000 y 2000..4000 para scroll infinito sin huecos
-    const stripPath = `${buildSegment(0)} ${buildSegment(VIEW_W)}`;
+    // Doble buffer: 0..2000 y 2000..4000 para scroll infinito sin saltos
+    const stripPath = `${buildSegment(0, VIEW_W)} ${buildSegment(VIEW_W, VIEW_W)}`;
 
     return `
       <div id="${uniqueId}"
@@ -544,7 +651,7 @@
         will-change: transform;
       }
       .ekg-moving .ekg-trace {
-        animation: scrollEKG var(--ekg-speed, 6s) linear infinite;
+        animation: scrollEKG var(--ekg-speed, 8s) linear infinite;
       }
       @keyframes scrollEKG {
         0% { transform: translateX(0); }
