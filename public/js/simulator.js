@@ -1,4 +1,4 @@
-/* simulator.js — Motor Cloud FINAL (Parser Inteligente + Respuestas Correctas + UI Completa) */
+/* simulator.js — Motor Cloud FINAL (UI Estética + Multi-Selección de Temas + Parser Inteligente) */
 
 (function () {
   'use strict';
@@ -20,7 +20,8 @@
     limit: 10,
     fontSize: 1,
     isRationaleMode: false,
-    lastSubmitted: null
+    lastSubmitted: null,
+    selectedCategories: [] // ✅ multi-select
   };
 
   // --- HELPERS ---
@@ -28,13 +29,34 @@
     return `<span class="lang-es">${es || ''}</span><span class="lang-en hidden-lang">${en || es || ''}</span>`;
   };
 
+  function applyGlobalLanguage(root) {
+    try {
+      const currentLang = localStorage.getItem('nclex_lang') || 'es';
+      const isEs = currentLang === 'es';
+      document.documentElement.lang = currentLang;
+
+      const scope = root || document;
+      scope.querySelectorAll('.lang-es').forEach(el => isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
+      scope.querySelectorAll('.lang-en').forEach(el => !isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
+    } catch (_) {}
+  }
+
   function normalizeKey(s) {
     return (s || '')
       .toString()
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // quita tildes
-      .replace(/[^a-z0-9]/g, '');     // quita espacios, guiones, underscores, etc.
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  function escapeHtml(s) {
+    return (s || '').toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // --- PARSER CSV ROBUSTO (maneja comillas) ---
@@ -73,7 +95,7 @@
   // --- CONEXIÓN RESILIENTE (CORS proxies) ---
   async function fetchWithFallback(url) {
     const strategies = [
-      { name: "Direct", url: url },
+      { name: "Direct", url },
       { name: "Primary Proxy", url: `https://corsproxy.io/?${encodeURIComponent(url)}` },
       { name: "Backup Proxy", url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` }
     ];
@@ -119,19 +141,12 @@
   }
 
   function looksLikeHeaderRow(headers, columnDefinitions) {
-    const headerNorm = headers.map(normalizeKey);
     let matches = 0;
-
     for (const def of columnDefinitions) {
       const idx = findColumnIndex(headers, def.possible);
       if (idx !== -1) matches++;
     }
-
-    // además: si la mayoría de celdas son cortas/palabras clave, suele ser header
-    const shortCells = headerNorm.filter(h => h.length > 0 && h.length <= 20).length;
-    const ratioShort = headers.length ? shortCells / headers.length : 0;
-
-    return matches >= 3 && ratioShort >= 0.6;
+    return matches >= 3;
   }
 
   // --- PARSER DE RESPUESTAS CORRECTAS (A/B/C/D, 1/2/3/4, "A and C", "A/C", etc.) ---
@@ -221,32 +236,31 @@
         if (!row.trim()) continue;
 
         const cols = parseCSVRow(row);
-
         const maxIdx = Math.max(...Object.values(colMap));
         if (cols.length <= maxIdx) continue;
 
         try {
-          const id = cols[colMap.id] || `q_${i}`;
-          const category = cols[colMap.category] || 'General';
+          const id = (cols[colMap.id] || `q_${i}`).toString().trim();
+          const category = (cols[colMap.category] || 'General').toString().trim() || 'General';
 
-          const textEs = cols[colMap.textEs] || '';
-          const textEn = cols[colMap.textEn] || textEs;
+          const textEs = (cols[colMap.textEs] || '').toString();
+          const textEn = (cols[colMap.textEn] || textEs).toString();
 
-          const optAEs = cols[colMap.optAEs] || '';
-          const optAEn = cols[colMap.optAEn] || optAEs;
+          const optAEs = (cols[colMap.optAEs] || '').toString();
+          const optAEn = (cols[colMap.optAEn] || optAEs).toString();
 
-          const optBEs = cols[colMap.optBEs] || '';
-          const optBEn = cols[colMap.optBEn] || optBEs;
+          const optBEs = (cols[colMap.optBEs] || '').toString();
+          const optBEn = (cols[colMap.optBEn] || optBEs).toString();
 
-          const optCEs = cols[colMap.optCEs] || '';
-          const optCEn = cols[colMap.optCEn] || optCEs;
+          const optCEs = (cols[colMap.optCEs] || '').toString();
+          const optCEn = (cols[colMap.optCEn] || optCEs).toString();
 
-          const optDEs = cols[colMap.optDEs] || '';
-          const optDEn = cols[colMap.optDEn] || optDEs;
+          const optDEs = (cols[colMap.optDEs] || '').toString();
+          const optDEn = (cols[colMap.optDEn] || optDEs).toString();
 
-          const correctRaw = cols[colMap.correct] || '';
-          const rationaleEs = cols[colMap.rationaleEs] || '';
-          const rationaleEn = cols[colMap.rationaleEn] || rationaleEs;
+          const correctRaw = (cols[colMap.correct] || '').toString();
+          const rationaleEs = (cols[colMap.rationaleEs] || '').toString();
+          const rationaleEn = (cols[colMap.rationaleEn] || rationaleEs).toString();
           const typeRaw = (cols[colMap.type] || '').toString();
 
           const correctLetters = parseCorrectLetters(correctRaw);
@@ -261,10 +275,9 @@
             { id: 'b', textEs: optBEs, textEn: optBEn, correct: correctLetters.includes('b') },
             { id: 'c', textEs: optCEs, textEn: optCEn, correct: correctLetters.includes('c') },
             { id: 'd', textEs: optDEs, textEn: optDEn, correct: correctLetters.includes('d') }
-          ].filter(o => (o.textEs || o.textEn || '').trim() !== '');
+          ].filter(o => ((o.textEs || o.textEn || '').trim() !== ''));
 
-          if (!textEs && !textEn) continue;
-          if (options.length < 2) continue;
+          if ((!textEs && !textEn) || options.length < 2) continue;
 
           const lowerType = typeRaw.toLowerCase();
           const inferredSata =
@@ -274,19 +287,17 @@
             correctLetters.length > 1 ||
             (textEs.toLowerCase().includes('selecciona todas') || textEn.toLowerCase().includes('select all'));
 
-          const q = {
-            id: id.toString().trim(),
-            category: category.toString().trim() || 'General',
-            textEs: textEs.toString(),
-            textEn: textEn.toString(),
+          parsed.push({
+            id,
+            category,
+            textEs,
+            textEn,
             options,
-            rationaleEs: rationaleEs.toString(),
-            rationaleEn: rationaleEn.toString(),
+            rationaleEs,
+            rationaleEn,
             type: inferredSata ? 'sata' : 'single',
             tags: [category, typeRaw].filter(Boolean)
-          };
-
-          parsed.push(q);
+          });
         } catch (err) {
           console.warn("Error parseando fila", i, err);
         }
@@ -302,12 +313,14 @@
         state.categories[cat] = (state.categories[cat] || 0) + 1;
       });
 
+      // Si había selecciones previas, filtra las que ya no existan
+      const existingCats = new Set(Object.keys(state.categories));
+      state.selectedCategories = (state.selectedCategories || []).filter(c => existingCats.has(c));
+
       window.SIMULATOR_QUESTIONS = parsed;
       state.isLoading = false;
       state.error = null;
       checkAndRender();
-
-      applyGlobalLanguage();
 
     } catch (parseError) {
       console.error("Error en parseAndLoad:", parseError);
@@ -315,16 +328,6 @@
       state.isLoading = false;
       checkAndRender();
     }
-  }
-
-  function applyGlobalLanguage() {
-    try {
-      const currentLang = localStorage.getItem('nclex_lang') || 'es';
-      const isEs = currentLang === 'es';
-      document.documentElement.lang = currentLang;
-      document.querySelectorAll('.lang-es').forEach(el => isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-      document.querySelectorAll('.lang-en').forEach(el => !isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-    } catch (_) {}
   }
 
   // --- CARGA PRINCIPAL ---
@@ -337,7 +340,7 @@
       parseAndLoad(csvData);
     } catch (e) {
       console.error("🔥 Simulator Critical Failure:", e);
-      state.error = `Error de conexión: no se pudo acceder a la base de datos.<br><span class="text-xs text-gray-400">${(e && e.message) ? e.message : 'Unknown error'}</span>`;
+      state.error = `Error de conexión: no se pudo acceder a la base de datos.<br><span class="text-xs text-gray-400">${(e && e.message) ? escapeHtml(e.message) : 'Unknown error'}</span>`;
       state.isLoading = false;
       checkAndRender();
     }
@@ -346,23 +349,70 @@
   // --- ICONOS Y ESTILOS ---
   function getCategoryStyle(catName) {
     const n = (catName || '').toLowerCase();
-    if (n.includes('newborn') || n.includes('neo')) return { i: 'baby', c: 'text-pink-400' };
-    if (n.includes('matern') || n.includes('labor')) return { i: 'person-pregnant', c: 'text-rose-500' };
-    if (n.includes('pediat')) return { i: 'child-reaching', c: 'text-yellow-500' };
-    if (n.includes('cardio')) return { i: 'heart-pulse', c: 'text-red-500' };
-    if (n.includes('respir')) return { i: 'lungs', c: 'text-blue-400' };
-    if (n.includes('neuro') || n.includes('psych')) return { i: 'brain', c: 'text-purple-500' };
-    if (n.includes('pharm')) return { i: 'pills', c: 'text-indigo-500' };
-    if (n.includes('infect') || n.includes('safety')) return { i: 'shield-virus', c: 'text-green-500' };
-    return { i: 'notes-medical', c: 'text-brand-blue' };
+    if (n.includes('newborn') || n.includes('neo')) return { i: 'baby', c: 'text-pink-400', badge: 'bg-pink-500/10 text-pink-600 dark:text-pink-200 dark:bg-pink-500/10' };
+    if (n.includes('matern') || n.includes('labor')) return { i: 'person-pregnant', c: 'text-rose-500', badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-200 dark:bg-rose-500/10' };
+    if (n.includes('pediat')) return { i: 'child-reaching', c: 'text-yellow-500', badge: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-200 dark:bg-yellow-500/10' };
+    if (n.includes('cardio')) return { i: 'heart-pulse', c: 'text-red-500', badge: 'bg-red-500/10 text-red-600 dark:text-red-200 dark:bg-red-500/10' };
+    if (n.includes('respir')) return { i: 'lungs', c: 'text-blue-400', badge: 'bg-blue-500/10 text-blue-600 dark:text-blue-200 dark:bg-blue-500/10' };
+    if (n.includes('neuro') || n.includes('psych')) return { i: 'brain', c: 'text-purple-500', badge: 'bg-purple-500/10 text-purple-600 dark:text-purple-200 dark:bg-purple-500/10' };
+    if (n.includes('pharm')) return { i: 'pills', c: 'text-indigo-500', badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-200 dark:bg-indigo-500/10' };
+    if (n.includes('infect') || n.includes('safety')) return { i: 'shield-virus', c: 'text-green-500', badge: 'bg-green-500/10 text-green-600 dark:text-green-200 dark:bg-green-500/10' };
+    return { i: 'notes-medical', c: 'text-brand-blue', badge: 'bg-brand-blue/10 text-brand-blue dark:text-blue-200 dark:bg-blue-500/10' };
   }
 
   function getClinicalTip(category) {
     const n = (category || '').toLowerCase();
-    if (n.includes('pharm')) return bilingual("💊 <strong>Tip:</strong> Revisa siempre <em>Contraindicaciones</em> y <em>Niveles Terapéuticos</em>.", "💊 <strong>Tip:</strong> Always check <em>Contraindications</em> and <em>Therapeutic Levels</em>.");
-    if (n.includes('priorit')) return bilingual("🚨 <strong>Tip:</strong> ¿Quién muere si no actúas AHORA? (Estable vs Inestable)", "🚨 <strong>Tip:</strong> Who dies if you don't act NOW? (Stable vs Unstable)");
-    if (n.includes('infect')) return bilingual("🦠 <strong>Tip:</strong> Transmisión: Contacto, Gotas o Aire? PPE adecuado.", "🦠 <strong>Tip:</strong> Transmission: Contact, Droplet, or Airborne? Proper PPE.");
-    return bilingual("🧠 <strong>Estrategia:</strong> Lee la pregunta dos veces. ¿Qué está preguntando REALMENTE?", "🧠 <strong>Strategy:</strong> Read the stem twice. What is it REALLY asking?");
+    if (n.includes('pharm')) return bilingual("💊 <strong>Tip:</strong> Contraindicaciones + niveles terapéuticos.", "💊 <strong>Tip:</strong> Contraindications + therapeutic levels.");
+    if (n.includes('priorit')) return bilingual("🚨 <strong>Tip:</strong> ¿Quién muere si no actúas AHORA?", "🚨 <strong>Tip:</strong> Who dies if you don't act NOW?");
+    if (n.includes('infect')) return bilingual("🦠 <strong>Tip:</strong> Contacto, Gotas o Aire → PPE.", "🦠 <strong>Tip:</strong> Contact, Droplet, Airborne → PPE.");
+    return bilingual("🧠 <strong>Estrategia:</strong> Lee la pregunta 2 veces.", "🧠 <strong>Strategy:</strong> Read the stem twice.");
+  }
+
+  // --- MULTI SELECT HELPERS ---
+  function isSelectedCategory(cat) {
+    return (state.selectedCategories || []).includes(cat);
+  }
+
+  function toggleSelectedCategory(cat) {
+    const list = state.selectedCategories || [];
+    if (list.includes(cat)) state.selectedCategories = list.filter(x => x !== cat);
+    else state.selectedCategories = [...list, cat];
+    renderNow();
+  }
+
+  function clearSelectedCategories() {
+    state.selectedCategories = [];
+    renderNow();
+  }
+
+  function selectAllCategories() {
+    state.selectedCategories = Object.keys(state.categories || {}).sort();
+    renderNow();
+  }
+
+  // --- QUIZ START HELPERS ---
+  function startQuizWithCategories(catsArray) {
+    const cats = Array.isArray(catsArray) ? catsArray.filter(Boolean) : [];
+    const set = new Set(cats);
+
+    let pool = [];
+    if (set.size === 0) {
+      pool = [...state.allQuestions];
+    } else {
+      pool = state.allQuestions.filter(q => set.has(q.category));
+    }
+
+    pool.sort(() => Math.random() - 0.5);
+    if (state.limit < pool.length) pool = pool.slice(0, state.limit);
+
+    state.activeSession = pool;
+    state.currentIndex = 0;
+    state.score = 0;
+    state.userSelection = [];
+    state.isRationaleMode = false;
+    state.lastSubmitted = null;
+
+    renderNow();
   }
 
   // --- RENDERIZADO ---
@@ -378,28 +428,28 @@
 
     if (view && window.renderSimulatorPage) {
       view.innerHTML = window.renderSimulatorPage();
-      applyGlobalLanguage();
+      applyGlobalLanguage(view);
     }
   }
 
   function renderLoading() {
     return `
-      <div class="p-6 max-w-3xl mx-auto">
-        <div class="bg-white dark:bg-brand-card rounded-2xl shadow-lg border border-slate-200 dark:border-white/10 p-6">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 animate-pulse"></div>
-            <div class="flex-1">
-              <div class="h-4 w-40 bg-slate-200 dark:bg-white/10 rounded animate-pulse mb-2"></div>
-              <div class="h-3 w-72 bg-slate-200 dark:bg-white/10 rounded animate-pulse"></div>
+      <div class="p-6 max-w-5xl mx-auto">
+        <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card">
+          <div class="p-6 bg-gradient-to-r from-brand-blue/10 to-purple-500/10 dark:from-blue-500/10 dark:to-purple-500/10 border-b border-slate-200 dark:border-white/10">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-white/10 animate-pulse"></div>
+              <div class="flex-1">
+                <div class="h-4 w-56 bg-slate-200 dark:bg-white/10 rounded animate-pulse mb-2"></div>
+                <div class="h-3 w-80 bg-slate-200 dark:bg-white/10 rounded animate-pulse"></div>
+              </div>
             </div>
           </div>
-          <div class="mt-6 space-y-3">
-            <div class="h-10 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse"></div>
-            <div class="h-10 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse"></div>
-            <div class="h-10 bg-slate-200 dark:bg-white/10 rounded-xl animate-pulse"></div>
-          </div>
-          <div class="mt-6 text-sm text-slate-600 dark:text-slate-300">
-            ${bilingual("Cargando preguntas...", "Loading questions...")}
+          <div class="p-6 space-y-3">
+            <div class="h-12 bg-slate-200 dark:bg-white/10 rounded-2xl animate-pulse"></div>
+            <div class="h-12 bg-slate-200 dark:bg-white/10 rounded-2xl animate-pulse"></div>
+            <div class="h-12 bg-slate-200 dark:bg-white/10 rounded-2xl animate-pulse"></div>
+            <div class="mt-3 text-sm text-slate-600 dark:text-slate-300">${bilingual("Cargando preguntas...", "Loading questions...")}</div>
           </div>
         </div>
       </div>
@@ -408,15 +458,17 @@
 
   function renderError() {
     return `
-      <div class="p-6 max-w-3xl mx-auto">
-        <div class="bg-white dark:bg-brand-card rounded-2xl shadow-lg border border-red-200 dark:border-red-900/30 p-6">
-          <h2 class="text-xl font-black text-red-600 mb-2">${bilingual("Error", "Error")}</h2>
-          <div class="text-sm text-slate-700 dark:text-slate-200">${state.error || ''}</div>
-          <div class="mt-5 flex gap-2">
-            <button onclick="window.simController.forceReload()" class="px-4 py-2 rounded-xl bg-brand-blue text-white font-bold">
+      <div class="p-6 max-w-5xl mx-auto">
+        <div class="rounded-3xl overflow-hidden shadow-xl border border-red-200 dark:border-red-900/30 bg-white dark:bg-brand-card">
+          <div class="p-6 bg-red-50 dark:bg-red-900/10 border-b border-red-200 dark:border-red-900/30">
+            <h2 class="text-2xl font-black text-red-600 dark:text-red-300">${bilingual("Error", "Error")}</h2>
+            <div class="text-sm text-slate-700 dark:text-slate-200 mt-2">${state.error || ''}</div>
+          </div>
+          <div class="p-6 flex flex-wrap gap-2">
+            <button onclick="window.simController.forceReload()" class="px-5 py-2.5 rounded-2xl bg-brand-blue text-white font-black shadow hover:shadow-lg transition">
               ${bilingual("Reintentar", "Retry")}
             </button>
-            <button onclick="window.simController.quit()" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-bold">
+            <button onclick="window.simController.quit()" class="px-5 py-2.5 rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black">
               ${bilingual("Volver", "Back")}
             </button>
           </div>
@@ -429,77 +481,181 @@
     const cats = Object.keys(state.categories || {}).sort((a, b) => (state.categories[b] || 0) - (state.categories[a] || 0));
     const total = state.allQuestions.length;
 
+    const selectedCount = (state.selectedCategories || []).length;
+    const selectedLabel = selectedCount === 0
+      ? bilingual("Ninguno seleccionado", "None selected")
+      : bilingual(`${selectedCount} seleccionados`, `${selectedCount} selected`);
+
     const limitOptions = [10, 20, 30, 40, 50, 75, 100].map(n => {
       const active = state.limit === n;
       return `<button onclick="window.simController.setLimit(${n})"
-        class="px-3 py-1.5 rounded-full text-xs font-bold ${active ? 'bg-brand-blue text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white'}">${n}</button>`;
+        class="px-3 py-1.5 rounded-full text-xs font-black transition ${active ? 'bg-brand-blue text-white shadow' : 'bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white hover:opacity-90'}">${n}</button>`;
     }).join('');
 
-    const catButtons = [
-      `<button onclick="window.simController.startQuiz('ALL')" class="w-full text-left p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card shadow hover:shadow-lg transition">
-        <div class="flex items-center justify-between">
-          <div class="font-black text-slate-900 dark:text-white">${bilingual("Todas las categorías", "All categories")}</div>
-          <div class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200">${total}</div>
-        </div>
-        <div class="mt-1 text-sm text-slate-600 dark:text-slate-300">${bilingual("Inicia un examen mixto", "Start a mixed quiz")}</div>
-      </button>`
-    ];
-
-    cats.forEach(cat => {
+    const selectedChips = (state.selectedCategories || []).slice(0, 8).map(cat => {
       const style = getCategoryStyle(cat);
-      catButtons.push(`
-        <button onclick="window.simController.startQuiz(${JSON.stringify(cat)})" class="w-full text-left p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card shadow hover:shadow-lg transition">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <i class="fa-solid fa-${style.i} ${style.c}"></i>
-              <div class="font-black text-slate-900 dark:text-white">${cat}</div>
-            </div>
-            <div class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200">${state.categories[cat]}</div>
-          </div>
-          <div class="mt-2 text-xs text-slate-600 dark:text-slate-300">${getClinicalTip(cat)}</div>
+      return `
+        <button onclick="window.simController.toggleCategory(${JSON.stringify(cat)})"
+          class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black ${style.badge} border border-slate-200/50 dark:border-white/10 hover:opacity-90 transition">
+          <i class="fa-solid fa-${style.i}"></i>
+          ${escapeHtml(cat)}
+          <span class="opacity-70">✕</span>
         </button>
-      `);
-    });
+      `;
+    }).join('');
+
+    const moreChip = (state.selectedCategories || []).length > 8
+      ? `<span class="text-xs font-bold text-slate-500 dark:text-slate-300">+${(state.selectedCategories.length - 8)} más</span>`
+      : '';
+
+    const categoryCards = cats.map(cat => {
+      const style = getCategoryStyle(cat);
+      const count = state.categories[cat] || 0;
+      const selected = isSelectedCategory(cat);
+
+      const ring = selected ? 'ring-2 ring-brand-blue ring-offset-2 ring-offset-white dark:ring-offset-brand-card' : '';
+      const bg = selected ? 'bg-brand-blue/5 dark:bg-brand-blue/10 border-brand-blue/40' : 'bg-white dark:bg-brand-card border-slate-200 dark:border-white/10';
+      const check = selected
+        ? `<span class="w-6 h-6 rounded-xl bg-brand-blue text-white inline-flex items-center justify-center text-xs font-black shadow">✓</span>`
+        : `<span class="w-6 h-6 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200 inline-flex items-center justify-center text-xs font-black">+</span>`;
+
+      return `
+        <div class="rounded-3xl border ${bg} shadow-sm hover:shadow-lg transition ${ring}">
+          <button onclick="window.simController.toggleCategory(${JSON.stringify(cat)})" class="w-full text-left p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-white/10 flex items-center justify-center">
+                  <i class="fa-solid fa-${style.i} ${style.c}"></i>
+                </div>
+                <div>
+                  <div class="font-black text-slate-900 dark:text-white leading-tight">${escapeHtml(cat)}</div>
+                  <div class="mt-1 text-xs text-slate-600 dark:text-slate-300">${getClinicalTip(cat)}</div>
+                </div>
+              </div>
+              <div class="flex flex-col items-end gap-2">
+                ${check}
+                <span class="text-xs font-black px-3 py-1 rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-200">${count}</span>
+              </div>
+            </div>
+          </button>
+
+          <div class="px-5 pb-5 -mt-2 flex items-center justify-between gap-2">
+            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-300">
+              ${selected ? bilingual("Incluido en mezcla", "Included in mix") : bilingual("Toca para agregar", "Tap to add")}
+            </span>
+            <button onclick="window.simController.startQuiz(${JSON.stringify(cat)})"
+              class="px-4 py-2 rounded-2xl text-xs font-black bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white hover:opacity-90 transition">
+              ${bilingual("Solo", "Only")}
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const canStartSelected = selectedCount > 0;
 
     return `
-      <div class="p-6 max-w-4xl mx-auto">
+      <div class="p-6 max-w-6xl mx-auto">
         <header class="mb-6">
-          <h1 class="text-3xl font-black text-slate-900 dark:text-white">
-            ${bilingual("Simulador NCLEX", "NCLEX Simulator")}
-          </h1>
-          <p class="text-slate-600 dark:text-slate-300 mt-1">
-            ${bilingual("Elige una categoría y practica con feedback inmediato.", "Pick a category and practice with instant feedback.")}
-          </p>
-        </header>
+          <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card">
+            <div class="p-6 bg-gradient-to-r from-brand-blue/10 via-purple-500/10 to-emerald-500/10 dark:from-blue-500/10 dark:via-purple-500/10 dark:to-emerald-500/10">
+              <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                <div>
+                  <h1 class="text-3xl md:text-4xl font-black text-slate-900 dark:text-white">
+                    ${bilingual("Simulador NCLEX", "NCLEX Simulator")}
+                  </h1>
+                  <p class="text-slate-600 dark:text-slate-300 mt-1">
+                    ${bilingual("Selecciona varios temas y mezcla preguntas.", "Select multiple topics and mix questions.")}
+                  </p>
+                </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 space-y-3">
-            ${catButtons.join('')}
-          </div>
-
-          <aside class="space-y-4">
-            <div class="bg-white dark:bg-brand-card rounded-2xl shadow-lg border border-slate-200 dark:border-white/10 p-5">
-              <div class="font-black text-slate-900 dark:text-white mb-2">${bilingual("Configuración", "Settings")}</div>
-
-              <div class="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">${bilingual("Número de preguntas", "Questions count")}</div>
-              <div class="flex flex-wrap gap-2">${limitOptions}</div>
-
-              <div class="mt-4 text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">${bilingual("Tamaño de letra", "Font size")}</div>
-              <div class="flex gap-2">
-                <button onclick="window.simController.adjustFont(-0.1)" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black">A-</button>
-                <button onclick="window.simController.adjustFont(0.1)" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black">A+</button>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button onclick="window.simController.startQuiz('ALL')" class="px-5 py-2.5 rounded-2xl bg-slate-900 text-white font-black shadow hover:shadow-lg transition">
+                    ${bilingual("Mixto total", "Full mix")}
+                  </button>
+                  <button onclick="window.simController.startSelected()"
+                    class="px-5 py-2.5 rounded-2xl ${canStartSelected ? 'bg-brand-blue text-white shadow hover:shadow-lg' : 'bg-slate-300 dark:bg-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'} font-black transition"
+                    ${canStartSelected ? '' : 'disabled'}>
+                    ${bilingual("Iniciar selección", "Start selection")}
+                  </button>
+                </div>
               </div>
 
-              <div class="mt-4 text-xs text-slate-600 dark:text-slate-300">
-                ${bilingual("Preguntas cargadas:", "Questions loaded:")} <span class="font-bold">${total}</span>
+              <div class="mt-4 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-black px-3 py-1.5 rounded-full bg-white/70 dark:bg-black/20 border border-white/60 dark:border-white/10 text-slate-700 dark:text-slate-200">
+                  ${bilingual("Seleccionados:", "Selected:")} ${selectedLabel}
+                </span>
+
+                <button onclick="window.simController.selectAll()" class="px-3 py-1.5 rounded-full text-xs font-black bg-white/70 dark:bg-black/20 border border-white/60 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:opacity-90 transition">
+                  ${bilingual("Seleccionar todo", "Select all")}
+                </button>
+                <button onclick="window.simController.clearSelected()" class="px-3 py-1.5 rounded-full text-xs font-black bg-white/70 dark:bg-black/20 border border-white/60 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:opacity-90 transition">
+                  ${bilingual("Limpiar", "Clear")}
+                </button>
+
+                <span class="ml-auto text-xs font-bold text-slate-600 dark:text-slate-300">
+                  ${bilingual("Preguntas cargadas:", "Loaded questions:")} <span class="font-black">${total}</span>
+                </span>
+              </div>
+
+              ${(selectedCount > 0)
+                ? `<div class="mt-3 flex flex-wrap items-center gap-2">${selectedChips}${moreChip}</div>`
+                : `<div class="mt-3 text-xs text-slate-600 dark:text-slate-300">${bilingual("Tip: toca varias tarjetas para mezclar temas.", "Tip: tap multiple cards to mix topics.")}</div>`
+              }
+            </div>
+          </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div class="lg:col-span-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              ${categoryCards}
+            </div>
+          </div>
+
+          <aside class="space-y-4 lg:sticky lg:top-4 h-fit">
+            <div class="rounded-3xl shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card overflow-hidden">
+              <div class="p-5 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                <div class="font-black text-slate-900 dark:text-white">${bilingual("Configuración", "Settings")}</div>
+                <div class="text-xs text-slate-600 dark:text-slate-300 mt-1">${bilingual("Ajusta tu práctica.", "Tune your practice.")}</div>
+              </div>
+
+              <div class="p-5">
+                <div class="text-xs font-black text-slate-600 dark:text-slate-300 mb-2">${bilingual("Número de preguntas", "Questions count")}</div>
+                <div class="flex flex-wrap gap-2">${limitOptions}</div>
+
+                <div class="mt-5 text-xs font-black text-slate-600 dark:text-slate-300 mb-2">${bilingual("Tamaño de letra", "Font size")}</div>
+                <div class="flex gap-2">
+                  <button onclick="window.simController.adjustFont(-0.1)" class="px-4 py-2 rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black hover:opacity-90 transition">A-</button>
+                  <button onclick="window.simController.adjustFont(0.1)" class="px-4 py-2 rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black hover:opacity-90 transition">A+</button>
+                </div>
+
+                <div class="mt-5 p-4 rounded-2xl bg-slate-900 text-white shadow-inner">
+                  <div class="font-black">${bilingual("Modo mezcla", "Mix mode")}</div>
+                  <div class="text-xs text-slate-200 mt-1">
+                    ${bilingual("Selecciona temas y luego “Iniciar selección”.", "Select topics then “Start selection”.")}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div class="bg-slate-900 text-white rounded-2xl shadow-xl p-5">
-              <div class="font-black text-lg">${bilingual("Tip rápido", "Quick tip")}</div>
-              <p class="text-sm text-slate-200 mt-2">
-                ${bilingual("No inventes información. Responde SOLO con lo que dice la pregunta.", "Do not add info. Answer ONLY based on what the stem says.")}
-              </p>
+            <div class="rounded-3xl shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card overflow-hidden">
+              <div class="p-5">
+                <div class="font-black text-slate-900 dark:text-white">${bilingual("Acciones rápidas", "Quick actions")}</div>
+                <div class="mt-3 grid grid-cols-1 gap-2">
+                  <button onclick="window.simController.startQuiz('ALL')" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:opacity-90 transition">
+                    ${bilingual("Mixto total", "Full mix")}
+                  </button>
+                  <button onclick="window.simController.startSelected()"
+                    class="px-5 py-3 rounded-2xl ${canStartSelected ? 'bg-brand-blue text-white' : 'bg-slate-300 dark:bg-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'} font-black transition"
+                    ${canStartSelected ? '' : 'disabled'}>
+                    ${bilingual("Iniciar selección", "Start selection")}
+                  </button>
+                  <button onclick="window.simController.clearSelected()" class="px-5 py-3 rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black hover:opacity-90 transition">
+                    ${bilingual("Limpiar selección", "Clear selection")}
+                  </button>
+                </div>
+              </div>
             </div>
           </aside>
         </div>
@@ -520,14 +676,15 @@
 
     const optionButtons = q.options.map(opt => {
       const isSelected = selected.has(opt.id);
-      const base = `w-full text-left p-4 rounded-2xl border transition`;
+
+      const base = `w-full text-left p-4 rounded-3xl border transition`;
       const classes = isSelected
-        ? `${base} border-brand-blue bg-brand-blue/10 dark:bg-brand-blue/20`
-        : `${base} border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card hover:border-slate-300 dark:hover:border-white/20`;
+        ? `${base} border-brand-blue bg-brand-blue/10 dark:bg-brand-blue/20 shadow-sm`
+        : `${base} border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card hover:border-slate-300 dark:hover:border-white/20 hover:shadow-sm`;
 
       const badge = isSata
-        ? `<span class="inline-flex items-center justify-center w-5 h-5 rounded-md border ${isSelected ? 'bg-brand-blue border-brand-blue text-white' : 'border-slate-300 dark:border-white/20 text-slate-600 dark:text-slate-300'} text-xs font-black">${isSelected ? '✓' : ''}</span>`
-        : `<span class="inline-flex items-center justify-center w-7 h-7 rounded-full ${isSelected ? 'bg-brand-blue text-white' : 'bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white'} text-xs font-black">${opt.id.toUpperCase()}</span>`;
+        ? `<span class="inline-flex items-center justify-center w-6 h-6 rounded-2xl border ${isSelected ? 'bg-brand-blue border-brand-blue text-white shadow' : 'border-slate-300 dark:border-white/20 text-slate-600 dark:text-slate-300'} text-xs font-black">${isSelected ? '✓' : ''}</span>`
+        : `<span class="inline-flex items-center justify-center w-8 h-8 rounded-2xl ${isSelected ? 'bg-brand-blue text-white shadow' : 'bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white'} text-xs font-black">${opt.id.toUpperCase()}</span>`;
 
       return `
         <button onclick="window.simController.selectOption('${opt.id}')" class="${classes}">
@@ -544,26 +701,28 @@
     const canSubmit = (state.userSelection || []).length > 0;
 
     return `
-      <div class="p-6 max-w-4xl mx-auto">
-        <div class="bg-white dark:bg-brand-card rounded-2xl shadow-lg border border-slate-200 dark:border-white/10 overflow-hidden">
-          <div class="p-5 border-b border-slate-200 dark:border-white/10">
+      <div class="p-6 max-w-5xl mx-auto">
+        <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card">
+          <div class="p-6 bg-gradient-to-r from-brand-blue/10 to-purple-500/10 dark:from-blue-500/10 dark:to-purple-500/10 border-b border-slate-200 dark:border-white/10">
             <div class="flex items-center justify-between gap-3">
-              <div class="text-sm font-bold text-slate-600 dark:text-slate-300">
+              <div class="text-sm font-black text-slate-700 dark:text-slate-200">
                 ${bilingual("Pregunta", "Question")} ${current} / ${total}
-                <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10">${q.category}</span>
-                <span class="ml-2 text-xs px-2 py-0.5 rounded-full ${isSata ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200'}">
+                <span class="ml-2 text-xs px-3 py-1 rounded-full bg-white/70 dark:bg-black/20 border border-white/60 dark:border-white/10">${escapeHtml(q.category)}</span>
+                <span class="ml-2 text-xs px-3 py-1 rounded-full ${isSata ? 'bg-purple-500/15 text-purple-700 dark:text-purple-200 dark:bg-purple-500/15' : 'bg-blue-500/15 text-blue-700 dark:text-blue-200 dark:bg-blue-500/15'}">
                   ${isSata ? bilingual("SATA", "SATA") : bilingual("Single", "Single")}
                 </span>
               </div>
-              <div class="text-xs font-bold text-slate-600 dark:text-slate-300">${progress}%</div>
+              <div class="text-xs font-black text-slate-700 dark:text-slate-200">${progress}%</div>
             </div>
-            <div class="mt-3 h-2 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+
+            <div class="mt-3 h-2.5 rounded-full bg-white/60 dark:bg-white/10 overflow-hidden">
               <div class="h-full bg-brand-blue" style="width:${progress}%"></div>
             </div>
           </div>
 
           <div class="p-6">
-            <div class="text-xl font-black text-slate-900 dark:text-white mb-4" style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
+            <div class="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-5"
+              style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
               ${bilingual(q.textEs, q.textEn)}
             </div>
 
@@ -572,12 +731,12 @@
             </div>
 
             <div class="mt-6 flex flex-wrap gap-2">
-              <button onclick="window.simController.quit()" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-bold">
+              <button onclick="window.simController.quit()" class="px-5 py-2.5 rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black hover:opacity-90 transition">
                 ${bilingual("Salir", "Quit")}
               </button>
 
               <button onclick="window.simController.submit()"
-                class="px-4 py-2 rounded-xl ${canSubmit ? 'bg-brand-blue text-white' : 'bg-slate-300 dark:bg-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'} font-bold"
+                class="px-5 py-2.5 rounded-2xl ${canSubmit ? 'bg-brand-blue text-white shadow hover:shadow-lg' : 'bg-slate-300 dark:bg-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'} font-black transition"
                 ${canSubmit ? '' : 'disabled'}>
                 ${bilingual("Enviar", "Submit")}
               </button>
@@ -598,7 +757,6 @@
 
     const correctIds = q.options.filter(o => o.correct).map(o => o.id);
     const selected = state.userSelection || [];
-    const isSata = q.type === 'sata';
 
     const isCorrect = (q.type === 'single')
       ? correctIds.includes(selected[0])
@@ -621,12 +779,12 @@
         'bg-white dark:bg-brand-card';
 
       const tag =
-        right ? `<span class="text-xs font-black px-2 py-0.5 rounded-full bg-green-600 text-white">${bilingual("Correcta", "Correct")}</span>` :
-        picked && !right ? `<span class="text-xs font-black px-2 py-0.5 rounded-full bg-red-600 text-white">${bilingual("Tu elección", "Your pick")}</span>` :
-        `<span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200">${opt.id.toUpperCase()}</span>`;
+        right ? `<span class="text-xs font-black px-3 py-1 rounded-full bg-green-600 text-white shadow">${bilingual("Correcta", "Correct")}</span>` :
+        picked && !right ? `<span class="text-xs font-black px-3 py-1 rounded-full bg-red-600 text-white shadow">${bilingual("Tu elección", "Your pick")}</span>` :
+        `<span class="text-xs font-black px-3 py-1 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-200">${opt.id.toUpperCase()}</span>`;
 
       return `
-        <div class="p-4 rounded-2xl border ${border} ${bg}">
+        <div class="p-4 rounded-3xl border ${border} ${bg} shadow-sm">
           <div class="flex items-start gap-3">
             <div class="shrink-0">${tag}</div>
             <div class="flex-1" style="font-size:${state.fontSize}rem">
@@ -638,19 +796,15 @@
     }).join('');
 
     const headerBadge = isCorrect
-      ? `<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-600 text-white text-sm font-black">
+      ? `<div class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-green-600 text-white text-sm font-black shadow">
             <i class="fa-solid fa-check"></i> ${bilingual("Correcto", "Correct")}
          </div>`
-      : `<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600 text-white text-sm font-black">
+      : `<div class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-red-600 text-white text-sm font-black shadow">
             <i class="fa-solid fa-xmark"></i> ${bilingual("Incorrecto", "Incorrect")}
          </div>`;
 
-    const rationaleText = (state.rationaleModeLang && state.rationaleModeLang === 'en')
-      ? (q.rationaleEn || q.rationaleEs || '')
-      : (q.rationaleEs || q.rationaleEn || '');
-
     const rationaleBlock = (q.rationaleEs || q.rationaleEn)
-      ? `<div class="mt-5 p-5 rounded-2xl bg-slate-900 text-white">
+      ? `<div class="mt-5 p-5 rounded-3xl bg-slate-900 text-white shadow-inner">
           <div class="font-black text-lg mb-2">${bilingual("Razonamiento", "Rationale")}</div>
           <div class="text-sm text-slate-200" style="font-size:${Math.max(0.95, state.fontSize)}rem">
             ${bilingual(q.rationaleEs, q.rationaleEn)}
@@ -659,19 +813,20 @@
       : '';
 
     return `
-      <div class="p-6 max-w-4xl mx-auto">
-        <div class="bg-white dark:bg-brand-card rounded-2xl shadow-lg border border-slate-200 dark:border-white/10 overflow-hidden">
-          <div class="p-5 border-b border-slate-200 dark:border-white/10">
+      <div class="p-6 max-w-5xl mx-auto">
+        <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card">
+          <div class="p-6 bg-gradient-to-r from-slate-900/5 to-brand-blue/10 dark:from-white/5 dark:to-blue-500/10 border-b border-slate-200 dark:border-white/10">
             <div class="flex items-center justify-between gap-3">
-              <div class="text-sm font-bold text-slate-600 dark:text-slate-300">
-                ${bilingual("Revisión", "Review")} • ${q.category} • ${isSata ? 'SATA' : 'Single'}
+              <div class="text-sm font-black text-slate-700 dark:text-slate-200">
+                ${bilingual("Revisión", "Review")} • ${escapeHtml(q.category)} • ${q.type === 'sata' ? 'SATA' : 'Single'}
               </div>
               ${headerBadge}
             </div>
           </div>
 
           <div class="p-6">
-            <div class="text-xl font-black text-slate-900 dark:text-white mb-4" style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
+            <div class="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-5"
+              style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
               ${bilingual(q.textEs, q.textEn)}
             </div>
 
@@ -682,11 +837,11 @@
             ${rationaleBlock}
 
             <div class="mt-6 flex flex-wrap gap-2">
-              <button onclick="window.simController.quit()" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-bold">
+              <button onclick="window.simController.quit()" class="px-5 py-2.5 rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black hover:opacity-90 transition">
                 ${bilingual("Salir", "Quit")}
               </button>
 
-              <button onclick="window.simController.next()" class="px-4 py-2 rounded-xl bg-brand-blue text-white font-bold">
+              <button onclick="window.simController.next()" class="px-5 py-2.5 rounded-2xl bg-brand-blue text-white font-black shadow hover:shadow-lg transition">
                 ${bilingual("Siguiente", "Next")}
               </button>
             </div>
@@ -708,31 +863,41 @@
         : bilingual("Necesitas más práctica. Sigue entrenando.", "You need more practice. Keep training.");
 
     return `
-      <div class="p-6 max-w-3xl mx-auto">
-        <div class="bg-white dark:bg-brand-card rounded-2xl shadow-lg border border-slate-200 dark:border-white/10 p-6">
-          <h2 class="text-2xl font-black text-slate-900 dark:text-white mb-2">${bilingual("Resultados", "Results")}</h2>
+      <div class="p-6 max-w-4xl mx-auto">
+        <div class="rounded-3xl overflow-hidden shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-brand-card">
+          <div class="p-6 bg-gradient-to-r from-emerald-500/10 to-brand-blue/10 dark:from-emerald-500/10 dark:to-blue-500/10 border-b border-slate-200 dark:border-white/10">
+            <h2 class="text-3xl font-black text-slate-900 dark:text-white">${bilingual("Resultados", "Results")}</h2>
+            <p class="text-slate-600 dark:text-slate-300 mt-1">${msg}</p>
+          </div>
 
-          <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div class="p-4 rounded-2xl bg-slate-100 dark:bg-white/10">
-              <div class="text-xs font-bold text-slate-600 dark:text-slate-300">${bilingual("Puntaje", "Score")}</div>
-              <div class="text-2xl font-black text-slate-900 dark:text-white">${score} / ${total}</div>
+          <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="p-5 rounded-3xl bg-slate-100 dark:bg-white/10">
+              <div class="text-xs font-black text-slate-600 dark:text-slate-300">${bilingual("Puntaje", "Score")}</div>
+              <div class="text-3xl font-black text-slate-900 dark:text-white">${score} / ${total}</div>
             </div>
-            <div class="p-4 rounded-2xl bg-slate-100 dark:bg-white/10">
-              <div class="text-xs font-bold text-slate-600 dark:text-slate-300">${bilingual("Porcentaje", "Percent")}</div>
-              <div class="text-2xl font-black text-slate-900 dark:text-white">${pct}%</div>
+            <div class="p-5 rounded-3xl bg-slate-100 dark:bg-white/10">
+              <div class="text-xs font-black text-slate-600 dark:text-slate-300">${bilingual("Porcentaje", "Percent")}</div>
+              <div class="text-3xl font-black text-slate-900 dark:text-white">${pct}%</div>
             </div>
-            <div class="p-4 rounded-2xl bg-slate-900 text-white">
-              <div class="text-xs font-bold text-slate-200">${bilingual("Feedback", "Feedback")}</div>
-              <div class="text-sm font-bold mt-1">${msg}</div>
+            <div class="p-5 rounded-3xl bg-slate-900 text-white">
+              <div class="text-xs font-black text-slate-200">${bilingual("Siguiente paso", "Next step")}</div>
+              <div class="text-sm font-bold mt-1">
+                ${bilingual("Mezcla temas y sube tu límite para más dificultad.", "Mix topics and increase your limit for more challenge.")}
+              </div>
             </div>
           </div>
 
-          <div class="mt-6 flex flex-wrap gap-2">
-            <button onclick="window.simController.quit()" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-bold">
+          <div class="p-6 pt-0 flex flex-wrap gap-2">
+            <button onclick="window.simController.quit()" class="px-5 py-2.5 rounded-2xl bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white font-black hover:opacity-90 transition">
               ${bilingual("Volver al lobby", "Back to lobby")}
             </button>
-            <button onclick="window.simController.startQuiz('ALL')" class="px-4 py-2 rounded-xl bg-brand-blue text-white font-bold">
-              ${bilingual("Repetir mixto", "Retry mixed")}
+            <button onclick="window.simController.startQuiz('ALL')" class="px-5 py-2.5 rounded-2xl bg-slate-900 text-white font-black shadow hover:shadow-lg transition">
+              ${bilingual("Repetir mixto total", "Retry full mix")}
+            </button>
+            <button onclick="window.simController.startSelected()"
+              class="px-5 py-2.5 rounded-2xl ${((state.selectedCategories || []).length > 0) ? 'bg-brand-blue text-white shadow hover:shadow-lg' : 'bg-slate-300 dark:bg-white/10 text-slate-500 dark:text-slate-400 cursor-not-allowed'} font-black transition"
+              ${((state.selectedCategories || []).length > 0) ? '' : 'disabled'}>
+              ${bilingual("Repetir selección", "Retry selection")}
             </button>
           </div>
         </div>
@@ -753,23 +918,26 @@
   window.simController = {
     setLimit(n) { state.limit = Math.max(1, Number(n) || 10); renderNow(); },
     adjustFont(delta) {
-      state.fontSize = Math.max(0.8, Math.min(1.5, state.fontSize + (Number(delta) || 0)));
+      state.fontSize = Math.max(0.8, Math.min(1.6, state.fontSize + (Number(delta) || 0)));
       renderNow();
     },
+
+    // ✅ mantiene compatibilidad: iniciar SOLO una categoría o ALL
     startQuiz(c) {
-      let pool = (c === 'ALL') ? [...state.allQuestions] : state.allQuestions.filter(q => q.category === c);
-      pool.sort(() => Math.random() - 0.5);
-      if (state.limit < pool.length) pool = pool.slice(0, state.limit);
-
-      state.activeSession = pool;
-      state.currentIndex = 0;
-      state.score = 0;
-      state.userSelection = [];
-      state.isRationaleMode = false;
-      state.lastSubmitted = null;
-
-      renderNow();
+      if (c === 'ALL') {
+        startQuizWithCategories([]);
+      } else {
+        startQuizWithCategories([c]);
+      }
     },
+
+    // ✅ multi-select
+    toggleCategory(cat) { toggleSelectedCategory(cat); },
+    clearSelected() { clearSelectedCategories(); },
+    selectAll() { selectAllCategories(); },
+    startSelected() { startQuizWithCategories(state.selectedCategories || []); },
+
+    // quiz flow
     selectOption(id) {
       const q = state.activeSession[state.currentIndex];
       if (!q) return;
@@ -784,13 +952,13 @@
       }
       renderNow();
     },
+
     submit() {
       const q = state.activeSession[state.currentIndex];
       if (!q) return;
       if (!state.userSelection || state.userSelection.length === 0) return;
 
       const correctIds = q.options.filter(o => o.correct).map(o => o.id);
-
       const isCorrect = (q.type === 'single')
         ? correctIds.includes(state.userSelection[0])
         : (correctIds.length === state.userSelection.length &&
@@ -803,6 +971,7 @@
 
       renderNow();
     },
+
     next() {
       state.currentIndex++;
       state.userSelection = [];
@@ -811,12 +980,15 @@
 
       if (state.currentIndex >= state.activeSession.length) {
         const view = document.getElementById('app-view');
-        if (view) view.innerHTML = renderResults();
-        applyGlobalLanguage();
+        if (view) {
+          view.innerHTML = renderResults();
+          applyGlobalLanguage(view);
+        }
       } else {
         renderNow();
       }
     },
+
     quit() {
       state.activeSession = [];
       state.userSelection = [];
@@ -824,6 +996,7 @@
       state.lastSubmitted = null;
       renderNow();
     },
+
     forceReload() {
       state.allQuestions = [];
       state.activeSession = [];
