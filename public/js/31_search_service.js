@@ -1,35 +1,34 @@
-// 31_search_service.js — Motor de Búsqueda Inteligente (Integrado en Barra Superior)
-// VERSIÓN: Conecta la barra "bruta" con el cerebro del buscador flotante + Highlight
-
+// 31_search_service.js — Buscador Integrado con Highlight (Sin botón flotante)
 (function() {
   'use strict';
 
-  // Esperamos a que la app principal exponga su API
+  // Esperar a que la app principal exista
   if (!window.nclexApp && !window.NCLEX) return;
 
   const SearchService = {
     index: [],
     attempts: 0,
-    maxAttempts: 20, // Más intentos por si acaso
-    searchContainer: null,
+    maxAttempts: 20,
+    
+    // Referencias al DOM
     searchInput: null,
     resultsContainer: null,
+    contentArea: null,
 
     init() {
-      console.log("🔍 Search Service: Conectando al cerebro...");
+      console.log("🔍 Search Service: Iniciando integración...");
       
-      // 1. Intentar indexar el contenido
+      // 1. Indexar contenido (reintentar si logic.js no ha cargado)
       this.tryBuildIndex();
 
-      // 2. Esperar a que el DOM esté listo para conectar la barra existente
+      // 2. Conectar a la barra de búsqueda existente en el HTML
       if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', () => this.connectToExistingUI());
+          document.addEventListener('DOMContentLoaded', () => this.connectUI());
       } else {
-          this.connectToExistingUI();
+          this.connectUI();
       }
     },
 
-    // LÓGICA DE REINTENTO (Indexación)
     tryBuildIndex() {
       const topics = window.nclexApp && typeof window.nclexApp.getTopics === 'function' 
         ? window.nclexApp.getTopics() 
@@ -37,11 +36,10 @@
         
       if (topics.length > 0) {
         this.buildIndex(topics);
-        console.log(`✅ Search Service: ${this.index.length} módulos indexados.`);
       } else {
         this.attempts++;
         if (this.attempts < this.maxAttempts) {
-          setTimeout(() => this.tryBuildIndex(), 1000); // Reintentar cada segundo
+          setTimeout(() => this.tryBuildIndex(), 1000);
         }
       }
     },
@@ -50,63 +48,53 @@
       this.index = [];
       topics.forEach(topic => {
         if (!topic || !topic.id) return;
-        
-        // Texto plano para buscar (sin tildes, minúsculas)
-        const textES = this.normalizeText(topic.title?.es + ' ' + (topic.subtitle?.es || ''));
-        const textEN = this.normalizeText(topic.title?.en + ' ' + (topic.subtitle?.en || ''));
+        // Normalizar texto para búsqueda insensible a acentos/mayúsculas
+        const textES = this.normalize(topic.title?.es + ' ' + (topic.subtitle?.es || ''));
+        const textEN = this.normalize(topic.title?.en + ' ' + (topic.subtitle?.en || ''));
 
         this.index.push({
           id: topic.id,
-          // Guardamos texto normalizado para buscar
-          searchableText: textES + ' | ' + textEN, 
-          // Guardamos objetos originales para mostrar
-          title: topic.title,
-          subtitle: topic.subtitle,
-          icon: topic.icon,
-          color: topic.color
+          searchable: textES + ' | ' + textEN,
+          data: topic
         });
       });
+      console.log(`✅ Search Index: ${this.index.length} módulos listos.`);
     },
 
-    normalizeText(str) {
-        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    normalize(str) {
+        return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
     },
 
-    // CONEXIÓN CON TU BARRA DE BÚSQUEDA EXISTENTE
-    connectToExistingUI() {
-        // Buscamos el input que ya existe en tu HTML (el del centro)
-        // En tu HTML anterior tenía el ID "global-search"
+    connectUI() {
         this.searchInput = document.getElementById('global-search');
         this.resultsContainer = document.getElementById('home-search-results');
+        this.contentArea = document.getElementById('app-view');
 
         if (!this.searchInput || !this.resultsContainer) {
-            console.warn("⚠️ Search Service: No encontré la barra de búsqueda '#global-search'. Reintentando en 1s...");
-            setTimeout(() => this.connectToExistingUI(), 1000);
+            console.warn("⚠️ No se encontró la barra de búsqueda #global-search");
             return;
         }
 
-        console.log("🚀 Search Service: Barra de búsqueda conectada exitosamente.");
-
-        // Eventos
+        // Evento: Escribir
         this.searchInput.addEventListener('input', (e) => {
             const query = e.target.value;
             if (query.length > 1) {
                 this.renderResults(query);
-                this.resultsContainer.classList.add('active'); // Mostrar lista
+                this.resultsContainer.classList.add('active');
                 this.resultsContainer.style.display = 'block';
             } else {
                 this.resultsContainer.style.display = 'none';
             }
         });
 
-        // Cerrar al hacer clic fuera
+        // Evento: Clic fuera para cerrar
         document.addEventListener('click', (e) => {
             if (!this.searchInput.contains(e.target) && !this.resultsContainer.contains(e.target)) {
                 this.resultsContainer.style.display = 'none';
             }
         });
-        
-        // Enfocar input con atajo de teclado (Ctrl + K)
+
+        // Evento: Teclado (Ctrl+K para enfocar)
         document.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();
@@ -116,159 +104,98 @@
     },
 
     renderResults(query) {
-        const normalizedQuery = this.normalizeText(query);
-        const matches = this.index.filter(item => item.searchableText.includes(normalizedQuery));
-        const currentLang = localStorage.getItem('nclex_lang') || 'es';
-        const isEs = currentLang === 'es';
+        const normQuery = this.normalize(query);
+        const matches = this.index.filter(item => item.searchable.includes(normQuery));
+        const isEs = (localStorage.getItem('nclex_lang') || 'es') === 'es';
 
         if (matches.length === 0) {
-            this.resultsContainer.innerHTML = `
-                <div class="p-4 text-center text-gray-500 text-sm">
-                    ${isEs ? 'No se encontraron resultados' : 'No results found'}
-                </div>`;
+            this.resultsContainer.innerHTML = `<div class="p-4 text-center text-gray-400 text-sm">Sin resultados / No results</div>`;
             return;
         }
 
-        let html = '<div class="py-2">';
-        matches.forEach(match => {
-            // Decidir qué idioma mostrar en el título
-            const title = isEs ? match.title.es : match.title.en;
-            const subtitle = isEs ? (match.subtitle?.es || '') : (match.subtitle?.en || '');
+        let html = '<div class="py-1">';
+        matches.forEach(m => {
+            const t = m.data;
+            const title = isEs ? t.title.es : t.title.en;
+            const sub = isEs ? (t.subtitle?.es || '') : (t.subtitle?.en || '');
             
-            // Resaltar la palabra coincidente en el título (Highlight)
-            const highlightedTitle = this.highlightText(title, query);
+            // Resaltar coincidencia en el título del menú
+            const displayTitle = title.replace(new RegExp(`(${query})`, 'gi'), '<span class="text-blue-600 font-extrabold">$1</span>');
 
             html += `
-                <div onclick="window.SearchService.navigateTo('${match.id}', '${query}')" 
-                     class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer flex items-center gap-3 border-b border-gray-100 dark:border-white/5 last:border-0 transition-colors">
-                    
-                    <div class="w-8 h-8 rounded-lg bg-${match.color || 'blue'}-100 dark:bg-${match.color || 'blue'}-900/30 text-${match.color || 'blue'}-600 dark:text-${match.color || 'blue'}-400 flex items-center justify-center shrink-0">
-                        <i class="fa-solid fa-${match.icon || 'book'} text-sm"></i>
+                <div onclick="window.SearchService.go('${m.id}', '${query}')" 
+                     class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer flex items-center gap-3 border-b border-gray-100 dark:border-white/5 last:border-0">
+                    <div class="w-8 h-8 rounded-lg bg-${t.color || 'blue'}-100 dark:bg-${t.color || 'blue'}-900/30 text-${t.color || 'blue'}-600 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-${t.icon || 'book'} text-sm"></i>
                     </div>
-                    
-                    <div>
-                        <div class="font-bold text-sm text-gray-800 dark:text-gray-200">
-                            ${highlightedTitle}
-                        </div>
-                        <div class="text-xs text-gray-500 truncate max-w-[200px]">
-                            ${subtitle}
-                        </div>
+                    <div class="min-w-0">
+                        <div class="font-bold text-sm text-gray-800 dark:text-gray-200 truncate">${displayTitle}</div>
+                        <div class="text-xs text-gray-500 truncate">${sub}</div>
                     </div>
                 </div>
             `;
         });
         html += '</div>';
-        
         this.resultsContainer.innerHTML = html;
     },
 
-    // Función auxiliar para resaltar texto en los resultados de la lista
-    highlightText(text, query) {
-        const regex = new RegExp(`(${query})`, 'gi');
-        return text.replace(regex, '<span class="bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-200 text-gray-900 px-0.5 rounded">$1</span>');
-    },
-
-    // FUNCIÓN PÚBLICA: Navegar y Resaltar en el Contenido
-    navigateTo(topicId, query) {
-        // 1. Navegar al tema
-        if (window.nclexApp && window.nclexApp.navigate) {
-            window.nclexApp.navigate(`topic/${topicId}`);
-        }
-
-        // 2. Cerrar resultados
+    // Navegar y activar Highlight
+    go(topicId, query) {
+        // 1. Navegar
+        if (window.nclexApp) window.nclexApp.navigate(`topic/${topicId}`);
+        
+        // 2. Limpiar UI
         this.resultsContainer.style.display = 'none';
-        this.searchInput.value = ''; // Limpiar input
+        this.searchInput.value = '';
 
-        // 3. Esperar a que cargue el contenido y luego resaltar
+        // 3. Esperar carga y resaltar
         setTimeout(() => {
-            this.highlightInContent(query);
-        }, 800); // 800ms de espera para asegurar que el contenido cargó
+            this.highlightContent(query);
+        }, 600); 
     },
 
-    // EL CEREBRO DEL HIGHLIGHT: Busca en el contenido HTML y marca las palabras
-    highlightInContent(query) {
-        if (!query) return;
+    highlightContent(query) {
+        if (!query || !this.contentArea) return;
+        
+        // Limpiar anteriores
+        const marks = this.contentArea.querySelectorAll('mark.highlight-pulse');
+        marks.forEach(m => {
+            const text = document.createTextNode(m.textContent);
+            m.parentNode.replaceChild(text, m);
+        });
 
-        const contentArea = document.getElementById('app-view'); // El área donde se carga el contenido
-        if (!contentArea) return;
-
-        // Limpiar resaltados anteriores si los hay
-        this.removeHighlights();
-
-        // Usamos una librería ligera nativa o Mark.js si estuviera, pero haremos una implementación vanilla robusta
-        const walker = document.createTreeWalker(contentArea, NodeFilter.SHOW_TEXT, null, false);
-        const nodesToReplace = [];
-        const regex = new RegExp(this.normalizeText(query), 'gi');
+        // Buscar texto en nodos visibles
+        const walker = document.createTreeWalker(this.contentArea, NodeFilter.SHOW_TEXT, null, false);
+        const normQuery = this.normalize(query);
+        const nodesToMark = [];
 
         let node;
-        while (node = walker.nextNode()) {
-            // Ignorar scripts y estilos
-            if (node.parentNode.tagName === 'SCRIPT' || node.parentNode.tagName === 'STYLE') continue;
-
-            const text = this.normalizeText(node.nodeValue);
-            if (text.includes(this.normalizeText(query))) {
-                nodesToReplace.push(node);
+        while(node = walker.nextNode()) {
+            if (node.parentElement.tagName === 'SCRIPT' || node.parentElement.tagName === 'STYLE') continue;
+            if (this.normalize(node.nodeValue).includes(normQuery)) {
+                nodesToMark.push(node);
             }
         }
 
-        // Reemplazar nodos de texto con spans resaltados
-        // Nota: Esto es básico, para un highlight perfecto en HTML complejo se suele usar librerías como Mark.js, 
-        // pero esto funcionará para títulos y párrafos simples.
-        let firstMatch = null;
-
-        nodesToReplace.forEach(node => {
+        // Aplicar resaltado (solo a la primera coincidencia para no saturar)
+        if (nodesToMark.length > 0) {
+            const targetNode = nodesToMark[0];
             const span = document.createElement('span');
-            const originalText = node.nodeValue;
+            const regex = new RegExp(`(${query})`, 'gi');
+            span.innerHTML = targetNode.nodeValue.replace(regex, '<mark class="highlight-pulse bg-yellow-300 text-black px-1 rounded shadow-sm">$1</mark>');
             
-            // Truco: Reemplazamos conservando mayúsculas/minúsculas originales visualmente
-            // Es complejo hacerlo perfecto con Regex simple sin perder formato, 
-            // así que simplemente marcaremos el nodo contenedor por ahora para no romper HTML.
+            targetNode.parentNode.replaceChild(span, targetNode);
             
-            const parent = node.parentNode;
-            if (parent) {
-                // Añadir clase de highlight temporal
-                // parent.style.backgroundColor = '#fef08a'; // Amarillo suave
-                // parent.style.transition = 'background-color 0.5s';
-                
-                // Método más agresivo: innerHTML replace (Cuidado con eventos)
-                const newHTML = parent.innerHTML.replace(
-                    new RegExp(`(${query})`, 'gi'), 
-                    '<mark class="bg-yellow-300 text-black px-1 rounded animate-pulse">$1</mark>'
-                );
-                
-                try {
-                    parent.innerHTML = newHTML;
-                    if (!firstMatch) firstMatch = parent;
-                } catch(e) {}
-            }
-        });
-
-        // 4. Scroll hasta la primera coincidencia
-        if (firstMatch) {
-            firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            // Quitar highlight después de 5 segundos
-            setTimeout(() => this.removeHighlights(), 5000);
-        } else {
-            console.log("No se encontraron coincidencias exactas en el texto visible.");
+            // Scroll suave
+            setTimeout(() => {
+                const mark = document.querySelector('mark.highlight-pulse');
+                if(mark) mark.scrollIntoView({behavior: "smooth", block: "center"});
+            }, 100);
         }
-    },
-
-    removeHighlights() {
-        const marks = document.querySelectorAll('mark');
-        marks.forEach(mark => {
-            // Reemplazar la etiqueta mark por su contenido de texto
-            const parent = mark.parentNode;
-            parent.replaceChild(document.createTextNode(mark.textContent), mark);
-            parent.normalize(); // Unir nodos de texto adyacentes
-        });
     }
   };
 
-  // Exponer al objeto global para poder llamarlo desde el HTML
   window.SearchService = SearchService;
-  
-  // Iniciar
   SearchService.init();
 
 })();
