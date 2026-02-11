@@ -1,11 +1,9 @@
 // 32_analytics_dashboard.js — Dashboard de Métricas Bilingüe & Auto-Actualizable
 // VERSIÓN AUDITADA: Integración nativa con logic.js + Captura automática de datos del simulador
-// Dependencias: window.NCLEX, localStorage
 
 (function() {
   'use strict';
 
-  // 1. Guard Clause: Verificación de seguridad
   if (!window.NCLEX && !window.nclexApp) {
       console.error("Critical: NCLEX Core not found. Module 32 skipped.");
       return;
@@ -13,11 +11,8 @@
 
   console.log("Cargando Módulo 32: Analytics Dashboard...");
 
-  // 2. Helper Bilingüe (Compatible con tu sistema logic.js)
   const t = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-  // 3. Registrar Tópico (Esto hace que aparezca en el menú)
-  // Aseguramos compatibilidad si NCLEX está definido
   if (window.NCLEX) {
       NCLEX.registerTopic({
         id: 'dashboard', 
@@ -27,21 +22,19 @@
         color: 'indigo',
     
         render() {
-          Analytics.loadData(); // Recargar datos al abrir
+          Analytics.loadData();
           return Analytics.getHTML();
         }
       });
   }
 
-  // --- LÓGICA DEL DASHBOARD ---
   const Analytics = {
     data: { total: 0, correct: 0, score: 0, streak: 0, progress: 0 },
 
     loadData() {
       try {
-        // Recuperar historial
         const history = JSON.parse(localStorage.getItem('nclex_exam_history') || '[]');
-        const readModules = JSON.parse(localStorage.getItem('nclex_progress') || '[]'); // Corregido key a 'nclex_progress' según logic.js
+        const readModules = JSON.parse(localStorage.getItem('nclex_progress') || '[]');
         
         let totalQ = 0;
         let totalCorrect = 0;
@@ -51,14 +44,11 @@
             totalCorrect += (parseInt(session.correct) || 0);
         });
 
-        // Calcular porcentaje global
         const score = totalQ > 0 ? Math.round((totalCorrect / totalQ) * 100) : 0;
         
-        // Calcular progreso de lectura
-        // Usamos window.NCLEX.getAllTopics() si existe para ser más precisos, o fallback
         const topics = (window.NCLEX && window.NCLEX.getAllTopics) ? window.NCLEX.getAllTopics() : [];
-        const totalTopics = topics.length || 32;
-        const progress = Math.min(100, Math.round((readModules.length / totalTopics) * 100));
+        const totalTopics = topics.length || 0;
+        const progress = totalTopics > 0 ? Math.min(100, Math.round((readModules.length / totalTopics) * 100)) : 0;
 
         this.data = {
             total: totalQ,
@@ -73,7 +63,6 @@
     },
 
     getHTML() {
-      // ESTADO VACÍO (Si no ha hecho exámenes)
       if (this.data.total === 0) {
           return `
             <div class="flex flex-col items-center justify-center py-12 text-center animate-fade-in bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
@@ -93,7 +82,6 @@
           `;
       }
 
-      // DASHBOARD CON DATOS
       const scoreColor = this.data.score >= 75 ? 'text-green-500' : (this.data.score >= 50 ? 'text-yellow-500' : 'text-red-500');
       
       return `
@@ -159,81 +147,48 @@
     }
   };
 
-  // --- INTERCEPTOR DE DATOS DEL SIMULADOR (Auto-Save Patch FIXED) ---
+  // --- INTERCEPTOR DE DATOS DEL SIMULADOR (más robusto) ---
   const observer = new MutationObserver((mutations) => {
     const appView = document.getElementById('app-view');
     if (!appView) return;
 
-    // Buscamos si apareció la pantalla de resultados del simulador
-    const resultsHeader = appView.querySelector('h2');
-    // Verificar si estamos en la pantalla de resultados (títulos bilingües)
-    if (resultsHeader && (resultsHeader.innerText.includes('Resultados') || resultsHeader.innerText.includes('Results'))) {
+    // Buscar si estamos en la pantalla de resultados del simulador
+    const resultsDiv = appView.querySelector('.simulator-results');
+    if (!resultsDiv) return;
+
+    let correct = null;
+    let total = null;
+
+    // Intentar extraer números de los elementos con clase .text-2xl dentro de resultados
+    const bigNumbers = Array.from(resultsDiv.querySelectorAll('.text-2xl')).map(el => parseInt(el.innerText)).filter(n => !isNaN(n));
+    if (bigNumbers.length >= 2) {
+        correct = bigNumbers[0];
+        total = bigNumbers[1];
+    }
+
+    if (correct !== null && total !== null && total > 0) {
+        const lastSession = parseInt(localStorage.getItem('nclex_last_session_id') || '0');
+        const currentSessionId = Date.now();
         
-        let correct = null;
-        let total = null;
-
-        // ESTRATEGIA DOM: Buscar los bloques que contienen "Correct" y "Total"
-        // simulator.js usa spans con texto 'Correctas'/'Correct' y 'Total'
-        // Los números están en el elemento hermano o padre.
-        
-        const allSpans = Array.from(appView.querySelectorAll('span'));
-        
-        // Buscar el número de CORRECTAS
-        const correctLabel = allSpans.find(el => /Correct/i.test(el.innerText));
-        if (correctLabel && correctLabel.parentElement) {
-            // En simulator.js, el número es el primer hijo del div padre, o un hermano previo
-            const numberEl = correctLabel.parentElement.querySelector('.text-2xl');
-            if (numberEl) correct = parseInt(numberEl.innerText);
-        }
-
-        // Buscar el número TOTAL
-        const totalLabel = allSpans.find(el => /Total/i.test(el.innerText));
-        if (totalLabel && totalLabel.parentElement) {
-             const numberEl = totalLabel.parentElement.querySelector('.text-2xl');
-             if (numberEl) total = parseInt(numberEl.innerText);
-        }
-
-        // Si falló la estrategia DOM precisa, intentar un fallback (menos preciso pero útil)
-        if (correct === null || total === null) {
-             // Buscar números grandes en la pantalla
-             const bigNumbers = Array.from(appView.querySelectorAll('.text-2xl')).map(el => parseInt(el.innerText)).filter(n => !isNaN(n));
-             if (bigNumbers.length >= 2) {
-                 // Asumir heurísticamente que el menor es aciertos y el mayor es total (si no hay 3 números)
-                 // simulator.js muestra: SCORE (grande), TOTAL (grande).
-                 correct = bigNumbers[0];
-                 total = bigNumbers[1];
-             }
-        }
-
-        if (correct !== null && total !== null && total > 0) {
+        if (currentSessionId - lastSession > 10000) {
+            const history = JSON.parse(localStorage.getItem('nclex_exam_history') || '[]');
+            history.push({
+                date: currentSessionId,
+                correct: correct,
+                total: total,
+                score: Math.round((correct/total)*100)
+            });
+            localStorage.setItem('nclex_exam_history', JSON.stringify(history));
             
-            // Guardar en Historial si es un nuevo resultado
-            const lastSession = JSON.parse(localStorage.getItem('nclex_last_session_id') || '0');
-            const currentSessionId = Date.now();
+            let streak = parseInt(localStorage.getItem('nclex_streak') || '0');
+            localStorage.setItem('nclex_streak', streak + 1);
             
-            // Evitar guardar duplicados (debounce de 10 seg)
-            if (currentSessionId - lastSession > 10000) {
-                const history = JSON.parse(localStorage.getItem('nclex_exam_history') || '[]');
-                history.push({
-                    date: currentSessionId,
-                    correct: correct,
-                    total: total,
-                    score: Math.round((correct/total)*100)
-                });
-                localStorage.setItem('nclex_exam_history', JSON.stringify(history));
-                
-                // Actualizar racha
-                let streak = parseInt(localStorage.getItem('nclex_streak') || '0');
-                localStorage.setItem('nclex_streak', streak + 1);
-                
-                localStorage.setItem('nclex_last_session_id', currentSessionId);
-                console.log(`📊 Analytics: Resultados capturados (C:${correct}/T:${total}) y guardados.`);
-            }
+            localStorage.setItem('nclex_last_session_id', currentSessionId);
+            console.log(`📊 Analytics: Resultados capturados (C:${correct}/T:${total}) y guardados.`);
         }
     }
   });
 
-  // Iniciar el observador sobre el contenedor principal
   const targetNode = document.getElementById('app-view') || document.body;
   observer.observe(targetNode, { childList: true, subtree: true });
 

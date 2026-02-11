@@ -27,7 +27,7 @@
         gray:   { bg: 'bg-gray-500',   text: 'text-gray-500',   grad: 'from-gray-500 to-gray-600',   light: 'bg-gray-100',   dark: 'dark:bg-gray-800/50' }
     };
 
-    const getColor = (colorName) => colorMap[colorName] || colorMap['blue'];
+    const getColor = (colorName) => colorMap[colorName] || colorMap.blue;
   
     // SAFE STORAGE
     let savedProgress = [];
@@ -116,11 +116,10 @@
         index.forEach(topic => {
           if (!topic.text.includes(q)) return;
     
-          // Clinical Priority Boost
           let boost = 0;
           const combinedTitle = (topic.title + ' ' + topic.subtitle).toLowerCase();
           PRIORITY_KEYWORDS.forEach(pk => {
-              if(combinedTitle.includes(pk)) boost += 5; // Major boost for safety/priority modules
+              if(combinedTitle.includes(pk)) boost += 5;
           });
 
           topic.headings.forEach(h => {
@@ -154,17 +153,15 @@
     window.NCLEX = {
       registerTopic(topic) {
         if (!topic || !topic.id) return;
-        topic.id = String(topic.id); // Ensure string type
+        topic.id = String(topic.id);
         
         const idx = state.topics.findIndex(t => t.id === topic.id);
-        
         if (idx >= 0) {
             state.topics[idx] = topic;
         } else {
             state.topics.push(topic);
         }
 
-        // AUTO-SORT BY ID (Robust numeric sorting)
         state.topics.sort((a, b) => {
             const numA = parseInt(a.id.match(/^\d+/)?.[0]) || 999;
             const numB = parseInt(b.id.match(/^\d+/)?.[0]) || 999;
@@ -172,13 +169,11 @@
             return a.id.localeCompare(b.id);
         });
         
-        // Debounce updateNav to prevent startup thrashing
         if (state.updateTimer) clearTimeout(state.updateTimer);
         state.updateTimer = setTimeout(() => {
             if (state.isAppLoaded) {
                 updateNav();
-                SmartTextIndex.build(state.topics); // REBUILD INDEX ON NEW CONTENT
-                // If we are currently on this topic (reloading hot swap), re-render
+                SmartTextIndex.build(state.topics);
                 if (state.currentRoute === `topic/${topic.id}`) {
                     render(state.currentRoute);
                 }
@@ -192,7 +187,6 @@
       navigate(route) {
         if (state.currentRoute === route && route !== 'home') return true;
         
-        // Save scroll position of current route before leaving
         const main = $('#main-content');
         if (main) state.scrollPositions[state.currentRoute] = main.scrollTop;
 
@@ -200,13 +194,12 @@
         render(route);
         updateNavActive(route);
         
-        // Restore scroll if exists, else top
         if(route === 'home' && state.scrollPositions['home']) {
             setTimeout(() => { if(main) main.scrollTop = state.scrollPositions['home']; }, 10);
         } else {
             if(window.scrollToTop) window.scrollToTop();
         }
-        return true; // Return true to allow chaining in onclick handlers
+        return true;
       },
       
       toggleLanguage() {
@@ -241,7 +234,6 @@
                   clearInterval(interval);
               } else if (attempts >= 10) {
                   clearInterval(interval);
-                  console.error("El simulador tardó demasiado en cargar.");
               }
               attempts++;
           }, 100);
@@ -255,7 +247,6 @@
       if(main) main.scrollTo({ top: 0, behavior: 'smooth' });
     };
     
-    // Fallback for Notepad if module not loaded
     if(!window.toggleNotepad) {
         window.toggleNotepad = function() { console.warn("Notepad module not yet loaded."); };
     }
@@ -289,24 +280,20 @@
   
     // --- BUSCADOR DE PÁGINA PRINCIPAL (INTELIGENTE) ---
     function initHomeSearch() {
-      // Este input se crea dinamicamente en renderHome, así que debemos buscarlo
       const searchInput = $('#home-search');
       const clearBtn = $('#clear-search');
       if (!searchInput) return;
   
       const RESULT_CONTAINER_ID = 'dashboard-search-results';
-
-      // Buscar el contenedor específico del dashboard
       let resultsContainer = $('#' + RESULT_CONTAINER_ID);
       
-      // FIX: Asegurar que el contenedor tenga estilos si es creado dinámicamente
       if (!resultsContainer) {
         resultsContainer = document.createElement('div');
         resultsContainer.id = RESULT_CONTAINER_ID; 
         resultsContainer.className = 'hidden absolute w-full z-50 top-full left-0 mt-2 bg-white dark:bg-[#1C1C1E] rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden ring-1 ring-black/5 no-scrollbar';
         
         if (searchInput.parentNode) {
-          searchInput.parentNode.style.position = 'relative'; // Asegurar referencia para absolute
+          searchInput.parentNode.style.position = 'relative';
           searchInput.parentNode.appendChild(resultsContainer);
         }
       }
@@ -316,21 +303,17 @@
       const handleInput = (e) => {
         const term = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         
-        // Toggle Clear Button
         if (clearBtn) {
             clearBtn.classList.toggle('hidden', term.length === 0);
         }
 
-        // Clear previous timeout
         if (searchTimeout) clearTimeout(searchTimeout);
         
-        // Hide results if empty
         if (term.length < 2) {
           resultsContainer.classList.add('hidden');
           return;
         }
   
-        // Debounce search
         searchTimeout = setTimeout(() => {
           performHomeSearch(term, resultsContainer);
         }, 300);
@@ -338,7 +321,6 @@
 
       searchInput.addEventListener('input', handleInput);
       
-      // Clear Button Logic
       if (clearBtn) {
           clearBtn.addEventListener('click', () => {
               searchInput.value = '';
@@ -348,7 +330,6 @@
           });
       }
   
-      // Close results when clicking outside
       document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target) && !resultsContainer.contains(e.target)) {
           resultsContainer.classList.add('hidden');
@@ -357,25 +338,21 @@
     }
   
     function performHomeSearch(term, resultsContainer) {
-      // Gather all searchable content
       const searchResults = [];
-      // FIX: Escape special regex characters to prevent crash
       const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const termRegex = new RegExp(escapedTerm, 'g');
       
-      // Search in topics
       state.topics.forEach(topic => {
         let score = 0;
         let matches = [];
         
-        // Search in title
         const titleEs = topic.title?.es?.toLowerCase() || '';
         const titleEn = topic.title?.en?.toLowerCase() || '';
         const subtitleEs = topic.subtitle?.es?.toLowerCase() || '';
         const subtitleEn = topic.subtitle?.en?.toLowerCase() || '';
         
         if (titleEs.includes(term) || titleEn.includes(term)) {
-          score += 20; // HIGHER PRIORITY FOR TITLES
+          score += 20;
           matches.push('title');
         }
         
@@ -384,7 +361,6 @@
           matches.push('subtitle');
         }
         
-        // Search in content (if available)
         if (topic.content && typeof topic.content === 'string') {
           const content = topic.content.toLowerCase();
           const contentMatches = (content.match(termRegex) || []).length;
@@ -394,14 +370,13 @@
           }
         }
         
-        // Search in keywords (if defined)
         if (topic.keywords) {
           const keywords = Array.isArray(topic.keywords) ? topic.keywords : [];
           const keywordMatches = keywords.filter(kw => 
             kw.toLowerCase().includes(term)
           ).length;
           if (keywordMatches > 0) {
-            score += keywordMatches * 5; // HIGH PRIORITY FOR KEYWORDS
+            score += keywordMatches * 5;
             matches.push(`keywords (${keywordMatches} matches)`);
           }
         }
@@ -412,14 +387,13 @@
             topic,
             score,
             matches,
-            title: topic.title?.es || topic.title?.en || topic.title || '',
-            subtitle: topic.subtitle?.es || topic.subtitle?.en || topic.subtitle || '',
+            title: topic.title,
+            subtitle: topic.subtitle,
             color: topic.color || 'blue'
           });
         }
       });
       
-      // Search in simulated questions (if available)
       if (window.SIMULATOR_QUESTIONS && Array.isArray(window.SIMULATOR_QUESTIONS)) {
         window.SIMULATOR_QUESTIONS.forEach((q, idx) => {
           let score = 0;
@@ -452,25 +426,21 @@
               index: idx,
               score,
               matches,
-              title: q.text?.slice(0, 80) + '...',
-              subtitle: `Simulator Question`,
+              title: { es: q.text?.slice(0, 80) + '...', en: q.text?.slice(0, 80) + '...' },
+              subtitle: { es: 'Pregunta del Simulador', en: 'Simulator Question' },
               color: 'purple'
             });
           }
         });
       }
 
-      // --- SMART TEXT MATCHES ---
       const textMatches = SmartTextIndex.search(term);
       
       textMatches.forEach(match => {
-        // Find original topic to get icon/metadata (Fix for missing icons in deep search results)
         const fullTopic = state.topics.find(t => t.id === match.topicId);
-
-        // Avoid duplicates if already found by basic search
         const existing = searchResults.find(r => r.type === 'topic' && r.topic.id === match.topicId);
+        
         if (existing) {
-             // Boost score of existing result + Clinical Boost
              existing.score += (5 + (match.boost || 0));
              return;
         }
@@ -479,22 +449,22 @@
           type: 'topic',
           topic: fullTopic || {
             id: match.topicId,
-            title: { es: match.topicTitle }
+            title: { es: match.topicTitle, en: match.topicTitle },
+            color: match.color
           },
           score: (match.type === 'section' ? 12 : 6) + (match.boost || 0),
           matches: match.heading ? [`section: ${match.heading}`] : ['content'],
-          title: match.heading || match.topicTitle,
-          subtitle: match.heading
-            ? 'Coincidencia en sección'
-            : 'Coincidencia en contenido',
+          title: { es: match.heading || match.topicTitle, en: match.heading || match.topicTitle },
+          subtitle: { 
+            es: match.heading ? 'Coincidencia en sección' : 'Coincidencia en contenido',
+            en: match.heading ? 'Section match' : 'Content match'
+          },
           color: match.color
         });
       });
       
-      // Sort by score
       searchResults.sort((a, b) => b.score - a.score);
       
-      // Render results
       if (searchResults.length === 0) {
         resultsContainer.innerHTML = `
           <div class="p-8 text-center">
@@ -522,10 +492,11 @@
             ${searchResults.map((result, idx) => {
               const colors = getColor(result.color);
               const icon = result.type === 'topic' ? 
-                normalizeFaIcon(result.topic.icon) : 
-                'brain';
+                normalizeFaIcon(result.topic.icon) : 'brain';
               
               const matchInfo = result.matches.join(', ');
+              const titleHTML = getBilingualTitle({ title: result.title });
+              const subtitleHTML = getBilingualTitle({ title: result.subtitle });
               
               return `
               <div class="p-4 border-b border-gray-100 dark:border-brand-border hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" 
@@ -536,14 +507,14 @@
                   </div>
                   <div class="flex-1">
                     <div class="flex justify-between items-start">
-                      <h4 class="font-bold text-slate-900 dark:text-white line-clamp-2">${result.title}</h4>
+                      <h4 class="font-bold text-slate-900 dark:text-white line-clamp-2">${titleHTML}</h4>
                       <span class="text-xs px-2 py-1 rounded-full ${colors.light} ${colors.text}">
                         ${result.type === 'topic' ? 
                           '<span class="lang-es">Tema</span><span class="lang-en hidden-lang">Topic</span>' : 
                           '<span class="lang-es">Simulador</span><span class="lang-en hidden-lang">Simulator</span>'}
                       </span>
                     </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${result.subtitle}</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">${subtitleHTML}</p>
                     <div class="flex items-center gap-2 mt-2">
                       <span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                         <i class="fa-solid fa-signal mr-1"></i> ${result.score} pts
@@ -561,13 +532,12 @@
         `;
       }
       
-      // Show results
       resultsContainer.classList.remove('hidden');
     }
   
     function applyLanguageGlobal() {
       const isEs = state.currentLang === 'es';
-      document.documentElement.lang = isEs ? 'es' : 'en'; // Accessibility Fix
+      document.documentElement.lang = isEs ? 'es' : 'en';
       
       $$('.lang-es').forEach(el => isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
       $$('.lang-en').forEach(el => !isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
@@ -575,7 +545,6 @@
       const searchInput = $('#global-search');
       if(searchInput) searchInput.placeholder = isEs ? "Buscar..." : "Search...";
       
-      // Actualizar placeholder del buscador principal
       const homeSearchInput = $('#home-search');
       if(homeSearchInput) {
         homeSearchInput.placeholder = isEs ? 
@@ -591,18 +560,15 @@
     function getBilingualTitle(t) {
         if (!t.title) return 'Sin título';
         if (typeof t.title === 'object') {
-            return `<span class="lang-es">${t.title.es}</span><span class="lang-en hidden-lang">${t.title.en}</span>`;
+            return `<span class="lang-es">${t.title.es || ''}</span><span class="lang-en hidden-lang">${t.title.en || ''}</span>`;
         }
         return t.title;
     }
 
-
-    // --- ICON NORMALIZER (FIXES MISSING ICONS WHEN MODULES PASS FULL FA CLASSES) ---
     function normalizeFaIcon(icon) {
         if (typeof icon !== 'string') return 'book';
         const raw = icon.trim();
         if (!raw) return 'book';
-
         const tokens = raw.split(/\s+/).filter(Boolean);
         const exclude = new Set([
             'fa', 'fas', 'far', 'fal', 'fad', 'fab',
@@ -616,33 +582,22 @@
             'fa-inverse'
         ]);
 
-        // Scan from right to left to find the most likely icon token.
         for (let i = tokens.length - 1; i >= 0; i--) {
             const tok = tokens[i];
             if (!tok) continue;
             if (exclude.has(tok)) continue;
-
             if (tok.startsWith('fa-')) {
                 const name = tok.slice(3);
                 if (name) return name;
-                continue;
             }
-
-            // Single-token shorthand like "brain"
             if (tokens.length == 1) return tok.replace(/^fa-/, '') || 'book';
         }
-
-        // Fallback: handle single token like "fa-brain"
-        if (tokens.length == 1) return tokens[0].replace(/^fa-/, '') || 'book';
-
         return 'book';
     }
 
-    // --- CLINICAL BADGE SYSTEM ---
     function getClinicalBadges(t) {
         const title = (typeof t.title === 'object' ? (t.title.en + t.title.es) : t.title).toLowerCase();
         let badges = '';
-        
         if(title.includes('pharm') || title.includes('drug')) 
             badges += `<span title="Pharmacology" class="mr-1 text-xs">💊</span>`;
         if(title.includes('pediatric') || title.includes('child') || title.includes('newborn')) 
@@ -651,7 +606,6 @@
             badges += `<span title="Maternity" class="mr-1 text-xs">🤰</span>`;
         if(title.includes('priority') || title.includes('emergency') || title.includes('critical')) 
             badges += `<span title="High Priority" class="mr-1 text-xs">🚨</span>`;
-            
         return badges;
     }
   
@@ -678,7 +632,6 @@
       updateNavActive(state.currentRoute);
       applyLanguageGlobal();
       
-      // Re-trigger search filter if active
       const searchInput = $('#global-search');
       if(searchInput && searchInput.value) {
           searchInput.dispatchEvent(new Event('input'));
@@ -708,7 +661,6 @@
       const view = $('#app-view');
       if (!view) return;
   
-      // Smooth fade out
       view.style.opacity = '0';
       view.style.transform = 'translateY(10px)';
       
@@ -716,7 +668,6 @@
           try {
               if (route === 'home') {
                 view.innerHTML = renderHome();
-                // Inicializar el buscador de la página principal después de renderizar
                 setTimeout(() => initHomeSearch(), 50);
               } else if (route === 'simulator') {
                 if (window.renderSimulatorPage) {
@@ -737,11 +688,9 @@
                   }, 800);
                 }
               } else if (route === 'ngn-sepsis') {
-                  // NGN SEPSIS ROUTE HANDLER
                   if (window.renderNGNCase) {
                       view.innerHTML = window.renderNGNCase('sepsis');
                   } else {
-                      // Fallback if NGN engine is not explicitly exposing a render function
                       view.innerHTML = `<div class="p-10 text-center flex flex-col items-center justify-center h-64">
                         <i class="fa-solid fa-user-doctor animate-pulse text-4xl text-rose-500 mb-4"></i>
                         <p class="text-gray-500">
@@ -749,15 +698,9 @@
                             <span class="lang-en hidden-lang">Initializing NGN Engine...</span>
                         </p>
                       </div>`;
-                      
-                      // Check for engine global presence
                       setTimeout(() => {
                           if (window.renderNGNCase) {
                                view.innerHTML = window.renderNGNCase('sepsis');
-                          } else if (window.NGN_ENGINE && typeof window.NGN_ENGINE.renderDashboard === 'function') {
-                              // Alternative engine entry
-                              view.innerHTML = '';
-                              window.NGN_ENGINE.renderDashboard(view);
                           } else {
                               view.innerHTML = `<div class="p-8 bg-red-100 text-red-800 rounded-xl border border-red-200">
                                   <h3 class="font-bold">Error</h3>
@@ -784,11 +727,10 @@
           applyLanguageGlobal();
           updateNavActive(route);
           
-          // Fade in
           view.style.opacity = '1';
           view.style.transform = 'translateY(0)';
           
-      }, 150); // Slight delay for transition effect
+      }, 150);
   
       const backBtn = $('#back-to-top');
       if (backBtn) {
@@ -958,7 +900,6 @@
   
       let content = typeof topic.render === 'function' ? topic.render() : (topic.content || '');
       
-      // Smart button injection
       if(content.includes('</header>')) {
           content = content.replace('</header>', `<div class="mt-4 flex justify-end md:absolute md:top-8 md:right-8">${completeBtn}</div></header>`);
           content = content.replace('<header', '<header class="relative" ');
@@ -978,14 +919,13 @@
       `;
     }
   
-    // --- INIT ---
     function init() {
       applyTheme();
       applyLanguageGlobal();
       state.isAppLoaded = true;
       updateNav();
       
-      SmartTextIndex.build(state.topics); // Build initial index
+      SmartTextIndex.build(state.topics);
       
       render('home');
       updateNavActive('home');
@@ -993,7 +933,7 @@
       initSearch();
       
       const loader = $('#loading');
-      if(loader) setTimeout(() => loader.classList.add('hidden'), 500); // Wait for initial render
+      if(loader) setTimeout(() => loader.classList.add('hidden'), 500);
     }
   
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

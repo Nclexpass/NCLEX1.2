@@ -1,461 +1,408 @@
-// search_service.js — Buscador PRO: Fuzzy Search, Scoring, Cache & High Performance
+// 31_search_service.js — Buscador PRO estable, sin errores de DOM
 (function() {
-  'use strict';
+    'use strict';
 
-  // Configuración
-  const CONFIG = {
-    minQueryLength: 2,
-    maxResults: 15, // Optimizado para pantallas de laptop
-    highlightDelay: 500, // Un poco más de tiempo para asegurar que la vista cargó
-    debounceTime: 300,
-    maxIndexAttempts: 20,
-    indexRetryDelay: 800
-  };
+    const CONFIG = {
+        minQueryLength: 2,
+        maxResults: 15,
+        highlightDelay: 500,
+        debounceTime: 300,
+        maxIndexAttempts: 30,
+        indexRetryDelay: 500,
+        cacheLimit: 50
+    };
 
-  class SearchService {
-    constructor() {
-      this.index = [];
-      this.isIndexed = false;
-      this.attempts = 0;
-      this.lastQuery = '';
-      
-      // Referencias al DOM
-      this.searchInput = null;
-      this.resultsContainer = null;
-      this.searchWrapper = null;
-      
-      // Cache y Timers
-      this.resultsCache = new Map();
-      this.debounceTimer = null;
-      
-      // Stats para depuración
-      this.stats = { searches: 0, navigations: 0 };
+    // --- Utilidad de idioma (misma que en libreta) ---
+    function t(es, en) {
+        const esEl = document.querySelector('.lang-es');
+        return esEl && esEl.offsetParent !== null ? es : en;
     }
 
-    init() {
-      console.log('🔍 Search Service PRO: Inicializando...');
-      
-      // Intentar conectar a la App principal
-      this.checkAppReady();
+    function normalizeText(str) {
+        if (!str) return '';
+        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     }
 
-    checkAppReady() {
-      const app = window.nclexApp || window.NCLEX;
-      if (app) {
-        this.buildIndex(app);
-        this.connectUI();
-        this.setupGlobalListeners(app);
-        window.SearchService = this; // Exponer API
-      } else {
-        // Si la app no está lista, reintentar
-        setTimeout(() => this.checkAppReady(), 500);
-      }
-    }
+    // Mapeo de colores a clases reales de Tailwind
+    const COLOR_CLASSES = {
+        blue:   { bg: 'bg-blue-100 dark:bg-blue-900/40', text: 'text-blue-600 dark:text-blue-400' },
+        green:  { bg: 'bg-green-100 dark:bg-green-900/40', text: 'text-green-600 dark:text-green-400' },
+        purple: { bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-600 dark:text-purple-400' },
+        red:    { bg: 'bg-red-100 dark:bg-red-900/40', text: 'text-red-600 dark:text-red-400' },
+        yellow: { bg: 'bg-yellow-100 dark:bg-yellow-900/40', text: 'text-yellow-600 dark:text-yellow-400' },
+        indigo: { bg: 'bg-indigo-100 dark:bg-indigo-900/40', text: 'text-indigo-600 dark:text-indigo-400' },
+        pink:   { bg: 'bg-pink-100 dark:bg-pink-900/40', text: 'text-pink-600 dark:text-pink-400' },
+        gray:   { bg: 'bg-gray-100 dark:bg-gray-800/40', text: 'text-gray-600 dark:text-gray-400' }
+    };
 
-    // 1. CONSTRUCCIÓN DEL ÍNDICE (CEREBRO)
-    async buildIndex(app) {
-      if (this.isIndexed) return;
-      
-      const topics = typeof app.getTopics === 'function' ? app.getTopics() : [];
-      
-      if (!topics || topics.length === 0) {
-        this.attempts++;
-        if (this.attempts < CONFIG.maxIndexAttempts) {
-          setTimeout(() => this.buildIndex(app), CONFIG.indexRetryDelay);
-          return;
+    class SearchService {
+        constructor() {
+            this.index = [];
+            this.isIndexed = false;
+            this.searchInput = null;
+            this.resultsContainer = null;
+            this.resultsCache = new Map();
+            this.lastQuery = '';
+            this.attempts = 0;
+            this.debounceTimer = null;
         }
-        return;
-      }
-      
-      console.log(`📚 Search Indexer: Procesando ${topics.length} módulos.`);
-      
-      this.index = topics
-        .filter(topic => topic && topic.id && topic.title)
-        .map(topic => {
-          // Normalizamos todo el texto para búsquedas "insensibles"
-          const textES = this.normalizeText(topic.title?.es + ' ' + (topic.subtitle?.es || ''));
-          const textEN = this.normalizeText(topic.title?.en + ' ' + (topic.subtitle?.en || ''));
-          
-          return {
-            id: topic.id,
-            // Creamos un string gigante con todo lo buscable
-            searchable: `${textES} ${textEN}`,
-            original: {
-              titleES: topic.title?.es || '',
-              titleEN: topic.title?.en || '',
-              subtitleES: topic.subtitle?.es || '',
-              subtitleEN: topic.subtitle?.en || '',
-              icon: topic.icon || 'book',
-              color: topic.color || 'blue',
-              category: topic.category || 'General'
-            },
-            lastAccessed: 0 // Para dar puntos extra si ya lo visitaste
-          };
-        });
-      
-      this.isIndexed = true;
-    }
 
-    normalizeText(str) {
-      if (!str) return '';
-      return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    }
-
-    // 2. CONEXIÓN VISUAL
-    connectUI() {
-      // Intentamos conectar con los elementos existentes del HTML
-      this.searchInput = document.getElementById('global-search');
-      this.resultsContainer = document.getElementById('home-search-results');
-      this.searchWrapper = this.searchInput?.closest('.relative') || this.searchInput?.parentNode;
-      
-      if (!this.searchInput || !this.resultsContainer) {
-        // Reintento silencioso si el DOM aun no pinta la barra
-        setTimeout(() => this.connectUI(), 1000);
-        return;
-      }
-      
-      this.setupInputEvents();
-      
-      // Estilos forzados para asegurar que se vea bien
-      Object.assign(this.resultsContainer.style, {
-        width: '100%',
-        minWidth: '320px',
-        maxWidth: '500px', // Evitar que sea gigante
-        borderRadius: '0 0 12px 12px'
-      });
-    }
-
-    setupInputEvents() {
-      // Debounce: Espera a que dejes de escribir para buscar
-      this.searchInput.addEventListener('input', (e) => {
-        clearTimeout(this.debounceTimer);
-        const query = e.target.value;
-        
-        if (query.length === 0) this.hideResults();
-        
-        this.debounceTimer = setTimeout(() => {
-          this.handleSearch(query);
-        }, CONFIG.debounceTime);
-      });
-      
-      // Tecla Escape limpia
-      this.searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-          this.clearSearch();
-          this.searchInput.blur();
+        init() {
+            // Esperar a que los topics estén disponibles
+            this.waitForTopics();
+            this.connectUI();
+            this.setupGlobalListeners();
+            window.SearchService = this; // API pública
         }
-      });
-      
-      // Al hacer click en el input, si hay texto, mostrar resultados de nuevo
-      this.searchInput.addEventListener('click', () => {
-        if (this.searchInput.value.length >= CONFIG.minQueryLength) {
+
+        // --- Espera inteligente por los datos ---
+        waitForTopics() {
+            // Si ya hay topics globales, los usa
+            if (window.NCLEX_TOPICS && Array.isArray(window.NCLEX_TOPICS) && window.NCLEX_TOPICS.length) {
+                this.buildIndex(window.NCLEX_TOPICS);
+                return;
+            }
+            // Si la app está disponible, intenta obtenerlos
+            const app = window.nclexApp || window.NCLEX;
+            if (app && typeof app.getTopics === 'function') {
+                const topics = app.getTopics();
+                if (topics && topics.length) {
+                    this.buildIndex(topics);
+                    return;
+                }
+            }
+            // Reintenta con backoff
+            this.attempts++;
+            if (this.attempts < CONFIG.maxIndexAttempts) {
+                setTimeout(() => this.waitForTopics(), CONFIG.indexRetryDelay);
+            }
+        }
+
+        // --- Construcción del índice (solo texto normalizado) ---
+        buildIndex(topics) {
+            console.log(`🔍 Search: indexando ${topics.length} temas`);
+            this.index = topics
+                .filter(t => t && t.id && t.title)
+                .map(t => {
+                    const titleES = t.title?.es || t.title || '';
+                    const titleEN = t.title?.en || t.title || '';
+                    const subES = t.subtitle?.es || t.subtitle || '';
+                    const subEN = t.subtitle?.en || t.subtitle || '';
+
+                    return {
+                        id: t.id,
+                        searchable: normalizeText(titleES + ' ' + subES + ' ' + titleEN + ' ' + subEN),
+                        titleES,
+                        titleEN,
+                        subtitleES: subES,
+                        subtitleEN: subEN,
+                        icon: t.icon || 'book',
+                        color: COLOR_CLASSES[t.color] ? t.color : 'blue',
+                        lastAccessed: 0
+                    };
+                });
+            this.isIndexed = true;
+        }
+
+        // --- Conexión con UI ---
+        connectUI() {
+            this.searchInput = document.getElementById('global-search');
+            this.resultsContainer = document.getElementById('home-search-results');
+            if (!this.searchInput || !this.resultsContainer) {
+                setTimeout(() => this.connectUI(), 1000);
+                return;
+            }
+            this.setupInputEvents();
+        }
+
+        setupInputEvents() {
+            this.searchInput.addEventListener('input', (e) => {
+                clearTimeout(this.debounceTimer);
+                const q = e.target.value;
+                if (!q.trim()) this.hideResults();
+                this.debounceTimer = setTimeout(() => {
+                    this.handleSearch(q);
+                }, CONFIG.debounceTime);
+            });
+
+            this.searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    this.clearSearch();
+                    this.searchInput.blur();
+                }
+            });
+
+            this.searchInput.addEventListener('click', () => {
+                if (this.searchInput.value.length >= CONFIG.minQueryLength) {
+                    this.showResults();
+                }
+            });
+        }
+
+        setupGlobalListeners() {
+            // Cerrar al hacer clic fuera
+            document.addEventListener('click', (e) => {
+                const wrapper = this.searchInput?.closest('.relative');
+                if (wrapper && !wrapper.contains(e.target)) {
+                    this.hideResults();
+                }
+            });
+
+            // Atajos Ctrl+K y navegación
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                    e.preventDefault();
+                    this.searchInput?.focus();
+                }
+                if (this.resultsContainer?.style.display === 'block') {
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        this.navigateResults(e.key === 'ArrowDown' ? 1 : -1);
+                    }
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.selectActiveResult();
+                    }
+                }
+            });
+        }
+
+        // --- Búsqueda con scoring y caché ---
+        handleSearch(query) {
+            if (!this.isIndexed || !query) return;
+            query = query.trim();
+            this.lastQuery = query;
+            if (query.length < CONFIG.minQueryLength) {
+                this.hideResults();
+                return;
+            }
+
+            const cacheKey = query + '_' + (t('es', 'en') === 'es' ? 'es' : 'en');
+            if (this.resultsCache.has(cacheKey)) {
+                this.renderResults(this.resultsCache.get(cacheKey));
+                return;
+            }
+
+            const normQuery = normalizeText(query);
+            const words = normQuery.split(/\s+/).filter(w => w.length > 0);
+
+            const results = this.index
+                .map(item => {
+                    let score = 0;
+                    words.forEach(word => {
+                        if (item.searchable.includes(word)) score += 10;
+                        const title = t('es', 'en') === 'es' ? item.titleES : item.titleEN;
+                        if (normalizeText(title).includes(word)) score += 5;
+                    });
+                    // bonus por reciente
+                    if (Date.now() - item.lastAccessed < 86400000) score += 2;
+                    return { ...item, score };
+                })
+                .filter(r => r.score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, CONFIG.maxResults);
+
+            // Guardar en caché (con límite)
+            if (this.resultsCache.size >= CONFIG.cacheLimit) {
+                const firstKey = this.resultsCache.keys().next().value;
+                this.resultsCache.delete(firstKey);
+            }
+            this.resultsCache.set(cacheKey, results);
+            this.renderResults(results);
+        }
+
+        // --- Renderizado seguro (sin clases dinámicas) ---
+        renderResults(results) {
+            if (!results || !results.length) {
+                this.renderNoResults();
+                return;
+            }
+
+            const isEs = t('es', 'en') === 'es';
+            let html = `<div class="py-2 divide-y divide-gray-100 dark:divide-gray-800/50">`;
+
+            results.forEach((item, idx) => {
+                const title = isEs ? item.titleES : item.titleEN;
+                const subtitle = isEs ? item.subtitleES : item.subtitleEN;
+                const color = COLOR_CLASSES[item.color] || COLOR_CLASSES.blue;
+                const activeClass = idx === 0 ? 'active bg-gray-50 dark:bg-white/5' : '';
+
+                html += `
+                    <div class="search-result-item ${activeClass} cursor-pointer border-l-4 border-transparent hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-white/5 transition-all"
+                         data-id="${item.id}"
+                         onclick="window.SearchService.navigateToResult('${item.id}')"
+                         onmouseover="window.SearchService.setActiveResult(${idx})">
+                        <div class="px-4 py-3 flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg ${color.bg} ${color.text} flex items-center justify-center shrink-0">
+                                <i class="fa-solid fa-${item.icon} text-sm"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="font-bold text-sm text-gray-800 dark:text-gray-100 truncate">${this.safeHighlight(title, this.lastQuery)}</div>
+                                <div class="text-xs text-gray-500 truncate">${subtitle}</div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-[10px] text-gray-300"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                <div class="px-4 py-1.5 text-[10px] text-gray-400 bg-gray-50 dark:bg-black/20 flex justify-between items-center rounded-b-lg">
+                    <span>↵ ${t('Seleccionar', 'Select')}</span>
+                    <span>↓ ↑ ${t('Navegar', 'Navigate')}</span>
+                </div>
+            `;
+
+            this.resultsContainer.innerHTML = html;
             this.showResults();
         }
-      });
-    }
 
-    setupGlobalListeners(app) {
-      // Cerrar al hacer clic fuera
-      document.addEventListener('click', (e) => {
-        if (this.searchWrapper && !this.searchWrapper.contains(e.target)) {
-          this.hideResults();
+        renderNoResults() {
+            const isEs = t('es', 'en') === 'es';
+            this.resultsContainer.innerHTML = `
+                <div class="p-8 text-center">
+                    <i class="fa-solid fa-magnifying-glass text-gray-300 text-3xl mb-3"></i>
+                    <p class="text-gray-500 text-sm font-medium">${isEs ? 'No hay resultados' : 'No results'}</p>
+                </div>
+            `;
+            this.showResults();
         }
-      });
-      
-      // Atajos de teclado (Flechas y Enter)
-      document.addEventListener('keydown', (e) => {
-        // Ctrl + K para enfocar
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-          e.preventDefault();
-          this.focusSearch();
+
+        safeHighlight(text, query) {
+            if (!query) return text;
+            const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escaped})`, 'gi');
+            return text.replace(regex, '<span class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-0.5 rounded font-bold">$1</span>');
         }
-        
-        // Navegación en resultados
-        if (this.resultsContainer && this.resultsContainer.style.display === 'block') {
-          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-            e.preventDefault();
-            this.navigateResults(e.key === 'ArrowDown' ? 1 : -1);
-          }
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            this.selectActiveResult(app);
-          }
+
+        // --- Navegación y activación ---
+        navigateToResult(topicId) {
+            // Marcar como visitado
+            const idx = this.index.findIndex(i => i.id === topicId);
+            if (idx !== -1) this.index[idx].lastAccessed = Date.now();
+
+            const app = window.nclexApp || window.NCLEX;
+            if (app && typeof app.navigate === 'function') {
+                app.navigate(`topic/${topicId}`);
+            } else {
+                console.warn('nclexApp.navigate no disponible');
+            }
+
+            this.hideResults();
+            this.searchInput.value = '';
+            this.searchInput.blur();
         }
-      });
-    }
 
-    // 3. LÓGICA DE BÚSQUEDA (SCORING)
-    handleSearch(query) {
-      if (!this.isIndexed) return;
-      
-      query = query.trim();
-      this.lastQuery = query;
-      
-      if (query.length < CONFIG.minQueryLength) {
-        this.hideResults();
-        return;
-      }
-      
-      // Cache check
-      const lang = localStorage.getItem('nclex_lang') || 'es';
-      const cacheKey = `${query}_${lang}`;
-      if (this.resultsCache.has(cacheKey)) {
-        this.renderResults(this.resultsCache.get(cacheKey));
-        return;
-      }
-      
-      // Algoritmo de Scoring
-      const normQuery = this.normalizeText(query);
-      const queryWords = normQuery.split(' ').filter(w => w.length > 0);
-      
-      const results = this.index
-        .map(item => {
-          let score = 0;
-          
-          queryWords.forEach(word => {
-            // 10 puntos si encuentra la palabra en cualquier lado
-            if (item.searchable.includes(word)) score += 10;
-            
-            // 5 puntos EXTRA si está en el título (más relevante)
-            const title = lang === 'es' ? item.original.titleES : item.original.titleEN;
-            if (this.normalizeText(title).includes(word)) score += 5;
-            
-            // 20 puntos si es coincidencia exacta
-            if (this.normalizeText(title) === word) score += 20;
-          });
-          
-          // 2 puntos extra si lo visitaste hoy (Historial reciente)
-          if (Date.now() - item.lastAccessed < 86400000 && item.lastAccessed > 0) {
-            score += 2;
-          }
-          
-          return { ...item, score };
-        })
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score) // Ordenar por puntuación
-        .slice(0, CONFIG.maxResults); // Top resultados
-        
-      this.resultsCache.set(cacheKey, results);
-      this.renderResults(results);
-    }
+        // --- Highlight de contenido NO destructivo ---
+        highlightAllContent(query) {
+            if (!query) return;
+            this.clearHighlights();
 
-    // 4. RENDERIZADO
-    renderResults(results) {
-      if (!results || results.length === 0) {
-        this.renderNoResults();
-        return;
-      }
-      
-      const isEs = (localStorage.getItem('nclex_lang') || 'es') === 'es';
-      
-      let html = `<div class="py-2">`;
-      
-      results.forEach((result, index) => {
-        const title = isEs ? result.original.titleES : result.original.titleEN;
-        const subtitle = isEs ? result.original.subtitleES : result.original.subtitleEN;
-        
-        // Highlight seguro
-        const hlTitle = this.safeHighlight(title, this.lastQuery);
-        
-        html += `
-          <div class="search-result-item ${index === 0 ? 'active' : ''} cursor-pointer border-l-4 border-transparent hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-white/5 transition-all"
-               data-id="${result.id}"
-               onclick="window.SearchService.navigateToResult('${result.id}')"
-               onmouseover="window.SearchService.setActiveResult(${index})">
-            <div class="px-4 py-3 flex items-center gap-3 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
-              <div class="w-9 h-9 rounded-lg bg-${result.original.color}-100 dark:bg-${result.original.color}-900/40 text-${result.original.color}-600 dark:text-${result.original.color}-400 flex items-center justify-center shrink-0 shadow-sm">
-                <i class="fa-solid fa-${result.original.icon} text-sm"></i>
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="font-bold text-sm text-gray-800 dark:text-gray-100 mb-0.5 leading-tight">${hlTitle}</div>
-                <div class="text-xs text-gray-500 truncate">${subtitle}</div>
-              </div>
-              <i class="fa-solid fa-chevron-right text-[10px] text-gray-300"></i>
-            </div>
-          </div>
-        `;
-      });
-      
-      html += `
-        <div class="px-4 py-1.5 text-[10px] text-gray-400 bg-gray-50 dark:bg-black/20 flex justify-between items-center rounded-b-lg">
-           <span>Select: ↵ Enter</span>
-           <span>Navigate: ↓ ↑</span>
-        </div></div>`;
-      
-      this.resultsContainer.innerHTML = html;
-      this.showResults();
-    }
+            const content = document.getElementById('app-view');
+            if (!content) return;
 
-    // Método seguro para resaltar sin romper HTML
-    safeHighlight(text, query) {
-        if (!query) return text;
-        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`(${escapedQuery})`, 'gi');
-        return text.replace(regex, '<span class="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-0.5 rounded font-bold">$1</span>');
-    }
+            const walker = document.createTreeWalker(
+                content,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: (node) => {
+                        const parent = node.parentElement;
+                        if (!parent || parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE' || parent.tagName === 'TEXTAREA') return NodeFilter.FILTER_REJECT;
+                        if (parent.offsetParent === null) return NodeFilter.FILTER_REJECT;
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            );
 
-    renderNoResults() {
-      const isEs = (localStorage.getItem('nclex_lang') || 'es') === 'es';
-      this.resultsContainer.innerHTML = `
-        <div class="p-8 text-center">
-          <i class="fa-solid fa-magnifying-glass text-gray-300 text-3xl mb-3 block"></i>
-          <p class="text-gray-500 text-sm font-medium">
-            ${isEs ? 'No encontramos coincidencias' : 'No matches found'}
-          </p>
-        </div>
-      `;
-      this.showResults();
-    }
+            const normQuery = normalizeText(query);
+            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            const marks = [];
 
-    // 5. NAVEGACIÓN Y ACCIONES
-    navigateToResult(topicId) {
-      // Marcar como visitado para el scoring futuro
-      const item = this.index.find(i => i.id === topicId);
-      if (item) item.lastAccessed = Date.now();
-      
-      const app = window.nclexApp || window.NCLEX;
-      if (app && typeof app.navigate === 'function') {
-        app.navigate(`topic/${topicId}`);
-      }
-      
-      this.hideResults();
-      this.searchInput.value = '';
-      this.searchInput.blur();
-      
-      // Esperar a que cargue y resaltar contenido
-      setTimeout(() => {
-        this.highlightAllContent(this.lastQuery);
-      }, CONFIG.highlightDelay);
-    }
+            let node;
+            while (node = walker.nextNode()) {
+                if (!normalizeText(node.nodeValue).includes(normQuery)) continue;
 
-    // Highlight en el contenido (TreeWalker - Método Robusto)
-    highlightAllContent(query) {
-      const contentArea = document.getElementById('app-view') || document.body;
-      if (!query || !contentArea) return;
-      
-      // Limpiar highlights previos
-      this.clearHighlights();
-      
-      const walker = document.createTreeWalker(
-        contentArea,
-        NodeFilter.SHOW_TEXT,
-        {
-          acceptNode: (node) => {
-            // Ignorar scripts, estilos y elementos ocultos
-            const parent = node.parentElement;
-            if (!parent || ['SCRIPT', 'STYLE', 'TEXTAREA'].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
-            if (parent.offsetParent === null) return NodeFilter.FILTER_REJECT; 
-            return NodeFilter.FILTER_ACCEPT;
-          }
+                const span = document.createElement('span');
+                span.innerHTML = node.nodeValue.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800/60 text-black dark:text-white px-0.5 rounded search-highlight">$1</mark>');
+                node.parentNode.replaceChild(span, node);
+                marks.push(span);
+            }
+
+            if (marks.length) {
+                marks[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => {
+                    marks.forEach(mark => {
+                        mark.querySelectorAll('.search-highlight').forEach(el => {
+                            el.classList.remove('bg-yellow-200', 'dark:bg-yellow-800/60');
+                            el.classList.add('bg-yellow-300', 'dark:bg-yellow-700/80');
+                        });
+                    });
+                }, 2000);
+            }
         }
-      );
-      
-      const normQuery = this.normalizeText(query);
-      const matchingNodes = [];
-      let node;
-      
-      // Fase 1: Encontrar nodos
-      while (node = walker.nextNode()) {
-        if (this.normalizeText(node.nodeValue).includes(normQuery)) {
-          matchingNodes.push(node);
-        }
-      }
-      
-      // Fase 2: Resaltar (Usando mark)
-      let firstHighlight = null;
-      const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-      
-      matchingNodes.forEach(textNode => {
-        const span = document.createElement('span');
-        span.innerHTML = textNode.nodeValue.replace(regex, '<mark class="bg-yellow-300 text-black px-1 rounded shadow-sm animate-pulse search-highlight">$1</mark>');
-        textNode.parentNode.replaceChild(span, textNode);
-        if (!firstHighlight) firstHighlight = span;
-      });
-      
-      // Fase 3: Scroll al primero
-      if (firstHighlight) {
-        firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        // Quitar la animación después de 3 segundos
-        setTimeout(() => {
-            document.querySelectorAll('mark.search-highlight').forEach(el => {
-                el.classList.remove('animate-pulse');
-                // Opcional: Quitar el highlight completamente después de 5s
-                // setTimeout(() => this.clearHighlights(), 5000); 
+
+        clearHighlights() {
+            const marks = document.querySelectorAll('.search-highlight');
+            marks.forEach(mark => {
+                const parent = mark.parentNode;
+                if (parent) {
+                    parent.replaceWith(parent.textContent);
+                }
             });
-        }, 3000);
-      }
-    }
+        }
 
-    clearHighlights() {
-      // Eliminar <mark> y restaurar texto original
-      document.querySelectorAll('.search-highlight').forEach(mark => {
-         const parent = mark.parentNode; // El span wrapper
-         if (parent) {
-             parent.replaceWith(parent.textContent);
-         }
-      });
-    }
+        // --- Helpers UI ---
+        showResults() {
+            if (this.resultsContainer) {
+                this.resultsContainer.style.display = 'block';
+                this.resultsContainer.classList.remove('hidden');
+            }
+        }
 
-    // Helpers UI
-    showResults() {
-      this.resultsContainer.style.display = 'block';
-      this.resultsContainer.classList.remove('hidden');
-    }
-    
-    hideResults() {
-      this.resultsContainer.style.display = 'none';
-      this.resultsContainer.classList.add('hidden');
-    }
-    
-    clearSearch() {
-      this.searchInput.value = '';
-      this.hideResults();
-      this.clearHighlights();
-    }
-    
-    focusSearch() {
-      this.searchInput.focus();
-    }
-    
-    // Helpers Navegación Teclado
-    navigateResults(direction) {
-      const items = this.resultsContainer.querySelectorAll('.search-result-item');
-      if (items.length === 0) return;
-      
-      const current = this.resultsContainer.querySelector('.active');
-      let index = Array.from(items).indexOf(current);
-      
-      // Calcular nuevo índice circular
-      if (index === -1 && direction > 0) index = 0;
-      else if (index === -1 && direction < 0) index = items.length - 1;
-      else {
-          index = (index + direction + items.length) % items.length;
-      }
-      
-      this.setActiveResult(index);
-      items[index].scrollIntoView({ block: 'nearest' });
-    }
-    
-    setActiveResult(index) {
-        const items = this.resultsContainer.querySelectorAll('.search-result-item');
-        items.forEach(el => el.classList.remove('active', 'bg-gray-50', 'dark:bg-white/5'));
-        if (items[index]) {
-            items[index].classList.add('active', 'bg-gray-50', 'dark:bg-white/5');
+        hideResults() {
+            if (this.resultsContainer) {
+                this.resultsContainer.style.display = 'none';
+                this.resultsContainer.classList.add('hidden');
+            }
+        }
+
+        clearSearch() {
+            if (this.searchInput) this.searchInput.value = '';
+            this.hideResults();
+            this.clearHighlights();
+        }
+
+        navigateResults(direction) {
+            const items = this.resultsContainer?.querySelectorAll('.search-result-item');
+            if (!items || !items.length) return;
+            const active = this.resultsContainer.querySelector('.active');
+            let idx = Array.from(items).indexOf(active);
+            if (idx === -1) idx = direction > 0 ? 0 : items.length - 1;
+            else idx = (idx + direction + items.length) % items.length;
+            this.setActiveResult(idx);
+            items[idx]?.scrollIntoView({ block: 'nearest' });
+        }
+
+        setActiveResult(index) {
+            const items = this.resultsContainer?.querySelectorAll('.search-result-item');
+            items?.forEach(el => el.classList.remove('active', 'bg-gray-50', 'dark:bg-white/5'));
+            if (items && items[index]) {
+                items[index].classList.add('active', 'bg-gray-50', 'dark:bg-white/5');
+            }
+        }
+
+        selectActiveResult() {
+            const active = this.resultsContainer?.querySelector('.active');
+            if (active && active.dataset.id) {
+                this.navigateToResult(active.dataset.id);
+            }
         }
     }
-    
-    selectActiveResult(app) {
-        const active = this.resultsContainer.querySelector('.active');
-        if (active) this.navigateToResult(active.dataset.id);
+
+    // Iniciar cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => new SearchService().init());
+    } else {
+        new SearchService().init();
     }
-  }
-
-  // Inicialización Segura
-  if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => new SearchService().init());
-  } else {
-      new SearchService().init();
-  }
-
 })();
