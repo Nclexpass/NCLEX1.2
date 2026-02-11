@@ -1,430 +1,350 @@
-// premium_books_library.js — Biblioteca Elegante para GitHub Releases
-// DESIGN SYSTEM: Estilo moderno, minimalista y profesional
-
+// premium_books_library.js — Versión Mejorada: Más eficiente y robusta
 (function() {
     'use strict';
     
-    // DESIGN SYSTEM ELEGANTE
-    const DESIGN = {
-        colors: {
-            primary: '#007AFF',
-            secondary: '#5856D6',
-            tertiary: '#FF9500',
-            backgroundLight: '#F5F5F7',
-            backgroundDark: '#1C1C1E',
-            cardLight: '#FFFFFF',
-            cardDark: '#1C1C1E',
-            textPrimary: '#000000',
-            textSecondary: '#8E8E93',
-            textTertiary: '#C7C7CC'
+    // RUTA AL CATÁLOGO
+    const CATALOG_URL = 'library/catalog.json';
+    
+    // DESIGN SYSTEM CONFIG - Optimizado para rendimiento
+    const THEME = {
+        gradient: 'bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600',
+        modalBg: 'bg-gray-50 dark:bg-[#0f0f11]',
+        cardBg: 'bg-white dark:bg-[#1C1C1E]',
+        textMain: 'text-slate-800 dark:text-slate-100',
+        textMuted: 'text-slate-500 dark:text-slate-400',
+        border: 'border-gray-200/50 dark:border-white/5'
+    };
+    
+    // MAPPINGS - Centralizados para mejor mantenimiento
+    const CATEGORY_CONFIG = {
+        'Examen': {
+            gradient: 'from-blue-500 to-cyan-400',
+            icon: 'fa-clipboard-question',
+            subtitle: 'Exámenes de práctica',
+            accent: 'text-blue-500'
         },
-        typography: {
-            largeTitle: 'font-bold text-3xl tracking-tight',
-            title1: 'font-bold text-2xl',
-            title2: 'font-bold text-xl',
-            title3: 'font-semibold text-lg',
-            body: 'text-base font-normal',
-            callout: 'text-sm font-semibold',
-            footnote: 'text-xs font-normal',
-            caption1: 'text-xs font-normal text-gray-500',
-            caption2: 'text-[10px] font-normal text-gray-400'
+        'Farmacología': {
+            gradient: 'from-emerald-500 to-teal-400',
+            icon: 'fa-capsules',
+            subtitle: 'Medicamentos y dosis',
+            accent: 'text-emerald-500'
         },
-        effects: {
-            shadow: 'shadow-lg',
-            shadowHover: 'shadow-xl',
-            shadowCard: 'shadow-md',
-            borderRadius: {
-                small: 'rounded-lg',
-                medium: 'rounded-xl',
-                large: 'rounded-2xl',
-                extraLarge: 'rounded-3xl'
-            },
-            transition: 'transition-all duration-300'
+        'Maternidad': {
+            gradient: 'from-pink-500 to-rose-400',
+            icon: 'fa-baby-carriage',
+            subtitle: 'Cuidado prenatal y postnatal',
+            accent: 'text-pink-500'
+        },
+        'Revisión': {
+            gradient: 'from-violet-500 to-fuchsia-500',
+            icon: 'fa-book-journal-whills',
+            subtitle: 'Resúmenes completos',
+            accent: 'text-violet-500'
+        },
+        'Pediatría': {
+            gradient: 'from-orange-400 to-amber-400',
+            icon: 'fa-shapes',
+            subtitle: 'Cuidado infantil',
+            accent: 'text-orange-500'
+        },
+        'Salud Mental': {
+            gradient: 'from-indigo-500 to-purple-500',
+            icon: 'fa-brain',
+            subtitle: 'Psiquiatría y psicología',
+            accent: 'text-indigo-500'
         }
     };
     
-    // CONFIGURACIÓN GITHUB
-    const GITHUB_CONFIG = {
-        username: 'ReynierDiaz',
-        repo: 'NCLEX1.2',
-        releaseTag: 'BOOKS',
-        apiUrl: 'https://api.github.com/repos/ReynierDiaz/NCLEX1.2/releases/tags/BOOKS'
-    };
-    
-    // ESTADO
+    // ESTADO con validación
     const state = {
         books: [],
         isLoading: true,
-        isLibraryOpen: false,
+        hasError: false,
+        errorMessage: '',
         viewMode: localStorage.getItem('library_view_mode') || 'grid',
-        sortBy: 'popularity',
-        filterCategory: 'all',
-        lastSync: null,
-        stats: {
-            totalBooks: 0,
-            totalSize: 0,
-            totalDownloads: 0
+        isModalOpen: false
+    };
+    
+    // Cache para evitar recálculos
+    const cache = {
+        categories: new Map(),
+        formattedSizes: new Map()
+    };
+    
+    // --- 1. UTILIDADES MEJORADAS ---
+    const utils = {
+        t(es, en) {
+            return (localStorage.getItem('nclex_lang') === 'en') ? en : es;
+        },
+        
+        formatFileSize(bytes) {
+            if (cache.formattedSizes.has(bytes)) {
+                return cache.formattedSizes.get(bytes);
+            }
+            
+            if (!bytes || bytes === 0) {
+                const result = 'PDF';
+                cache.formattedSizes.set(bytes, result);
+                return result;
+            }
+            
+            let result;
+            if (bytes < 1024 * 1024) {
+                result = (bytes / 1024).toFixed(0) + ' KB';
+            } else {
+                result = (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+            
+            cache.formattedSizes.set(bytes, result);
+            return result;
+        },
+        
+        getCategoryConfig(category) {
+            const cat = category || 'General';
+            if (cache.categories.has(cat)) {
+                return cache.categories.get(cat);
+            }
+            
+            const config = CATEGORY_CONFIG[cat] || {
+                gradient: 'from-slate-500 to-gray-400',
+                icon: 'fa-book',
+                subtitle: cat,
+                accent: 'text-slate-500'
+            };
+            
+            cache.categories.set(cat, config);
+            return config;
+        },
+        
+        debounce(fn, delay) {
+            let timeoutId;
+            return (...args) => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => fn.apply(this, args), delay);
+            };
+        },
+        
+        async fetchWithTimeout(url, options = {}, timeout = 8000) {
+            const controller = new AbortController();
+            const { signal } = controller;
+            
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            try {
+                const response = await fetch(url, { ...options, signal });
+                clearTimeout(timeoutId);
+                return response;
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
+            }
         }
     };
     
-    // HELPER BILINGÜE
-    const t = (es, en) => {
-        const currentLang = localStorage.getItem('nclex_lang') || 'es';
-        return currentLang === 'es' ? es : en;
-    };
-    
-    // 1. CONEXIÓN ELEGANTE A GITHUB
-    async function fetchFromGitHub() {
+    // --- 2. LÓGICA DE CARGA OPTIMIZADA ---
+    async function fetchCatalog() {
         state.isLoading = true;
+        state.hasError = false;
         updateLibraryView();
         
         try {
-            console.log('📚 Conectando con biblioteca remota...');
-            
-            // Pequeño delay para mejor UX
-            await new Promise(resolve => setTimeout(resolve, 600));
-            
-            const response = await fetch(GITHUB_CONFIG.apiUrl, {
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json',
-                    'User-Agent': 'NCLEX-Masterclass'
-                }
-            });
+            // Intentar primero sin cache, luego con fallback
+            const response = await utils.fetchWithTimeout(
+                `${CATALOG_URL}?t=${Date.now()}`,
+                { cache: 'no-store' }
+            ).catch(() => fetch(CATALOG_URL)); // Fallback con cache normal
             
             if (!response.ok) {
-                if (response.status === 404) {
-                    throw new Error('Colección "BOOKS" no encontrada');
-                }
-                throw new Error(`Error ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const releaseData = await response.json();
-            const books = processReleaseData(releaseData);
+            const data = await response.json();
             
-            // Actualizar estado con animación suave
-            await animateStateUpdate(books);
+            // Validar estructura del JSON
+            if (!Array.isArray(data)) {
+                throw new Error('Formato de catálogo inválido');
+            }
             
-            // Guardar en caché
-            localStorage.setItem('books_cache', JSON.stringify({
-                books: books,
-                timestamp: Date.now(),
-                releaseId: releaseData.id
-            }));
-            
-            return books;
+            state.books = data.map(processBookData);
             
         } catch (error) {
-            console.error('Error conectando:', error);
-            showElegantToast(t('Error de conexión', 'Connection error'), error.message, 'error');
-            return await loadCachedOrFallback();
+            console.error('Library Error:', error);
+            state.hasError = true;
+            state.errorMessage = error.message;
+            showNotification(utils.t('Error al cargar catálogo', 'Failed to load catalog'), 'error');
         } finally {
             state.isLoading = false;
+            updateLibraryView();
+            renderFloatingButton();
         }
     }
     
-    async function animateStateUpdate(books) {
-        return new Promise(resolve => {
-            state.books = books;
-            state.lastSync = new Date().toISOString();
-            state.stats = calculateStats(books);
-            
-            // Pequeña animación
-            setTimeout(resolve, 300);
-        });
+    function processBookData(item) {
+        const cat = item.category || 'General';
+        const config = utils.getCategoryConfig(cat);
+        
+        return {
+            ...item,
+            subtitle: config.subtitle,
+            coverGradient: config.gradient,
+            icon: config.icon,
+            accentColor: config.accent,
+            formattedSize: utils.formatFileSize(item.fileSize),
+            hasCover: item.coverUrl && !item.coverUrl.includes('null')
+        };
     }
     
-    // 2. PROCESAR DATOS CON ESTILO
-    function processReleaseData(releaseData) {
-        if (!releaseData?.assets) return [];
-        
-        return releaseData.assets
-            .filter(asset => asset.name.toLowerCase().endsWith('.pdf'))
-            .map((pdfAsset, index) => {
-                const coverAsset = findMatchingCover(pdfAsset.name, releaseData.assets);
-                const category = determineBookCategory(pdfAsset.name);
-                const popularity = calculatePopularity(pdfAsset.download_count);
-                
-                return {
-                    id: `book_${pdfAsset.id}`,
-                    order: index,
-                    title: formatElegantTitle(pdfAsset.name),
-                    subtitle: generateElegantSubtitle(category),
-                    author: 'NCLEX Masterclass',
-                    description: generateElegantDescription(pdfAsset.name, category),
-                    category: category,
-                    tags: generateTags(pdfAsset.name),
-                    
-                    // Archivos
-                    file: pdfAsset.name,
-                    fileUrl: pdfAsset.browser_download_url,
-                    fileSize: pdfAsset.size,
-                    formattedSize: formatFileSize(pdfAsset.size),
-                    
-                    // Carátula
-                    coverUrl: coverAsset?.browser_download_url || null,
-                    coverGradient: getCategoryGradient(category),
-                    
-                    // Metadatos
-                    pages: estimatePageCount(pdfAsset.size, category),
-                    year: 2024,
-                    difficulty: estimateDifficulty(category),
-                    
-                    // Estadísticas
-                    downloadCount: pdfAsset.download_count,
-                    uploadedAt: pdfAsset.updated_at || pdfAsset.created_at,
-                    
-                    // UX
-                    popularity: popularity,
-                    isNew: isAssetNew(pdfAsset.created_at),
-                    isFeatured: index < 3,
-                    
-                    // Estilo
-                    accentColor: getAccentColor(category),
-                    icon: getCategoryIcon(category)
-                };
-            })
-            .sort((a, b) => b.popularity - a.popularity);
-    }
+    // --- 3. COMPONENTES MEJORADOS ---
     
-    // 3. FUNCIONES DE DISEÑO ELEGANTE
-    
-    function formatElegantTitle(filename) {
-        const name = filename.replace('.pdf', '').replace(/_/g, ' ');
-        
-        const titleMap = {
-            'nclex': 'NCLEX-RN Official Guide',
-            'saunders': 'Saunders Comprehensive Review',
-            'pharmacology': 'Essential Pharmacology',
-            'maternity': 'Maternal-Newborn Nursing',
-            'pediatrics': 'Pediatric Care Guide',
-            'mental': 'Psychiatric Nursing',
-            'cardiovascular': 'Cardiac Care',
-            'respiratory': 'Pulmonary Nursing'
+    // A. NOTIFICACIÓN TOAST
+    function showNotification(message, type = 'info') {
+        const types = {
+            info: 'bg-blue-500',
+            success: 'bg-green-500',
+            warning: 'bg-yellow-500',
+            error: 'bg-red-500'
         };
         
-        for (const [key, properTitle] of Object.entries(titleMap)) {
-            if (name.toLowerCase().includes(key)) {
-                return properTitle;
+        const toast = document.createElement('div');
+        toast.className = `
+            fixed top-6 right-6 z-[200] px-4 py-3 rounded-lg shadow-xl 
+            text-white font-medium text-sm animate-slide-in-right
+            ${types[type]} transform transition-all duration-300
+        `;
+        toast.textContent = message;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
+    }
+    
+    // B. BOTÓN FLOTANTE MEJORADO
+    function renderFloatingButton() {
+        const existingBtn = document.getElementById('lib-float-btn');
+        if (existingBtn) {
+            // Actualizar estado existente
+            const indicator = existingBtn.querySelector('.status-indicator');
+            if (indicator) {
+                indicator.className = `status-indicator absolute top-3 right-4 w-3 h-3 rounded-full border-2 
+                    ${state.isLoading ? 'bg-yellow-500 border-indigo-600 animate-pulse' :
+                      state.hasError ? 'bg-red-500 border-red-600' :
+                      state.books.length > 0 ? 'bg-green-500 border-indigo-600' :
+                      'bg-gray-400 border-gray-600'}`;
             }
+            return;
         }
         
-        return name
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-    }
-    
-    function generateElegantSubtitle(category) {
-        const subtitles = {
-            'Examen': 'Material Oficial de Evaluación',
-            'Revisión': 'Guía Completa de Estudio',
-            'Farmacología': 'Referencia de Medicamentos',
-            'Maternidad': 'Enfermería Materno-Infantil',
-            'Pediatría': 'Salud y Desarrollo Infantil',
-            'Salud Mental': 'Cuidado Psiquiátrico',
-            'Cardiovascular': 'Cuidado Cardíaco',
-            'Respiratorio': 'Salud Pulmonar'
-        };
+        const btn = document.createElement('button');
+        btn.id = 'lib-float-btn';
+        btn.className = `
+            fixed bottom-8 right-8 z-[90] group transition-all duration-300 
+            hover:-translate-y-1 active:scale-95 focus:outline-none focus:ring-2 
+            focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900
+        `;
+        btn.onclick = () => window.premiumBookLibrary.open();
+        btn.setAttribute('aria-label', utils.t('Abrir biblioteca', 'Open library'));
         
-        return subtitles[category] || 'Material de Estudio NCLEX';
-    }
-    
-    function getCategoryGradient(category) {
-        const gradients = {
-            'Examen': 'from-blue-500 to-cyan-500',
-            'Revisión': 'from-purple-500 to-pink-500',
-            'Farmacología': 'from-green-500 to-emerald-500',
-            'Maternidad': 'from-rose-500 to-pink-400',
-            'Pediatría': 'from-yellow-500 to-orange-400',
-            'Salud Mental': 'from-indigo-500 to-blue-400',
-            'Cardiovascular': 'from-red-500 to-rose-500',
-            'Respiratorio': 'from-sky-500 to-blue-400'
-        };
-        
-        return gradients[category] || 'from-gray-600 to-gray-400';
-    }
-    
-    function getCategoryIcon(category) {
-        const icons = {
-            'Examen': 'fa-clipboard-check',
-            'Revisión': 'fa-book-open',
-            'Farmacología': 'fa-pills',
-            'Maternidad': 'fa-baby',
-            'Pediatría': 'fa-child',
-            'Salud Mental': 'fa-brain',
-            'Cardiovascular': 'fa-heart-pulse',
-            'Respiratorio': 'fa-lungs'
-        };
-        
-        return icons[category] || 'fa-book';
-    }
-    
-    function getAccentColor(category) {
-        const colors = {
-            'Examen': 'text-blue-500',
-            'Revisión': 'text-purple-500',
-            'Farmacología': 'text-green-500',
-            'Maternidad': 'text-pink-500',
-            'Pediatría': 'text-orange-500',
-            'Salud Mental': 'text-indigo-500',
-            'Cardiovascular': 'text-red-500',
-            'Respiratorio': 'text-sky-500'
-        };
-        
-        return colors[category] || 'text-primary';
-    }
-    
-    // 4. COMPONENTES DE INTERFAZ ELEGANTES
-    
-    function renderElegantHeader() {
-        return `
-            <div class="sticky top-0 z-40 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-lg border-b border-gray-200/30 dark:border-white/5">
-                <div class="px-6 py-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-4">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 ${DESIGN.effects.borderRadius.medium} bg-gradient-to-br from-primary to-secondary 
-                                            flex items-center justify-center text-white ${DESIGN.effects.shadow}">
-                                    <i class="fa-solid fa-books text-lg"></i>
-                                </div>
-                                <div>
-                                    <h1 class="${DESIGN.typography.title1} text-gray-900 dark:text-white">
-                                        ${t('Biblioteca', 'Library')}
-                                    </h1>
-                                    <p class="${DESIGN.typography.caption1} text-gray-500">
-                                        ${state.books.length} ${t('recursos', 'resources')} • 
-                                        ${t('Actualizado', 'Updated')} ${state.lastSync ? formatRelativeTime(state.lastSync) : ''}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex items-center gap-3">
-                            <!-- Selector de vista -->
-                            <div class="flex bg-gray-100 dark:bg-white/5 ${DESIGN.effects.borderRadius.small} p-1">
-                                <button onclick="window.premiumBookLibrary.setViewMode('grid')" 
-                                        class="w-8 h-8 ${DESIGN.effects.borderRadius.small} flex items-center justify-center 
-                                               ${state.viewMode === 'grid' 
-                                                   ? 'bg-white dark:bg-white/10 shadow-sm' 
-                                                   : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'} 
-                                               ${DESIGN.effects.transition}">
-                                    <i class="fa-solid fa-grid-2"></i>
-                                </button>
-                                <button onclick="window.premiumBookLibrary.setViewMode('list')" 
-                                        class="w-8 h-8 ${DESIGN.effects.borderRadius.small} flex items-center justify-center 
-                                               ${state.viewMode === 'list' 
-                                                   ? 'bg-white dark:bg-white/10 shadow-sm' 
-                                                   : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'} 
-                                               ${DESIGN.effects.transition}">
-                                    <i class="fa-solid fa-list"></i>
-                                </button>
-                            </div>
-                            
-                            <!-- Botón cerrar -->
-                            <button onclick="window.premiumBookLibrary.close()" 
-                                    class="w-10 h-10 ${DESIGN.effects.borderRadius.medium} flex items-center justify-center 
-                                           hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 
-                                           ${DESIGN.effects.transition}">
-                                <i class="fa-solid fa-xmark text-lg text-gray-500"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+        btn.innerHTML = `
+            <div class="absolute inset-0 rounded-full bg-blue-600 blur-lg opacity-40 
+                group-hover:opacity-70 transition-opacity duration-300"></div>
+            
+            <div class="relative w-16 h-16 rounded-full ${THEME.gradient} flex items-center 
+                justify-center shadow-xl border border-white/10 overflow-hidden">
+                
+                <div class="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent"></div>
+                
+                <i class="fa-solid fa-book-open text-2xl text-white drop-shadow-md 
+                    group-hover:scale-110 transition-transform duration-300"></i>
+                
+                <div class="status-indicator absolute top-3 right-4 w-3 h-3 rounded-full border-2 
+                    ${state.isLoading ? 'bg-yellow-500 border-indigo-600 animate-pulse' :
+                      state.hasError ? 'bg-red-500 border-red-600' :
+                      state.books.length > 0 ? 'bg-green-500 border-indigo-600' :
+                      'bg-gray-400 border-gray-600'}"></div>
+            </div>
+            
+            <div class="tooltip absolute bottom-full right-0 mb-3 px-3 py-1.5 bg-gray-900 
+                text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 
+                transition-all duration-200 pointer-events-none shadow-lg translate-y-2 
+                group-hover:translate-y-0">
+                ${utils.t('Biblioteca Premium', 'Premium Library')}
+                ${state.books.length > 0 ? 
+                    `<span class="ml-2 px-1.5 py-0.5 bg-blue-500 rounded text-xs">${state.books.length}</span>` : ''}
+                <div class="absolute -bottom-1 right-6 w-2 h-2 bg-gray-900 rotate-45"></div>
             </div>
         `;
+        
+        document.body.appendChild(btn);
     }
     
+    // C. TARJETA DE LIBRO OPTIMIZADA
     function renderBookCard(book) {
+        const config = utils.getCategoryConfig(book.category);
+        
         return `
-            <div class="group relative animate-card-enter" style="animation-delay: ${book.order * 50}ms">
-                <div class="bg-white dark:bg-[#1C1C1E] ${DESIGN.effects.borderRadius.large} border border-gray-200/30 dark:border-white/10 
-                            overflow-hidden ${DESIGN.effects.shadowCard} hover:${DESIGN.effects.shadowHover} 
-                            ${DESIGN.effects.transition} hover:-translate-y-1 active:scale-[0.98] h-full flex flex-col">
+            <div class="group relative flex flex-col h-full ${THEME.cardBg} rounded-2xl 
+                border ${THEME.border} shadow-sm hover:shadow-2xl transition-all duration-300 
+                hover:-translate-y-1 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
+                
+                <!-- Portada -->
+                <div class="relative h-52 overflow-hidden bg-gradient-to-br ${book.coverGradient}">
+                    ${book.hasCover 
+                        ? `<img src="${book.coverUrl}" alt="${book.title}" 
+                            class="w-full h-full object-cover transition-transform duration-700 
+                            group-hover:scale-110" loading="lazy" 
+                            onerror="this.style.display='none';this.parentNode.innerHTML='<div class=\"w-full h-full flex items-center justify-center\"><i class=\"${book.icon} text-6xl text-white/80 drop-shadow-lg\"></i></div>';">`
+                        : `<div class="w-full h-full flex items-center justify-center">
+                            <i class="${book.icon} text-6xl text-white/80 drop-shadow-lg"></i>
+                           </div>`
+                    }
+                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300"></div>
                     
-                    <!-- Portada con gradiente -->
-                    <div class="relative overflow-hidden bg-gradient-to-br ${book.coverGradient}">
-                        ${book.coverUrl ? `
-                            <img src="${book.coverUrl}" alt="${book.title}" 
-                                 class="w-full h-48 object-cover opacity-90 group-hover:scale-105 
-                                        transition-transform duration-500">
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                        ` : `
-                            <div class="w-full h-48 flex flex-col items-center justify-center p-6">
-                                <i class="${book.icon} text-5xl text-white/80 mb-3"></i>
-                                <p class="text-white/70 text-center text-sm font-medium leading-tight">
-                                    ${book.title}
-                                </p>
-                            </div>
-                        `}
-                        
-                        <!-- Badges -->
-                        <div class="absolute top-3 right-3 flex flex-col gap-2">
-                            ${book.isFeatured ? `
-                                <div class="px-2 py-1 ${DESIGN.effects.borderRadius.small} bg-white/90 backdrop-blur-sm 
-                                            text-xs font-bold text-gray-900 flex items-center gap-1">
-                                    <i class="fa-solid fa-star text-yellow-500"></i>
-                                    ${t('Destacado', 'Featured')}
-                                </div>
-                            ` : ''}
-                            
-                            ${book.isNew ? `
-                                <div class="px-2 py-1 ${DESIGN.effects.borderRadius.small} bg-green-500 text-white text-xs font-bold">
-                                    ${t('Nuevo', 'New')}
-                                </div>
-                            ` : ''}
-                        </div>
+                    <!-- Badge de categoría -->
+                    <div class="absolute top-3 left-3">
+                        <span class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider 
+                            text-white bg-black/40 backdrop-blur-md rounded-md border border-white/10">
+                            ${book.category}
+                        </span>
                     </div>
+                </div>
+                
+                <!-- Contenido -->
+                <div class="p-5 flex-1 flex flex-col">
+                    <h3 class="text-lg font-bold ${THEME.textMain} leading-tight mb-1 
+                        line-clamp-2" title="${book.title}">
+                        ${book.title}
+                    </h3>
+                    <p class="text-xs ${THEME.textMuted} mb-4 font-medium">${book.subtitle}</p>
                     
-                    <!-- Contenido -->
-                    <div class="p-5 flex-1 flex flex-col">
-                        <!-- Categoría -->
-                        <div class="mb-3">
-                            <span class="${DESIGN.typography.caption2} ${book.accentColor} font-semibold uppercase tracking-wider">
-                                ${book.category}
+                    <!-- Metadata -->
+                    <div class="mt-auto flex items-center justify-between pt-4 
+                        border-t ${THEME.border}">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-mono ${THEME.textMuted} 
+                                bg-gray-100 dark:bg-white/5 px-2 py-1 rounded">
+                                ${book.formattedSize}
                             </span>
+                            ${book.pages ? `
+                                <span class="text-[10px] font-mono ${THEME.textMuted} 
+                                    bg-gray-100 dark:bg-white/5 px-2 py-1 rounded">
+                                    ${book.pages} págs
+                                </span>
+                            ` : ''}
                         </div>
                         
-                        <!-- Título y subtítulo -->
-                        <h3 class="${DESIGN.typography.title3} text-gray-900 dark:text-white mb-1 line-clamp-2 
-                                   group-hover:text-primary ${DESIGN.effects.transition}">
-                            ${book.title}
-                        </h3>
-                        <p class="${DESIGN.typography.caption1} text-gray-500 mb-3">
-                            ${book.subtitle}
-                        </p>
-                        
-                        <!-- Descripción -->
-                        <p class="${DESIGN.typography.footnote} text-gray-600 dark:text-gray-400 mb-4 flex-1 line-clamp-3">
-                            ${book.description}
-                        </p>
-                        
-                        <!-- Estadísticas -->
-                        <div class="flex items-center justify-between ${DESIGN.typography.caption2} text-gray-400 mb-4 
-                                   pt-3 border-t border-gray-100/50 dark:border-white/5">
-                            <div class="flex items-center gap-3">
-                                <span class="flex items-center gap-1">
-                                    <i class="fa-solid fa-file-lines"></i>
-                                    ${book.pages} ${t('págs', 'pgs')}
-                                </span>
-                                <span class="flex items-center gap-1">
-                                    <i class="fa-solid fa-hard-drive"></i>
-                                    ${book.formattedSize}
-                                </span>
-                            </div>
-                            <span class="flex items-center gap-1 ${book.downloadCount > 100 ? 'text-orange-500' : ''}">
-                                <i class="fa-solid fa-download"></i>
-                                ${book.downloadCount}
-                            </span>
-                        </div>
-                        
-                        <!-- Botón de acción -->
-                        <button onclick="window.premiumBookLibrary.previewBook('${book.id}')" 
-                                class="w-full py-3 ${DESIGN.effects.borderRadius.medium} bg-gray-100 dark:bg-white/5 
-                                       text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 
-                                       active:scale-95 ${DESIGN.effects.transition} flex items-center justify-center gap-2 
-                                       ${DESIGN.typography.callout} font-semibold">
-                            <i class="fa-solid fa-eye"></i>
-                            ${t('Explorar', 'Explore')}
+                        <button onclick="window.premiumBookLibrary.download('${book.id}')" 
+                                class="pl-3 pr-2 py-1.5 rounded-lg text-sm font-bold 
+                                ${book.accentColor} hover:bg-blue-50 dark:hover:bg-blue-900/20 
+                                transition-colors flex items-center gap-2 focus:outline-none 
+                                focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                                aria-label="${utils.t('Abrir', 'Open')} ${book.title}">
+                            ${utils.t('Abrir', 'Open')} 
+                            <i class="fa-solid fa-arrow-right-long transition-transform 
+                                group-hover:translate-x-1"></i>
                         </button>
                     </div>
                 </div>
@@ -432,677 +352,342 @@
         `;
     }
     
-    function renderBookList(book) {
-        return `
-            <div class="group animate-card-enter" style="animation-delay: ${book.order * 30}ms">
-                <div class="flex items-center gap-4 p-4 ${DESIGN.effects.borderRadius.large} hover:bg-gray-50/50 
-                            dark:hover:bg-white/5 active:scale-[0.98] ${DESIGN.effects.transition} 
-                            border-b border-gray-100/30 dark:border-white/5 last:border-0">
+    // D. MODAL MEJORADO
+    function createModal() {
+        if (document.getElementById('library-modal')) return;
+        
+        const modal = document.createElement('div');
+        modal.id = 'library-modal';
+        modal.className = 'fixed inset-0 z-[100] hidden';
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', utils.t('Biblioteca Premium', 'Premium Library'));
+        
+        modal.innerHTML = `
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+                 onclick="window.premiumBookLibrary.close()"></div>
+            
+            <div class="absolute inset-0 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+                <div class="w-full max-w-7xl h-[85vh] ${THEME.modalBg} rounded-3xl shadow-2xl 
+                    overflow-hidden flex flex-col animate-slide-up pointer-events-auto ring-1 ring-white/10">
                     
-                    <!-- Mini portada -->
-                    <div class="w-12 h-12 ${DESIGN.effects.borderRadius.medium} bg-gradient-to-br ${book.coverGradient} 
-                                flex items-center justify-center text-white ${DESIGN.effects.shadowCard} flex-shrink-0">
-                        ${book.coverUrl ? `
-                            <img src="${book.coverUrl}" alt="${book.title}" 
-                                 class="w-full h-full object-cover ${DESIGN.effects.borderRadius.medium}">
-                        ` : `
-                            <i class="${book.icon}"></i>
-                        `}
+                    <!-- Header -->
+                    <div class="sticky top-0 z-50 ${THEME.cardBg}/95 backdrop-blur-md 
+                        border-b ${THEME.border} px-6 py-5 flex justify-between items-center select-none">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-2xl ${THEME.gradient} flex items-center 
+                                justify-center text-white shadow-lg shadow-indigo-500/20">
+                                <i class="fa-solid fa-book-bookmark text-xl"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-bold ${THEME.textMain} tracking-tight">
+                                    ${utils.t('Biblioteca', 'Library')}
+                                </h2>
+                                <p class="text-xs ${THEME.textMuted} font-medium flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full 
+                                        ${state.isLoading ? 'bg-yellow-500 animate-pulse' :
+                                          state.hasError ? 'bg-red-500' :
+                                          'bg-green-500'}"></span>
+                                    ${state.isLoading 
+                                        ? utils.t('Cargando...', 'Loading...') 
+                                        : `${state.books.length} ${utils.t('recursos', 'resources')}`
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.premiumBookLibrary.refresh()" 
+                                class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 
+                                flex items-center justify-center ${THEME.textMuted} 
+                                hover:bg-blue-100 hover:text-blue-500 dark:hover:bg-blue-900/30 
+                                transition-all duration-200"
+                                aria-label="${utils.t('Actualizar', 'Refresh')}">
+                                <i class="fa-solid fa-rotate text-lg"></i>
+                            </button>
+                            <button onclick="window.premiumBookLibrary.close()" 
+                                class="w-10 h-10 rounded-full bg-gray-100 dark:bg-white/10 
+                                flex items-center justify-center ${THEME.textMuted} 
+                                hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/30 
+                                transition-all duration-200"
+                                aria-label="${utils.t('Cerrar', 'Close')}">
+                                <i class="fa-solid fa-xmark text-lg"></i>
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- Contenido -->
-                    <div class="flex-1 min-w-0">
-                        <div class="flex justify-between items-start mb-1">
-                            <h3 class="${DESIGN.typography.callout} font-semibold text-gray-900 dark:text-white truncate">
-                                ${book.title}
-                            </h3>
-                            <span class="${DESIGN.typography.caption2} text-gray-400 bg-gray-100 dark:bg-white/5 
-                                        px-2 py-1 ${DESIGN.effects.borderRadius.small} flex-shrink-0 ml-2">
-                                ${book.formattedSize}
-                            </span>
-                        </div>
-                        
-                        <p class="${DESIGN.typography.caption1} text-gray-500 mb-2 truncate">
-                            ${book.subtitle}
-                        </p>
-                        
-                        <div class="flex items-center gap-3 ${DESIGN.typography.caption2} text-gray-400">
-                            <span class="flex items-center gap-1 ${book.accentColor}">
-                                <i class="${book.icon}"></i>
-                                ${book.category}
-                            </span>
-                            <span>•</span>
-                            <span class="flex items-center gap-1">
-                                <i class="fa-solid fa-download"></i>
-                                ${book.downloadCount}
-                            </span>
-                            <span>•</span>
-                            <span class="flex items-center gap-1">
-                                <i class="fa-solid fa-file-lines"></i>
-                                ${book.pages}p
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <!-- Acción rápida -->
-                    <button onclick="window.premiumBookLibrary.downloadBook('${book.id}')" 
-                            class="w-10 h-10 ${DESIGN.effects.borderRadius.medium} flex items-center justify-center 
-                                   hover:bg-gray-100 dark:hover:bg-white/10 active:scale-95 
-                                   ${DESIGN.effects.transition} text-gray-500"
-                            title="${t('Descargar', 'Download')}">
-                        <i class="fa-solid fa-arrow-down"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-    
-    // 5. MODAL PRINCIPAL ELEGANTE
-    function createElegantModal() {
-        if (document.getElementById('elegant-books-modal')) return;
-        
-        const modalHTML = `
-            <div id="elegant-books-modal" class="fixed inset-0 z-[9999] hidden">
-                
-                <!-- Fondo con blur -->
-                <div class="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-500"
-                     onclick="window.premiumBookLibrary.close()"></div>
-                
-                <!-- Contenedor del modal -->
-                <div class="absolute inset-0 flex items-center justify-center p-4">
-                    <div class="w-full max-w-6xl h-[90vh] bg-white dark:bg-[#1C1C1E] 
-                                ${DESIGN.effects.borderRadius.extraLarge} ${DESIGN.effects.shadow} 
-                                overflow-hidden flex flex-col animate-modal-enter">
-                        
-                        <!-- Encabezado -->
-                        <div id="elegant-books-header"></div>
-                        
-                        <!-- Área de contenido -->
-                        <div class="flex-1 overflow-hidden flex">
-                            <!-- Panel lateral para filtros -->
-                            <div class="hidden lg:block w-64 border-r border-gray-200/30 dark:border-white/5 
-                                        bg-gray-50/30 dark:bg-black/20 p-6">
-                                ${renderSidebar()}
-                            </div>
-                            
-                            <!-- Contenido principal -->
-                            <div class="flex-1 overflow-hidden flex flex-col">
-                                <!-- Barra de estadísticas -->
-                                <div class="px-6 py-4 border-b border-gray-200/30 dark:border-white/5 
-                                            bg-gray-50/20 dark:bg-white/5">
-                                    ${renderStatsBar()}
-                                </div>
-                                
-                                <!-- Grid/Lista de libros -->
-                                <div id="elegant-books-content" class="flex-1 overflow-y-auto p-6">
-                                    ${renderSkeletonLoader()}
-                                </div>
-                            </div>
-                        </div>
+                    <div id="lib-content" class="flex-1 overflow-y-auto p-6 lg:p-8 
+                        grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 scroll-smooth">
+                        <!-- Contenido dinámico -->
                     </div>
                 </div>
             </div>
         `;
         
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        document.body.appendChild(modal);
+        addModalStyles();
     }
     
-    function renderSkeletonLoader() {
-        return `
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${Array.from({length: 6}).map((_, i) => `
-                    <div class="animate-pulse">
-                        <div class="bg-gray-200 dark:bg-white/5 ${DESIGN.effects.borderRadius.large} h-64"></div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-    
-    function renderStatsBar() {
-        const totalSize = state.books.reduce((sum, book) => sum + (book.fileSize || 0), 0);
-        const formattedSize = formatFileSize(totalSize);
+    function addModalStyles() {
+        if (document.getElementById('library-styles')) return;
         
-        return `
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 ${DESIGN.effects.borderRadius.small} bg-primary"></div>
-                        <span class="${DESIGN.typography.caption1} text-gray-600 dark:text-gray-400">
-                            ${state.books.length} ${t('recursos', 'resources')}
-                        </span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 ${DESIGN.effects.borderRadius.small} bg-green-500"></div>
-                        <span class="${DESIGN.typography.caption1} text-gray-600 dark:text-gray-400">
-                            ${formattedSize} ${t('total', 'total')}
-                        </span>
-                    </div>
-                </div>
-                <button onclick="window.premiumBookLibrary.refresh()" 
-                        class="flex items-center gap-2 ${DESIGN.typography.callout} text-primary 
-                               hover:text-blue-600 active:scale-95 ${DESIGN.effects.transition}">
-                    <i class="fa-solid fa-arrow-rotate-right"></i>
-                    ${t('Actualizar', 'Refresh')}
-                </button>
-            </div>
-        `;
-    }
-    
-    // 6. API PÚBLICA ELEGANTE
-    window.premiumBookLibrary = {
-        // Abrir biblioteca con animación
-        async open() {
-            createElegantModal();
-            
-            const modal = document.getElementById('elegant-books-modal');
-            const header = document.getElementById('elegant-books-header');
-            const content = document.getElementById('elegant-books-content');
-            
-            if (!modal || !header || !content) return;
-            
-            // Mostrar modal
-            modal.classList.remove('hidden');
-            
-            // Animación de entrada
-            await new Promise(resolve => setTimeout(resolve, 50));
-            
-            // Renderizar contenido inicial
-            header.innerHTML = renderElegantHeader();
-            content.innerHTML = renderSkeletonLoader();
-            
-            // Cargar datos
-            await this.refresh();
-            
-            // Aplicar idioma
-            this.applyLanguage();
-        },
-        
-        // Cerrar con animación suave
-        async close() {
-            const modal = document.getElementById('elegant-books-modal');
-            if (!modal) return;
-            
-            // Animación de salida
-            modal.querySelector('.animate-modal-enter').classList.add('animate-modal-exit');
-            
-            await new Promise(resolve => setTimeout(resolve, 300));
-            modal.classList.add('hidden');
-            
-            // Resetear animación
-            setTimeout(() => {
-                const modalContent = modal.querySelector('.animate-modal-enter');
-                if (modalContent) {
-                    modalContent.classList.remove('animate-modal-exit');
-                }
-            }, 350);
-        },
-        
-        // Refrescar datos
-        async refresh() {
-            const content = document.getElementById('elegant-books-content');
-            if (content) {
-                content.innerHTML = renderSkeletonLoader();
-            }
-            
-            await fetchFromGitHub();
-            updateLibraryView();
-            
-            // Mostrar notificación
-            this.showElegantToast(
-                t('Biblioteca actualizada', 'Library updated'),
-                t('Se sincronizaron', 'Synced') + ` ${state.books.length} ` + t('recursos', 'resources')
-            );
-        },
-        
-        // Vista previa de libro
-        previewBook(bookId) {
-            const book = state.books.find(b => b.id === bookId);
-            if (!book) return;
-            
-            // Crear modal de vista previa
-            this.showBookPreview(book);
-        },
-        
-        // Descargar libro
-        async downloadBook(bookId) {
-            const book = state.books.find(b => b.id === bookId);
-            if (!book) return;
-            
-            try {
-                // Mostrar notificación de descarga
-                this.showElegantToast(
-                    t('Descargando', 'Downloading'),
-                    book.title
-                );
-                
-                // Abrir en nueva pestaña
-                window.open(book.fileUrl, '_blank');
-                
-                // Actualizar contador
-                book.downloadCount++;
-                
-            } catch (error) {
-                this.showElegantToast(
-                    t('Error', 'Error'),
-                    t('No se pudo descargar', 'Could not download'),
-                    'error'
-                );
-            }
-        },
-        
-        // Cambiar modo de vista
-        setViewMode(mode) {
-            state.viewMode = mode;
-            updateLibraryView();
-            localStorage.setItem('library_view_mode', mode);
-        },
-        
-        // Aplicar idioma
-        applyLanguage() {
-            updateLibraryView();
-        },
-        
-        // Mostrar notificación elegante
-        showElegantToast(title, message, type = 'success') {
-            const toast = document.createElement('div');
-            toast.className = `
-                fixed top-6 right-6 z-[10000] max-w-sm
-                bg-white dark:bg-[#1C1C1E] ${DESIGN.effects.borderRadius.large} ${DESIGN.effects.shadow} 
-                border border-gray-200/30 dark:border-white/10
-                p-4 transform translate-x-full
-                animate-toast-enter
-            `;
-            
-            const icon = type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check';
-            const color = type === 'error' ? 'text-red-500' : 'text-green-500';
-            
-            toast.innerHTML = `
-                <div class="flex items-start gap-3">
-                    <i class="fa-solid ${icon} text-lg ${color} mt-0.5"></i>
-                    <div class="flex-1">
-                        <div class="font-semibold text-gray-900 dark:text-white">${title}</div>
-                        <div class="text-sm text-gray-500 mt-1">${message}</div>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" 
-                            class="w-8 h-8 ${DESIGN.effects.borderRadius.small} flex items-center justify-center 
-                                   hover:bg-gray-100 dark:hover:bg-white/10 ${DESIGN.effects.transition}">
-                        <i class="fa-solid fa-xmark text-gray-400"></i>
-                    </button>
-                </div>
-            `;
-            
-            document.body.appendChild(toast);
-            
-            // Auto-remover
-            setTimeout(() => {
-                toast.classList.add('animate-toast-exit');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
-    };
-    
-    // 7. FUNCIONES AUXILIARES
-    
-    function updateLibraryView() {
-        const content = document.getElementById('elegant-books-content');
-        const header = document.getElementById('elegant-books-header');
-        
-        if (header) {
-            header.innerHTML = renderElegantHeader();
-        }
-        
-        if (!content) return;
-        
-        if (state.isLoading) {
-            content.innerHTML = renderSkeletonLoader();
-            return;
-        }
-        
-        if (state.books.length === 0) {
-            content.innerHTML = renderEmptyState();
-            return;
-        }
-        
-        const booksToShow = state.books;
-        
-        content.innerHTML = `
-            ${state.viewMode === 'grid' 
-                ? `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${booksToShow.map(renderBookCard).join('')}
-                   </div>`
-                : `<div class="space-y-2">${booksToShow.map(renderBookList).join('')}</div>`
-            }
-        `;
-    }
-    
-    function renderEmptyState() {
-        return `
-            <div class="h-full flex flex-col items-center justify-center p-12 text-center">
-                <div class="w-24 h-24 ${DESIGN.effects.borderRadius.extraLarge} bg-gradient-to-br from-gray-200 to-gray-300 
-                            dark:from-white/5 dark:to-white/10 flex items-center justify-center mb-6">
-                    <i class="fa-solid fa-books text-3xl text-gray-400"></i>
-                </div>
-                <h3 class="${DESIGN.typography.title2} text-gray-900 dark:text-white mb-2">
-                    ${t('Biblioteca Vacía', 'Empty Library')}
-                </h3>
-                <p class="${DESIGN.typography.body} text-gray-500 max-w-md mb-6">
-                    ${t('No se encontraron recursos en la colección remota.', 
-                        'No resources found in remote collection.')}
-                </p>
-                <button onclick="window.premiumBookLibrary.refresh()" 
-                        class="px-6 py-3 ${DESIGN.effects.borderRadius.medium} bg-primary text-white font-semibold 
-                               hover:bg-blue-600 active:scale-95 ${DESIGN.effects.transition}">
-                    <i class="fa-solid fa-rotate mr-2"></i>
-                    ${t('Intentar Nuevamente', 'Try Again')}
-                </button>
-            </div>
-        `;
-    }
-    
-    function renderSidebar() {
-        const categories = [...new Set(state.books.map(b => b.category))];
-        
-        return `
-            <div class="space-y-6">
-                <div>
-                    <h4 class="${DESIGN.typography.callout} font-semibold text-gray-900 
-                               dark:text-white mb-3">
-                        ${t('Categorías', 'Categories')}
-                    </h4>
-                    <div class="space-y-1">
-                        ${categories.map(cat => `
-                            <button class="w-full text-left px-3 py-2 ${DESIGN.effects.borderRadius.medium} 
-                                          hover:bg-gray-100 dark:hover:bg-white/5 ${DESIGN.effects.transition} 
-                                          text-sm ${state.filterCategory === cat 
-                                              ? 'bg-primary/10 text-primary' 
-                                              : 'text-gray-600 dark:text-gray-400'}">
-                                ${cat}
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // 8. INICIALIZACIÓN
-    
-    function init() {
-        // Cargar preferencias
-        state.viewMode = localStorage.getItem('library_view_mode') || 'grid';
-        
-        // Crear botón flotante elegante
-        createElegantFloatingButton();
-        
-        // Cargar datos en background
-        setTimeout(() => fetchFromGitHub(), 1000);
-        
-        // Agregar estilos CSS
-        addElegantStyles();
-    }
-    
-    function createElegantFloatingButton() {
-        if (document.getElementById('elegant-books-btn')) return;
-        
-        const buttonHTML = `
-            <button id="elegant-books-btn" 
-                    onclick="window.premiumBookLibrary.open()"
-                    class="fixed bottom-32 right-8 z-[9998] group">
-                <div class="relative">
-                    <!-- Efecto de brillo -->
-                    <div class="absolute inset-0 bg-primary ${DESIGN.effects.borderRadius.large} blur-xl 
-                                opacity-20 group-hover:opacity-30 ${DESIGN.effects.transition}"></div>
-                    
-                    <!-- Botón principal -->
-                    <div class="relative w-14 h-14 bg-gradient-to-br from-gray-900 to-slate-800 
-                                hover:from-black hover:to-slate-900 text-white ${DESIGN.effects.borderRadius.large} 
-                                ${DESIGN.effects.shadow} flex items-center justify-center 
-                                ${DESIGN.effects.transition} group-hover:-translate-y-1 
-                                active:scale-95 border border-white/10">
-                        <i class="fa-solid fa-book-open text-lg ${DESIGN.effects.transition} 
-                                  group-hover:rotate-12"></i>
-                        
-                        <!-- Indicador de nuevos recursos -->
-                        ${state.books.some(b => b.isNew) ? `
-                            <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 
-                                        ${DESIGN.effects.borderRadius.small} border-2 border-white dark:border-[#1C1C1E] 
-                                        animate-pulse"></div>
-                        ` : ''}
-                    </div>
-                    
-                    <!-- Tooltip elegante -->
-                    <div class="absolute right-full mr-3 top-1/2 transform -translate-y-1/2 
-                                bg-gray-900 text-white px-3 py-1.5 ${DESIGN.effects.borderRadius.medium} 
-                                text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 
-                                ${DESIGN.effects.transition} pointer-events-none">
-                        ${t('Biblioteca', 'Library')}
-                        <div class="absolute left-full top-1/2 -translate-y-1/2 
-                                    border-8 border-transparent border-l-gray-900"></div>
-                    </div>
-                </div>
-            </button>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', buttonHTML);
-    }
-    
-    function addElegantStyles() {
         const style = document.createElement('style');
+        style.id = 'library-styles';
         style.textContent = `
-            /* Animaciones elegantes */
-            @keyframes modal-enter {
-                0% { 
+            @keyframes slideUp {
+                from { 
+                    transform: translateY(40px) scale(0.95); 
                     opacity: 0; 
-                    transform: scale(0.95) translateY(20px); 
                 }
-                100% { 
+                to { 
+                    transform: translateY(0) scale(1); 
                     opacity: 1; 
-                    transform: scale(1) translateY(0); 
                 }
             }
             
-            @keyframes modal-exit {
-                0% { 
-                    opacity: 1; 
-                    transform: scale(1) translateY(0); 
-                }
-                100% { 
-                    opacity: 0; 
-                    transform: scale(0.95) translateY(20px); 
-                }
-            }
-            
-            @keyframes card-enter {
-                0% { 
-                    opacity: 0; 
-                    transform: translateY(10px); 
-                }
-                100% { 
-                    opacity: 1; 
-                    transform: translateY(0); 
-                }
-            }
-            
-            @keyframes toast-enter {
-                0% { 
-                    opacity: 0; 
+            @keyframes slideInRight {
+                from { 
                     transform: translateX(100%); 
-                }
-                100% { 
-                    opacity: 1; 
-                    transform: translateX(0); 
-                }
-            }
-            
-            @keyframes toast-exit {
-                0% { 
-                    opacity: 1; 
-                    transform: translateX(0); 
-                }
-                100% { 
                     opacity: 0; 
-                    transform: translateX(100%); 
+                }
+                to { 
+                    transform: translateX(0); 
+                    opacity: 1; 
                 }
             }
             
-            .animate-modal-enter {
-                animation: modal-enter 0.4s ease-out forwards;
+            .animate-slide-up { 
+                animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
             }
             
-            .animate-modal-exit {
-                animation: modal-exit 0.3s ease-out forwards;
+            .animate-slide-in-right {
+                animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             }
             
-            .animate-card-enter {
-                animation: card-enter 0.5s ease-out forwards;
+            /* Custom Scrollbar */
+            #lib-content::-webkit-scrollbar { 
+                width: 10px; 
+                height: 10px;
             }
             
-            .animate-toast-enter {
-                animation: toast-enter 0.3s ease-out forwards;
+            #lib-content::-webkit-scrollbar-track { 
+                background: transparent; 
+                margin: 8px 0;
             }
             
-            .animate-toast-exit {
-                animation: toast-exit 0.3s ease-out forwards;
+            #lib-content::-webkit-scrollbar-thumb { 
+                background-color: rgba(156, 163, 175, 0.4); 
+                border-radius: 20px; 
+                border: 3px solid transparent; 
+                background-clip: content-box; 
             }
             
-            /* Scrollbar elegante */
-            #elegant-books-content {
-                scrollbar-width: thin;
+            #lib-content::-webkit-scrollbar-thumb:hover { 
+                background-color: rgba(156, 163, 175, 0.6); 
             }
             
-            #elegant-books-content::-webkit-scrollbar {
-                width: 6px;
-            }
-            
-            #elegant-books-content::-webkit-scrollbar-track {
-                background: transparent;
-            }
-            
-            #elegant-books-content::-webkit-scrollbar-thumb {
-                background: rgba(0, 0, 0, 0.1);
-                border-radius: 3px;
-            }
-            
-            .dark #elegant-books-content::-webkit-scrollbar-thumb {
-                background: rgba(255, 255, 255, 0.1);
-            }
-            
-            /* Efectos de glass morphism */
-            .glass-effect {
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-                background: rgba(255, 255, 255, 0.7);
-            }
-            
-            .dark .glass-effect {
-                background: rgba(28, 28, 30, 0.7);
-            }
-            
-            /* Utilidades para texto */
+            /* Line clamp utility */
             .line-clamp-2 {
                 display: -webkit-box;
                 -webkit-line-clamp: 2;
                 -webkit-box-orient: vertical;
                 overflow: hidden;
             }
-            
-            .line-clamp-3 {
-                display: -webkit-box;
-                -webkit-line-clamp: 3;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-            
-            /* Efecto de gradiente animado */
-            .gradient-animate {
-                background-size: 200% 200%;
-                animation: gradient 3s ease infinite;
-            }
-            
-            @keyframes gradient {
-                0% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-                100% { background-position: 0% 50%; }
-            }
         `;
         document.head.appendChild(style);
     }
     
-    // FUNCIONES HELPER (implementaciones básicas)
-    function showElegantToast(title, message, type = 'success') {
-        console.log(`${type.toUpperCase()}: ${title} - ${message}`);
-    }
-    
-    function findMatchingCover(pdfName, assets) {
-        const baseName = pdfName.replace('.pdf', '');
-        const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    // --- 4. MANEJO DE VISTAS ---
+    function updateLibraryView() {
+        const content = document.getElementById('lib-content');
+        if (!content) return;
         
-        for (const ext of extensions) {
-            const coverName = baseName + ext;
-            const cover = assets.find(a => a.name === coverName);
-            if (cover) return cover;
+        if (state.isLoading) {
+            content.innerHTML = `
+                <div class="col-span-full h-full flex flex-col items-center justify-center text-gray-400 gap-4">
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500"></i>
+                    <p class="animate-pulse">${utils.t('Cargando biblioteca...', 'Loading library...')}</p>
+                </div>`;
+            return;
         }
-        return null;
+        
+        if (state.hasError) {
+            content.innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center text-center py-20">
+                    <i class="fa-solid fa-triangle-exclamation text-6xl text-red-400 mb-4"></i>
+                    <p class="text-xl font-medium ${THEME.textMain} mb-2">
+                        ${utils.t('Error de conexión', 'Connection error')}
+                    </p>
+                    <p class="text-sm ${THEME.textMuted} mb-6 max-w-md">
+                        ${utils.t('No se pudo cargar el catálogo. Verifica tu conexión o intenta más tarde.', 
+                                 'Could not load catalog. Check your connection or try again later.')}
+                    </p>
+                    <button onclick="window.premiumBookLibrary.refresh()" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 
+                        transition-colors font-medium flex items-center gap-2">
+                        <i class="fa-solid fa-rotate"></i>
+                        ${utils.t('Reintentar', 'Retry')}
+                    </button>
+                </div>`;
+            return;
+        }
+        
+        if (state.books.length === 0) {
+            content.innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center text-center py-20 opacity-60">
+                    <i class="fa-solid fa-folder-open text-6xl text-gray-300 mb-4"></i>
+                    <p class="text-xl font-medium ${THEME.textMain}">
+                        ${utils.t('Biblioteca vacía', 'Empty library')}
+                    </p>
+                    <p class="text-sm ${THEME.textMuted} mt-2">
+                        ${utils.t('Agrega libros a la carpeta', 'Add books to the folder')} 
+                        <code class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">library/</code>
+                    </p>
+                </div>`;
+            return;
+        }
+        
+        content.innerHTML = state.books.map(renderBookCard).join('');
+        
+        // Lazy loading para imágenes
+        const images = content.querySelectorAll('img[loading="lazy"]');
+        if ('IntersectionObserver' in window) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.src;
+                        observer.unobserve(img);
+                    }
+                });
+            });
+            images.forEach(img => observer.observe(img));
+        }
     }
     
-    function determineBookCategory(filename) {
-        const lower = filename.toLowerCase();
-        const categories = {
-            'nclex': 'Examen',
-            'saunders': 'Revisión',
-            'pharm': 'Farmacología',
-            'maternity': 'Maternidad',
-            'pediatric': 'Pediatría',
-            'mental': 'Salud Mental',
-            'cardio': 'Cardiovascular',
-            'respir': 'Respiratorio',
-            'neuro': 'Neurológico'
-        };
-        
-        for (const [key, category] of Object.entries(categories)) {
-            if (lower.includes(key)) {
-                return category;
+    // --- 5. API PÚBLICA MEJORADA ---
+    window.premiumBookLibrary = {
+        async open() {
+            if (state.isModalOpen) return;
+            
+            createModal();
+            const modal = document.getElementById('library-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            state.isModalOpen = true;
+            
+            // Bloquear scroll
+            document.body.style.overflow = 'hidden';
+            document.body.style.paddingRight = window.innerWidth - document.documentElement.clientWidth + 'px';
+            
+            // Focus management para accesibilidad
+            modal.setAttribute('aria-hidden', 'false');
+            
+            if (state.books.length === 0 && !state.hasError) {
+                await fetchCatalog();
             }
-        }
-        return 'General';
-    }
-    
-    function calculatePopularity(downloads) {
-        return downloads || 0;
-    }
-    
-    function formatFileSize(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    }
-    
-    function formatRelativeTime(dateString) {
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
+            
+            updateLibraryView();
+        },
         
-        if (diffMins < 1) return t('ahora', 'just now');
-        if (diffMins < 60) return t('hace', '') + ` ${diffMins} ` + t('min', 'min ago');
-        if (diffMins < 1440) return t('hace', '') + ` ${Math.floor(diffMins / 60)} ` + t('h', 'h ago');
-        return date.toLocaleDateString();
+        close() {
+            const modal = document.getElementById('library-modal');
+            if (!modal) return;
+            
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            state.isModalOpen = false;
+            
+            // Restaurar scroll
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // Focus management
+            modal.setAttribute('aria-hidden', 'true');
+            
+            // Devolver focus al botón flotante
+            const floatBtn = document.getElementById('lib-float-btn');
+            if (floatBtn) floatBtn.focus();
+        },
+        
+        download(id) {
+            const book = state.books.find(b => b.id === id);
+            if (!book || !book.fileUrl) {
+                showNotification(utils.t('Libro no disponible', 'Book not available'), 'error');
+                return;
+            }
+            
+            showNotification(
+                utils.t(`Abriendo: ${book.title}`, `Opening: ${book.title}`), 
+                'info'
+            );
+            
+            // Abrir en nueva pestaña
+            const link = document.createElement('a');
+            link.href = book.fileUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.click();
+        },
+        
+        async refresh() {
+            showNotification(utils.t('Actualizando catálogo...', 'Updating catalog...'), 'info');
+            await fetchCatalog();
+        },
+        
+        getStats() {
+            return {
+                total: state.books.length,
+                categories: [...new Set(state.books.map(b => b.category))],
+                isLoading: state.isLoading,
+                hasError: state.hasError
+            };
+        }
+    };
+    
+    // --- 6. EVENT LISTENERS GLOBALES ---
+    function setupGlobalListeners() {
+        // Cerrar modal con Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && state.isModalOpen) {
+                window.premiumBookLibrary.close();
+            }
+        });
+        
+        // Recargar cuando vuelve la conexión
+        window.addEventListener('online', () => {
+            if (state.hasError) {
+                showNotification(utils.t('Conexión restablecida', 'Connection restored'), 'success');
+                fetchCatalog();
+            }
+        });
+        
+        // Prevenir memory leaks
+        window.addEventListener('beforeunload', () => {
+            window.premiumBookLibrary.close();
+        });
     }
     
-    function calculateStats(books) {
-        return {
-            totalBooks: books.length,
-            totalSize: books.reduce((sum, b) => sum + (b.fileSize || 0), 0),
-            totalDownloads: books.reduce((sum, b) => sum + (b.downloadCount || 0), 0)
-        };
+    // --- 7. INICIALIZACIÓN ---
+    function init() {
+        renderFloatingButton();
+        setupGlobalListeners();
+        fetchCatalog();
+        
+        // Exponer utilidades para debugging
+        if (window.location.hostname === 'localhost') {
+            window._libraryDebug = {
+                state,
+                utils,
+                refresh: () => fetchCatalog()
+            };
+        }
     }
     
-    // INICIAR
+    // Auto-start mejorado
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-    
 })();
