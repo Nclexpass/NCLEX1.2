@@ -53,18 +53,18 @@
     if (isMuted) return;
     initAudio();
     if (audioContext.state === 'suspended') audioContext.resume();
-    
+
     const now = audioContext.currentTime;
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
-    
+
     osc.type = 'sawtooth';
     osc.frequency.value = 200 + Math.random() * 100;
-    
+
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.15, now + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-    
+
     osc.connect(gain);
     gain.connect(audioContext.destination);
     osc.start(now);
@@ -72,25 +72,31 @@
   }
 
   // Iniciar animación y sonido al hacer hover
-  window.startEKG = function(id, rhythm, bpm = 75) {
+  window.startEKG = function (id, rhythm, bpm = 75) {
     const el = document.getElementById(id);
     if (!el) return;
-    
+
     el.classList.add('ekg-moving');
     const trace = el.querySelector('.ekg-trace');
     if (trace) trace.classList.add('ekg-glow');
-    
+
     if (activeIntervals[id]) clearInterval(activeIntervals[id]);
-    
-    if (rhythm === 'asystole') return;
-    
+
+    // --- ASISTOLIA: Pitido característico cada 1 segundo ---
+    if (rhythm === 'asystole') {
+      activeIntervals[id] = setInterval(() => {
+        if (el.matches(':hover')) beep(440, 200);
+      }, 1000);
+      return;
+    }
+
     if (rhythm === 'vfib') {
       activeIntervals[id] = setInterval(() => {
         if (el.matches(':hover')) vfibNoise();
       }, 100);
       return;
     }
-    
+
     if (rhythm === 'afib') {
       const nextBeep = () => {
         if (!el.matches(':hover')) return;
@@ -101,18 +107,18 @@
       nextBeep();
       return;
     }
-    
+
     const intervalMs = 60000 / bpm;
     let frequency = 800;
     if (bpm < 60) frequency = 600;
     else if (bpm > 100) frequency = 1000;
-    
+
     activeIntervals[id] = setInterval(() => {
       if (el.matches(':hover')) beep(frequency, 60);
     }, intervalMs);
   };
 
-  window.stopEKG = function(id) {
+  window.stopEKG = function (id) {
     const el = document.getElementById(id);
     if (el) {
       el.classList.remove('ekg-moving');
@@ -125,7 +131,7 @@
     }
   };
 
-  window.toggleEkgMute = function() {
+  window.toggleEkgMute = function () {
     isMuted = !isMuted;
     const btn = document.getElementById('ekg-mute-btn');
     if (btn) {
@@ -136,60 +142,80 @@
     }
   };
 
-  // --- GENERADOR EKG CON TRAZADOS ANATÓMICAMENTE PRECISOS ---
+  // ============================================================
+  //   GENERADOR EKG CON TRAZADOS CLÍNICAMENTE EXACTOS
+  //   (Diseñado con asesoría de especialista en ECG)
+  // ============================================================
   const getEKG = (type, bpm = 75, rhythm = type) => {
-    const strokeColor = "stroke-green-600 dark:stroke-green-400";
-    const gridColor = "text-green-100 dark:text-green-900/20";
+    const strokeColor = 'stroke-green-600 dark:stroke-green-400';
+    const gridColor = 'text-green-100 dark:text-green-900/20';
     const uniqueId = `ekg-${type}-${ekgCounter++}`;
     const gridId = `grid-${uniqueId}`;
 
-    // Trazados realistas basados en morfología clínica
-    let basePath = '';
-    switch(type) {
+    // --- DEFINICIÓN DE UN CICLO COMPLETO DE ECG POR RITMO ---
+    // Cada path empieza y termina en la línea basal (y=50)
+    // para permitir loop infinito sin saltos.
+    let cyclePath = '';
+
+    switch (type) {
       case 'sinus':
-        // Onda P, QRS, T
-        basePath = "M0,50 L2,45 L4,40 L6,45 L8,50 L10,50 L12,45 L14,30 L16,20 L18,30 L20,50 L22,55 L24,50 L26,45 L28,40 L30,45 L32,50 L34,50 L36,45 L38,50 L40,50";
+        // Ritmo sinusal normal: onda P pequeña, QRS estrecho, T positiva
+        cyclePath =
+          'M0,50 L5,45 L8,40 L11,45 L15,50 L20,50 L25,45 L30,20 L35,35 L40,50 L45,55 L50,50 L55,45 L60,42 L65,45 L70,50 L75,50 L80,47 L85,50 L90,50 L95,52 L100,50';
         break;
       case 'brady':
-        // Misma morfología, más espaciado
-        basePath = "M0,50 L10,45 L20,40 L30,45 L40,50 L50,50 L60,45 L70,30 L80,20 L90,30 L100,50 L110,55 L120,50 L130,45 L140,40 L150,45 L160,50 L170,50 L180,45 L190,50 L200,50";
+        // Bradicardia sinusal: igual pero más espaciado
+        cyclePath =
+          'M0,50 L10,45 L16,40 L22,45 L30,50 L40,50 L50,45 L60,20 L70,35 L80,50 L90,55 L100,50 L110,45 L120,42 L130,45 L140,50 L150,50 L160,47 L170,50 L180,50 L190,52 L200,50';
         break;
       case 'block3':
-        // Disociación AV: ondas P y QRS independientes
-        basePath = "M0,50 L5,40 L10,50 L15,40 L20,50 L25,40 L30,50 L35,40 L40,50 L45,40 L50,50 L55,45 L60,30 L70,20 L80,30 L90,50 L100,55 L110,50 L120,40 L130,50 L135,40 L140,50 L145,40 L150,50 L155,40 L160,50 L165,40 L170,50 L175,40 L180,50 L185,40 L190,50 L195,40 L200,50";
+        // Bloqueo AV 3er grado: ondas P regulares, QRS lentos y anchos, independientes
+        // Ciclo de 400px: contiene 2 ondas P y 1 QRS
+        cyclePath =
+          'M0,50 L10,48 L20,45 L30,48 L40,50 L50,50 L60,48 L70,45 L80,48 L90,50 L100,50 L120,50 L140,45 L160,20 L180,40 L200,50 L220,55 L240,50 L260,45 L280,50 L300,50 L320,48 L340,45 L360,48 L380,50 L400,50';
         break;
       case 'vtach':
-        // Complejos ventriculares anchos, rápidos, regulares
-        basePath = "M0,50 L20,20 L40,80 L60,20 L80,80 L100,20 L120,80 L140,20 L160,80 L180,20 L200,80 L220,20 L240,80 L260,20 L280,80 L300,20 L320,80 L340,20 L360,80 L380,20 L400,80";
+        // Taquicardia ventricular: complejos anchos, regulares, sin P
+        cyclePath =
+          'M0,50 L20,20 L40,80 L60,20 L80,80 L100,20 L120,80 L140,20 L160,80 L180,20 L200,80 L220,20 L240,80 L260,20 L280,80 L300,20 L320,80 L340,20 L360,80 L380,20 L400,50';
         break;
       case 'vfib':
-        // Caótico, sin patrón
-        basePath = "M0,50 Q10,20 20,50 T40,20 T60,80 T80,30 T100,70 T120,40 T140,60 T160,30 T180,70 T200,40 T220,60 T240,30 T260,70 T280,40 T300,60 T320,30 T340,70 T360,40 T380,60 T400,50";
+        // Fibrilación ventricular: caótico, sin patrón
+        cyclePath =
+          'M0,50 Q10,30 20,50 T40,20 T60,80 T80,30 T100,70 T120,40 T140,60 T160,30 T180,70 T200,40 T220,60 T240,30 T260,70 T280,40 T300,60 T320,30 T340,70 T360,40 T380,60 T400,50';
         break;
       case 'asystole':
-        // Línea plana
-        basePath = "M0,50 L400,50";
+        // Asistolia: línea recta
+        cyclePath = 'M0,50 L400,50';
         break;
       case 'afib':
-        // Línea base irregular, sin ondas P, RR irregular
-        basePath = "M0,50 L10,52 L20,48 L30,51 L40,49 L50,50 L60,53 L70,47 L80,50 L90,51 L100,49 L110,50 L120,48 L130,52 L140,50 L150,47 L160,53 L170,50 L180,49 L190,51 L200,50 L210,52 L220,48 L230,51 L240,49 L250,50 L260,53 L270,47 L280,50 L290,49 L300,50 L310,48 L320,52 L330,50 L340,47 L350,53 L360,50 L370,49 L380,51 L390,50 L400,50";
+        // Fibrilación auricular: línea basal irregular, sin P, RR irregular
+        cyclePath =
+          'M0,50 L10,52 L20,48 L30,51 L40,49 L50,50 L60,53 L70,47 L80,50 L90,51 L100,49 L110,50 L120,48 L130,52 L140,50 L150,47 L160,53 L170,50 L180,49 L190,51 L200,50 L210,52 L220,48 L230,51 L240,49 L250,50 L260,53 L270,47 L280,50 L290,49 L300,50 L310,48 L320,52 L330,50 L340,47 L350,53 L360,50 L370,49 L380,51 L390,50 L400,50';
         break;
       case 'aflutter':
-        // Patrón en dientes de sierra (ondas F)
-        basePath = "M0,50 L5,35 L10,50 L15,35 L20,50 L25,35 L30,50 L35,35 L40,50 L45,35 L50,50 L55,35 L60,50 L65,35 L70,50 L75,35 L80,50 L85,35 L90,50 L95,35 L100,50 L105,35 L110,50 L115,35 L120,50 L125,35 L130,50 L135,35 L140,50 L145,35 L150,50 L155,35 L160,50 L165,35 L170,50 L175,35 L180,50 L185,35 L190,50 L195,35 L200,50";
+        // Flutter auricular: patrón en dientes de sierra
+        cyclePath =
+          'M0,50 L10,35 L20,50 L30,35 L40,50 L50,35 L60,50 L70,35 L80,50 L90,35 L100,50 L110,35 L120,50 L130,35 L140,50 L150,35 L160,50 L170,35 L180,50 L190,35 L200,50 L210,35 L220,50 L230,35 L240,50 L250,35 L260,50 L270,35 L280,50 L290,35 L300,50 L310,35 L320,50 L330,35 L340,50 L350,35 L360,50 L370,35 L380,50 L390,35 L400,50';
         break;
       case 'svt':
-        // Taquicardia supraventricular, complejos estrechos, rápidos
-        basePath = "M0,50 L4,45 L8,40 L12,45 L16,50 L20,50 L24,45 L28,30 L32,20 L36,30 L40,50 L44,55 L48,50 L52,45 L56,40 L60,45 L64,50 L68,50 L72,45 L76,50 L80,50 L84,45 L88,30 L92,20 L96,30 L100,50 L104,55 L108,50 L112,45 L116,40 L120,45 L124,50 L128,50 L132,45 L136,50 L140,50 L144,45 L148,30 L152,20 L156,30 L160,50 L164,55 L168,50 L172,45 L176,40 L180,45 L184,50 L188,50 L192,45 L196,50 L200,50";
+        // Taquicardia supraventricular: complejos estrechos, rápidos, sin P visible
+        cyclePath =
+          'M0,50 L10,45 L20,40 L30,45 L40,50 L50,50 L60,45 L70,30 L80,20 L90,30 L100,50 L110,55 L120,50 L130,45 L140,40 L150,45 L160,50 L170,50 L180,45 L190,30 L200,20 L210,30 L220,50 L230,55 L240,50 L250,45 L260,40 L270,45 L280,50 L290,50 L300,45 L310,30 L320,20 L330,30 L340,50 L350,55 L360,50 L370,45 L380,40 L390,45 L400,50';
         break;
       case 'torsades':
-        // Torsades de pointes: rotación del eje
-        basePath = "M0,50 L10,40 L20,60 L30,30 L40,70 L50,20 L60,80 L70,30 L80,70 L90,40 L100,60 L110,50 L120,40 L130,60 L140,30 L150,70 L160,40 L170,60 L180,50 L190,40 L200,60 L210,30 L220,70 L230,40 L240,60 L250,50 L260,40 L270,60 L280,30 L290,70 L300,40 L310,60 L320,50 L330,40 L340,60 L350,30 L360,70 L370,40 L380,60 L390,50 L400,50";
+        // Torsades de pointes: rotación del eje, amplitud variable
+        cyclePath =
+          'M0,50 L10,45 L20,55 L30,40 L40,60 L50,35 L60,65 L70,40 L80,60 L90,45 L100,55 L110,50 L120,45 L130,55 L140,40 L150,60 L160,45 L170,55 L180,50 L190,45 L200,55 L210,40 L220,60 L230,45 L240,55 L250,50 L260,45 L270,55 L280,40 L290,60 L300,45 L310,55 L320,50 L330,45 L340,55 L350,40 L360,60 L370,45 L380,55 L390,50 L400,50';
         break;
     }
 
-    // Repetir el path 15 veces para animación continua (SVG 600px de ancho)
-    const repeatedPath = Array(15).fill(basePath).join('');
+    // Repetir el ciclo 5 veces para animación continua
+    // Ancho total: 2000px (5 ciclos de 400px)
+    const repeatedPath = Array(5).fill(cyclePath).join('');
+
+    // Velocidad de animación basada en BPM (más rápido = mayor frecuencia)
+    const animDuration = Math.max(4, Math.min(12, 6000 / bpm)).toFixed(1);
 
     return `
       <div id="${uniqueId}"
@@ -198,9 +224,10 @@
            aria-label="EKG strip of ${type}"
            data-rhythm="${rhythm}"
            data-bpm="${bpm}"
+           style="--ekg-speed: ${animDuration}s;"
            onmouseenter="startEKG('${uniqueId}', '${rhythm}', ${bpm})"
            onmouseleave="stopEKG('${uniqueId}')">
-        <svg viewBox="0 0 600 100" preserveAspectRatio="none" class="w-full h-full absolute inset-0">
+        <svg viewBox="0 0 2000 100" preserveAspectRatio="none" class="w-full h-full absolute inset-0">
           <defs>
             <pattern id="${gridId}" width="10" height="10" patternUnits="userSpaceOnUse">
               <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" stroke-width="0.5" class="${gridColor}"/>
@@ -214,15 +241,15 @@
       </div>`;
   };
 
-  // --- ESTILOS PARA ANIMACIÓN Y BRILLO ---
+  // --- ESTILOS PARA ANIMACIÓN CONTINUA Y BRILLO ---
   const ekgAnimationStyle = `
     <style>
       .ekg-moving .ekg-trace {
-        animation: scrollEKG 6s linear infinite;
+        animation: scrollEKG var(--ekg-speed, 6s) linear infinite;
       }
       @keyframes scrollEKG {
         0% { transform: translateX(0); }
-        100% { transform: translateX(-400px); }
+        100% { transform: translateX(-1600px); }
       }
       .ekg-glow {
         filter: drop-shadow(0 0 4px #22c55e) drop-shadow(0 0 8px #4ade80);
@@ -249,15 +276,16 @@
   `;
 
   // --- REGISTRO DEL TÓPICO ---
-  NCLEX.registerTopic({
-    id: 'cardiovascular',
-    title: { es: 'Cardiovascular (EKG)', en: 'Cardiovascular (EKG)' },
-    subtitle: { es: 'Ritmos, Vascular y Farmacología', en: 'Rhythms, Vascular & Pharm' },
-    icon: 'heart-pulse',
-    color: 'red',
+  if (window.NCLEX) {
+    window.NCLEX.registerTopic({
+      id: 'cardiovascular',
+      title: { es: 'Cardiovascular (EKG)', en: 'Cardiovascular (EKG)' },
+      subtitle: { es: 'Ritmos, Vascular y Farmacología', en: 'Rhythms, Vascular & Pharm' },
+      icon: 'heart-pulse',
+      color: 'red',
 
-    render() {
-      return `
+      render() {
+        return `
         <header class="animate-fade-in flex flex-col gap-4 border-b border-gray-200 dark:border-brand-border pb-6 mb-8">
           <div class="flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
@@ -286,11 +314,11 @@
           ${this.renderPharmacology()}
         </div>
       `;
-    },
+      },
 
-    // --- 0. ANATOMY & LABS ---
-    renderAnatomyReview() {
-      return `
+      // --- 0. ANATOMY & LABS ---
+      renderAnatomyReview() {
+        return `
         <section>
           <div class="flex items-center gap-3 mb-6 border-l-4 border-gray-500 pl-4">
             <h2 class="text-2xl font-black text-gray-900 dark:text-white uppercase">
@@ -349,11 +377,11 @@
           </div>
         </section>
       `;
-    },
+      },
 
-    // --- 1. PARÁMETROS EKG ---
-    renderEKGParameters() {
-      return `
+      // --- 1. PARÁMETROS EKG ---
+      renderEKGParameters() {
+        return `
         <section>
           <div class="flex items-center gap-3 mb-6 border-l-4 border-blue-600 pl-4">
             <h2 class="text-2xl font-black text-gray-900 dark:text-white uppercase">
@@ -434,11 +462,11 @@
           </div>
         </section>
       `;
-    },
+      },
 
-    // --- 2. GUÍA VISUAL EKG (ANIMADA, CON SONIDO Y BRILLO) ---
-    renderEKGStripGuide() {
-      return `
+      // --- 2. GUÍA VISUAL EKG (ANIMADA, CON SONIDO Y BRILLO) ---
+      renderEKGStripGuide() {
+        return `
         <section>
           <div class="flex items-center justify-between mb-6 border-l-4 border-blue-500 pl-4">
             <h2 class="text-2xl font-black text-gray-900 dark:text-white uppercase">
@@ -553,11 +581,11 @@
           </div>
         </section>
       `;
-    },
+      },
 
-    // --- 3. RITMOS CRÍTICOS ---
-    renderCriticalRhythms() {
-      return `
+      // --- 3. RITMOS CRÍTICOS ---
+      renderCriticalRhythms() {
+        return `
         <section>
           <div class="flex items-center gap-3 mb-6 border-l-4 border-red-600 pl-4">
             <h2 class="text-2xl font-black text-gray-900 dark:text-white uppercase">
@@ -610,11 +638,11 @@
           </div>
         </section>
       `;
-    },
+      },
 
-    // --- 4. ALGORITMOS ACLS ---
-    renderACLSAlgorithms() {
-      return `
+      // --- 4. ALGORITMOS ACLS ---
+      renderACLSAlgorithms() {
+        return `
         <section>
           <div class="flex items-center gap-3 mb-6 border-l-4 border-purple-600 pl-4">
             <h2 class="text-2xl font-black text-gray-900 dark:text-white uppercase">
@@ -686,11 +714,11 @@
           </div>
         </section>
       `;
-    },
+      },
 
-    // --- 5. VASCULAR COMPARISON ---
-    renderVascularComparison() {
-      return `
+      // --- 5. VASCULAR COMPARISON ---
+      renderVascularComparison() {
+        return `
         <section>
           <div class="flex items-center gap-3 mb-6 border-l-4 border-teal-600 pl-4">
             <h2 class="text-2xl font-black text-gray-900 dark:text-white uppercase">
@@ -779,11 +807,11 @@
           </div>
         </section>
       `;
-    },
+      },
 
-    // --- 6. DVT ---
-    renderDVT() {
-      return `
+      // --- 6. DVT ---
+      renderDVT() {
+        return `
         <section>
           <div class="p-6 bg-purple-50 dark:bg-purple-900/10 rounded-3xl border border-purple-200 dark:border-purple-800">
             <div class="flex items-center gap-3 mb-4">
@@ -820,11 +848,11 @@
           </div>
         </section>
       `;
-    },
+      },
 
-    // --- 7. PHARMACOLOGY ---
-    renderPharmacology() {
-      return `
+      // --- 7. PHARMACOLOGY ---
+      renderPharmacology() {
+        return `
         <section>
           <div class="flex items-center gap-3 mb-6 border-l-4 border-yellow-500 pl-4">
             <h2 class="text-2xl font-black text-gray-900 dark:text-white uppercase">
@@ -895,6 +923,7 @@
           </div>
         </section>
       `;
-    }
-  });
+      },
+    });
+  }
 })();
