@@ -1,123 +1,261 @@
-name: Auto catalog + covers from Release BOOKS
+// premium_books_library.js — Versión JSON Estático (Sin errores CORS)
+(function() {
+    'use strict';
+    
+    // RUTA AL ARCHIVO JSON GENERADO POR EL YAML
+    const CATALOG_URL = 'library/catalog.json';
 
-on:
-  release:
-    types: [published, edited, released]
+    // DESIGN SYSTEM
+    const DESIGN = {
+        colors: { primary: '#007AFF', secondary: '#5856D6' },
+        effects: { borderRadius: 'rounded-2xl', shadow: 'shadow-xl' }
+    };
+    
+    const state = {
+        books: [],
+        isLoading: true,
+        viewMode: localStorage.getItem('library_view_mode') || 'grid'
+    };
+    
+    // TRADUCTOR SIMPLE
+    const t = (es, en) => (localStorage.getItem('nclex_lang') === 'en') ? en : es;
 
-permissions:
-  contents: write
+    // --- 1. CARGA DE DATOS ---
+    async function fetchCatalog() {
+        state.isLoading = true;
+        updateLibraryView();
+        
+        try {
+            // Añadimos un timestamp para evitar que el navegador guarde en caché una versión vieja
+            const response = await fetch(`${CATALOG_URL}?t=${new Date().getTime()}`);
+            
+            if (!response.ok) throw new Error('No se encontró el catálogo');
+            
+            const data = await response.json();
+            
+            // Procesar los datos del JSON para agregar estilos
+            state.books = data.map(processBookData);
+            state.isLoading = false;
+            
+            updateLibraryView();
+            updateFloatingButton();
+            
+        } catch (error) {
+            console.error('Error cargando biblioteca:', error);
+            state.isLoading = false;
+            renderErrorState();
+        }
+    }
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+    function processBookData(item) {
+        // Asignar colores y gradientes según la categoría que viene del JSON
+        const cat = item.category || 'General';
+        return {
+            ...item, // Mantiene id, title, url, coverUrl, fileSize
+            subtitle: getSubtitle(cat),
+            coverGradient: getGradient(cat),
+            icon: getIcon(cat),
+            accentColor: getAccentColor(cat),
+            formattedSize: formatFileSize(item.fileSize)
+        };
+    }
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    // --- 2. FUNCIONES DE UI ---
+    
+    function renderBookCard(book) {
+        // Si hay coverUrl (generada por el YAML), úsala. Si no, usa gradiente.
+        const hasCover = book.coverUrl && !book.coverUrl.includes('null');
+        
+        return `
+            <div class="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-200/30 dark:border-white/10 overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col h-full group animate-fade-in">
+                <div class="relative h-48 bg-gradient-to-br ${book.coverGradient} flex items-center justify-center overflow-hidden">
+                    ${hasCover 
+                        ? `<img src="${book.coverUrl}" class="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-500" loading="lazy" alt="${book.title}">` 
+                        : `<i class="${book.icon} text-5xl text-white/80 drop-shadow-md"></i>`
+                    }
+                    <div class="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                </div>
+                
+                <div class="p-5 flex-1 flex flex-col">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[10px] uppercase font-bold tracking-wider ${book.accentColor} bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-md">
+                            ${book.category}
+                        </span>
+                        <span class="text-[10px] text-gray-400 font-mono">${book.formattedSize}</span>
+                    </div>
+                    
+                    <h3 class="font-bold text-gray-900 dark:text-white leading-tight mb-1 text-lg line-clamp-2" title="${book.title}">
+                        ${book.title}
+                    </h3>
+                    <p class="text-xs text-gray-500 mb-4 line-clamp-1">${book.subtitle}</p>
+                    
+                    <button onclick="window.premiumBookLibrary.download('${book.id}')" 
+                            class="mt-auto w-full py-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-sm font-bold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-cloud-arrow-down"></i>
+                        ${t('Descargar PDF', 'Download PDF')}
+                    </button>
+                </div>
+            </div>
+        `;
+    }
 
-      - name: Install tools (poppler)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y poppler-utils
+    function renderHeader() {
+        return `
+            <div class="sticky top-0 z-40 bg-white/90 dark:bg-[#1C1C1E]/90 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 px-6 py-4 flex justify-between items-center rounded-t-3xl">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-xl text-gray-900 dark:text-white leading-none mb-1">
+                            ${t('Biblioteca', 'Library')}
+                        </h2>
+                        <p class="text-xs text-gray-500 font-medium">
+                            ${state.books.length} ${t('libros disponibles', 'books available')}
+                        </p>
+                    </div>
+                </div>
+                <button onclick="window.premiumBookLibrary.close()" class="w-9 h-9 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+        `;
+    }
 
-      - name: Download PDFs from Release BOOKS
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p tmp_pdfs
-          gh release download BOOKS --repo "${{ github.repository }}" --dir tmp_pdfs --pattern "*.pdf" || true
-          ls -la tmp_pdfs || true
+    // --- 3. UTILIDADES ---
+    function formatFileSize(bytes) {
+        if (!bytes) return '';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
 
-      - name: Generate catalog.json + cover images
-        run: |
-          python3 - << 'PY'
-          import os, json, time, subprocess, urllib.parse, re
+    function getGradient(cat) {
+        const map = {
+            'Examen': 'from-blue-500 to-cyan-400',
+            'Farmacología': 'from-emerald-500 to-teal-400',
+            'Maternidad': 'from-pink-500 to-rose-400',
+            'Revisión': 'from-violet-500 to-purple-400'
+        };
+        return map[cat] || 'from-slate-500 to-gray-400';
+    }
 
-          OWNER, REPO = "${{ github.repository }}".split("/")
-          TAG = "BOOKS"
-          RELEASE_BASE = f"https://github.com/{OWNER}/{REPO}/releases/download/{TAG}/"
+    function getIcon(cat) {
+        if (cat === 'Examen') return 'fa-clipboard-check';
+        if (cat === 'Farmacología') return 'fa-pills';
+        return 'fa-book';
+    }
 
-          pdf_dir = "tmp_pdfs"
-          covers_dir = "library/files/covers"
-          os.makedirs(covers_dir, exist_ok=True)
-          os.makedirs("library", exist_ok=True)
+    function getAccentColor(cat) {
+        if (cat === 'Farmacología') return 'text-emerald-600 dark:text-emerald-400';
+        if (cat === 'Maternidad') return 'text-pink-600 dark:text-pink-400';
+        return 'text-blue-600 dark:text-blue-400';
+    }
 
-          def slugify(name: str) -> str:
-              s = name.lower()
-              s = re.sub(r"\.pdf$", "", s, flags=re.I)
-              s = s.replace("_", " ").replace(".", " ")
-              s = re.sub(r"\s+", " ", s).strip()
-              s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
-              return s or "book"
+    function getSubtitle(cat) {
+        return cat === 'Examen' ? 'NCLEX Preparation Material' : 'Nursing Study Guide';
+    }
 
-          items = []
-          now_ms = int(time.time() * 1000)
+    // --- 4. CONTROLADOR PRINCIPAL ---
+    window.premiumBookLibrary = {
+        async open() {
+            createModal();
+            document.getElementById('library-modal').classList.remove('hidden');
+            await fetchCatalog();
+        },
+        
+        close() {
+            const modal = document.getElementById('library-modal');
+            if (modal) modal.classList.add('hidden');
+        },
+        
+        download(id) {
+            const book = state.books.find(b => b.id === id);
+            if (book && book.fileUrl) {
+                // Abrir en nueva pestaña
+                window.open(book.fileUrl, '_blank');
+            }
+        }
+    };
 
-          if not os.path.isdir(pdf_dir):
-              print("No tmp_pdfs folder found")
-              pdfs = []
-          else:
-              pdfs = [f for f in os.listdir(pdf_dir) if f.lower().endswith(".pdf")]
-              pdfs.sort()
+    function createModal() {
+        if (document.getElementById('library-modal')) return;
+        
+        const html = `
+            <div id="library-modal" class="fixed inset-0 z-[100] hidden">
+                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onclick="window.premiumBookLibrary.close()"></div>
+                <div class="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
+                    <div class="w-full max-w-6xl h-[85vh] bg-gray-50 dark:bg-[#151517] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-slide-up relative">
+                        <div id="lib-header"></div>
+                        <div id="lib-content" class="flex-1 overflow-y-auto p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            <div class="col-span-full h-full flex flex-col items-center justify-center text-gray-400">
+                                <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-4 text-blue-500"></i>
+                                <p>Cargando catálogo...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', html);
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+            .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        `;
+        document.head.appendChild(style);
+    }
 
-          for fname in pdfs:
-              local_pdf = os.path.join(pdf_dir, fname)
-              title = re.sub(r"\.pdf$", "", fname, flags=re.I).replace("_", " ").replace(".", " ")
-              title = re.sub(r"\s+", " ", title).strip()
+    function updateLibraryView() {
+        const header = document.getElementById('lib-header');
+        const content = document.getElementById('lib-content');
+        if (!content) return;
+        
+        header.innerHTML = renderHeader();
+        
+        if (state.isLoading) return; // Mantiene el loader del HTML inicial
+        
+        if (state.books.length === 0) {
+            content.innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center text-center py-20">
+                    <i class="fa-solid fa-box-open text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-500">No hay libros en el catálogo local.</p>
+                </div>`;
+            return;
+        }
+        
+        content.innerHTML = state.books.map(renderBookCard).join('');
+    }
+    
+    function renderErrorState() {
+        const content = document.getElementById('lib-content');
+        if(content) {
+            content.innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center text-center py-20">
+                    <i class="fa-solid fa-triangle-exclamation text-4xl text-yellow-500 mb-4"></i>
+                    <p class="text-gray-500 mb-2">No se pudo cargar 'library/catalog.json'</p>
+                    <p class="text-xs text-gray-400">Asegúrate de que la GitHub Action se ejecutó correctamente.</p>
+                </div>`;
+        }
+    }
 
-              safe_id = slugify(fname)
+    function updateFloatingButton() {
+        if (!document.getElementById('lib-float-btn')) {
+            const btn = `
+                <button id="lib-float-btn" onclick="window.premiumBookLibrary.open()" 
+                    class="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-tr from-gray-900 to-slate-800 dark:from-white dark:to-gray-200 text-white dark:text-black rounded-2xl shadow-xl shadow-black/20 z-40 flex items-center justify-center hover:scale-105 transition-transform group border border-white/10">
+                    <i class="fa-solid fa-book-open text-xl group-hover:-translate-y-0.5 transition-transform"></i>
+                    ${state.books.length > 0 ? `<span class="absolute top-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full translate-x-1 -translate-y-1"></span>` : ''}
+                </button>
+            `;
+            document.body.insertAdjacentHTML('beforeend', btn);
+        }
+    }
 
-              # URL encode filename for downloads (spaces etc.)
-              url_name = urllib.parse.quote(fname, safe="()!$&'*,;=@:+-._~")  # keep common safe chars
-              file_url = RELEASE_BASE + url_name
+    // AUTO-INIT
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fetchCatalog);
+    else fetchCatalog();
 
-              cover_name = f"{safe_id}.jpg"
-              cover_path = os.path.join(covers_dir, cover_name)
-
-              # Create cover only if missing
-              if not os.path.exists(cover_path):
-                  # pdftoppm outputs cover_path without .jpg extension when -singlefile is used
-                  out_base = os.path.join(covers_dir, safe_id)
-                  try:
-                      subprocess.run([
-                          "pdftoppm",
-                          "-f", "1", "-l", "1",
-                          "-jpeg",
-                          "-singlefile",
-                          "-scale-to-x", "420",
-                          "-scale-to-y", "-1",
-                          local_pdf,
-                          out_base
-                      ], check=True)
-                      # pdftoppm creates out_base.jpg
-                  except Exception as e:
-                      print("Cover failed for:", fname, e)
-
-              items.append({
-                  "id": safe_id,
-                  "title": {"es": title, "en": title},
-                  "author": "",
-                  "type": "pdf",
-                  "fileUrl": file_url,
-                  "coverUrl": f"library/files/covers/{cover_name}",
-                  "tags": ["NCLEX"],
-                  "addedAt": now_ms,
-                  "source": "github_release"
-              })
-
-          with open("library/catalog.json", "w", encoding="utf-8") as f:
-              json.dump(items, f, ensure_ascii=False, indent=2)
-
-          print("OK: catalog -> library/catalog.json")
-          print("OK: books ->", len(items))
-          print("OK: covers ->", covers_dir)
-          PY
-
-      - name: Commit and push changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add library/catalog.json library/files/covers || true
-          git status
-          git commit -m "Auto-update library catalog + covers (BOOKS)" || echo "Nothing to commit"
-          git push
+})();
