@@ -1,7 +1,3 @@
-{
-type: "new file",
-fileName: "30_common_student_errors.js",
-fullContent: `
 /* 30_common_student_errors.js — Trap Avoidance & NCLEX Mindset */
 
 window.NCLEX.registerTopic({
@@ -18,7 +14,7 @@ window.NCLEX.registerTopic({
   color: 'orange',
   keywords: ['errors', 'nclex hospital', 'traps', 'mistakes', 'test-taking', 'assumptions', 'ideal world'],
   render: function () {
-    return \`
+    return `
       <header class="mb-8">
         <h1 class="text-3xl font-black text-slate-900 dark:text-white mb-2">
           <span class="lang-es">Errores Fatales en el NCLEX</span>
@@ -206,8 +202,6 @@ window.NCLEX.registerTopic({
         </p>
       </div>
 
-    \`;
+    `;
   }
 });
-`
-}
