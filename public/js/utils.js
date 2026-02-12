@@ -1,37 +1,25 @@
-// utils.js — Utilidades compartidas NCLEX Masterclass (VERSIÓN 3.0)
-// Centraliza funciones comunes para eliminar código duplicado
+// utils.js — Utilidades compartidas NCLEX Masterclass (VERSIÓN 3.0.1)
+// FIXED: isArray ahora retorna valor correctamente
 
 (function() {
     'use strict';
 
-    // ===== CONFIGURACIÓN GLOBAL =====
     const CONFIG = {
-        VERSION: '3.0.0',
+        VERSION: '3.0.1',
         STORAGE_PREFIX: 'nclex_',
         DEBOUNCE_DEFAULT: 150,
         THROTTLE_DEFAULT: 100
     };
 
-    // ===== VALIDACIÓN Y TIPOS =====
-
     const Utils = {
-        /**
-         * Verifica si un valor es un objeto plano
-         */
         isPlainObject(value) {
             return Object.prototype.toString.call(value) === '[object Object]';
         },
 
-        /**
-         * Verifica si un valor es un array
-         */
         isArray(value) {
-            Array.isArray(value);
+            return Array.isArray(value);
         },
 
-        /**
-         * Verifica si un valor está vacío (null, undefined, '', [], {})
-         */
         isEmpty(value) {
             if (value == null) return true;
             if (typeof value === 'string') return value.trim() === '';
@@ -40,16 +28,10 @@
             return false;
         },
 
-        /**
-         * Genera un ID único
-         */
         generateId(prefix = 'nclex') {
             return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         },
 
-        /**
-         * Deep clone de objetos/arrays
-         */
         deepClone(obj) {
             if (obj === null || typeof obj !== 'object') return obj;
             if (obj instanceof Date) return new Date(obj.getTime());
@@ -66,9 +48,6 @@
             return obj;
         },
 
-        /**
-         * Merge profundo de objetos
-         */
         deepMerge(target, ...sources) {
             if (!sources.length) return target;
             const source = sources.shift();
@@ -90,12 +69,7 @@
         }
     };
 
-    // ===== LOCALSTORAGE SEGURO =====
-
     const Storage = {
-        /**
-         * Obtiene valor de localStorage con fallback
-         */
         get(key, defaultValue = null) {
             try {
                 const item = localStorage.getItem(CONFIG.STORAGE_PREFIX + key);
@@ -107,16 +81,12 @@
             }
         },
 
-        /**
-         * Guarda valor en localStorage
-         */
         set(key, value) {
             try {
                 localStorage.setItem(CONFIG.STORAGE_PREFIX + key, JSON.stringify(value));
                 return true;
             } catch (e) {
                 console.warn(`Storage.set error for "${key}":`, e);
-                // Intentar limpiar espacio si está lleno
                 if (e.name === 'QuotaExceededError') {
                     this.cleanup();
                     try {
@@ -130,9 +100,6 @@
             }
         },
 
-        /**
-         * Elimina una clave
-         */
         remove(key) {
             try {
                 localStorage.removeItem(CONFIG.STORAGE_PREFIX + key);
@@ -143,15 +110,10 @@
             }
         },
 
-        /**
-         * Limpia entradas antiguas para liberar espacio
-         */
         cleanup() {
             const keys = Object.keys(localStorage);
             const nclexKeys = keys.filter(k => k.startsWith(CONFIG.STORAGE_PREFIX));
             
-            // Ordenar por antigüedad (simulado por orden de keys)
-            // En producción, usar timestamps
             const toRemove = nclexKeys
                 .filter(k => !k.includes('progress') && !k.includes('lang') && !k.includes('theme'))
                 .slice(0, 5);
@@ -160,9 +122,6 @@
             console.log('Storage cleaned up, removed:', toRemove);
         },
 
-        /**
-         * Obtiene todas las keys de NCLEX
-         */
         keys() {
             return Object.keys(localStorage)
                 .filter(k => k.startsWith(CONFIG.STORAGE_PREFIX))
@@ -170,14 +129,7 @@
         }
     };
 
-    // ===== DEBOUNCE / THROTTLE =====
-
     const Timing = {
-        _timers: new Map(),
-
-        /**
-         * Debounce: ejecuta función después de que deje de llamarse
-         */
         debounce(fn, wait = CONFIG.DEBOUNCE_DEFAULT, immediate = false) {
             let timeout;
             return function executedFunction(...args) {
@@ -192,9 +144,6 @@
             };
         },
 
-        /**
-         * Throttle: ejecuta función máximo una vez por período
-         */
         throttle(fn, limit = CONFIG.THROTTLE_DEFAULT) {
             let inThrottle;
             return function executedFunction(...args) {
@@ -206,9 +155,6 @@
             };
         },
 
-        /**
-         * Ejecuta función después de que el DOM esté listo
-         */
         ready(fn) {
             if (document.readyState !== 'loading') {
                 fn();
@@ -217,23 +163,14 @@
             }
         },
 
-        /**
-         * Delay con Promise
-         */
         sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         },
 
-        /**
-         * RequestAnimationFrame con Promise
-         */
         raf() {
             return new Promise(resolve => requestAnimationFrame(resolve));
         },
 
-        /**
-         * Mide tiempo de ejecución de una función
-         */
         measure(fn, label = 'Function') {
             const start = performance.now();
             const result = fn();
@@ -243,12 +180,7 @@
         }
     };
 
-    // ===== FORMATO Y FECHAS =====
-
     const Format = {
-        /**
-         * Formatea duración en minutos a legible
-         */
         duration(minutes, short = false) {
             if (minutes < 60) return short ? `${minutes}m` : `${minutes} minutos`;
             const hours = Math.floor(minutes / 60);
@@ -257,9 +189,6 @@
             return mins > 0 ? `${hours} horas ${mins} minutos` : `${hours} horas`;
         },
 
-        /**
-         * Formatea fecha relativa
-         */
         relativeTime(date, lang = 'es') {
             const now = new Date();
             const then = new Date(date);
@@ -298,9 +227,6 @@
             return t.months(Math.floor(diffDays / 30));
         },
 
-        /**
-         * Formatea número con separadores
-         */
         number(num, decimals = 0) {
             return num.toLocaleString('es-ES', {
                 minimumFractionDigits: decimals,
@@ -308,33 +234,21 @@
             });
         },
 
-        /**
-         * Formatea porcentaje
-         */
         percent(value, total, decimals = 0) {
             if (total === 0) return '0%';
             return ((value / total) * 100).toFixed(decimals) + '%';
         },
 
-        /**
-         * Trunca texto con ellipsis
-         */
         truncate(text, maxLength, suffix = '...') {
             if (!text || text.length <= maxLength) return text;
             return text.substring(0, maxLength - suffix.length).trim() + suffix;
         },
 
-        /**
-         * Capitaliza primera letra
-         */
         capitalize(str) {
             if (!str) return '';
             return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
         },
 
-        /**
-         * Convierte snake_case a Title Case
-         */
         titleCase(str) {
             return str
                 .replace(/_/g, ' ')
@@ -342,29 +256,26 @@
                 .split(' ')
                 .map(word => this.capitalize(word))
                 .join(' ');
+        },
+
+        formatFileSize(bytes) {
+            if (bytes === 0 || !bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
     };
 
-    // ===== MANIPULACIÓN DEL DOM =====
-
     const DOM = {
-        /**
-         * Selector seguro con cache opcional
-         */
         $(selector, context = document) {
             return context.querySelector(selector);
         },
 
-        /**
-         * Selector múltiple
-         */
         $$(selector, context = document) {
             return Array.from(context.querySelectorAll(selector));
         },
 
-        /**
-         * Crea elemento con atributos
-         */
         create(tag, attrs = {}, children = []) {
             const el = document.createElement(tag);
             
@@ -395,27 +306,18 @@
             return el;
         },
 
-        /**
-         * Elimina todos los hijos de un elemento
-         */
         empty(el) {
             while (el.firstChild) {
                 el.removeChild(el.firstChild);
             }
         },
 
-        /**
-         * Escapa HTML para prevenir XSS
-         */
         escapeHtml(str) {
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
         },
 
-        /**
-         * Obtiene o establece data attributes
-         */
         data(el, key, value) {
             if (value === undefined) {
                 return el.dataset[key];
@@ -423,83 +325,51 @@
             el.dataset[key] = value;
         },
 
-        /**
-         * Añade clase(s) a elemento(s)
-         */
         addClass(els, ...classes) {
             const elements = Array.isArray(els) ? els : [els];
             elements.forEach(el => el.classList.add(...classes));
         },
 
-        /**
-         * Remueve clase(s) de elemento(s)
-         */
         removeClass(els, ...classes) {
             const elements = Array.isArray(els) ? els : [els];
             elements.forEach(el => el.classList.remove(...classes));
         },
 
-        /**
-         * Toggle clase con condición opcional
-         */
         toggleClass(els, className, force) {
             const elements = Array.isArray(els) ? els : [els];
             elements.forEach(el => el.classList.toggle(className, force));
         },
 
-        /**
-         * Verifica si elemento tiene clase
-         */
         hasClass(el, className) {
             return el.classList.contains(className);
         },
 
-        /**
-         * Encuentra ancestro más cercano con selector
-         */
         closest(el, selector) {
             return el.closest(selector);
         },
 
-        /**
-         * Obtiene posición relativa al viewport
-         */
         rect(el) {
             return el.getBoundingClientRect();
         },
 
-        /**
-         * Scroll suave a elemento
-         */
         scrollTo(el, options = {}) {
             const { behavior = 'smooth', block = 'start' } = options;
             el.scrollIntoView({ behavior, block });
         }
     };
 
-    // ===== EVENTOS =====
-
     const Events = {
         _delegates: new Map(),
 
-        /**
-         * Añade evento con auto-cleanup
-         */
         on(el, event, handler, options = {}) {
             el.addEventListener(event, handler, options);
             return () => el.removeEventListener(event, handler, options);
         },
 
-        /**
-         * Evento una sola vez
-         */
         once(el, event, handler) {
             return this.on(el, event, handler, { once: true });
         },
 
-        /**
-         * Delegación de eventos
-         */
         delegate(container, event, selector, handler) {
             const wrappedHandler = (e) => {
                 const target = e.target.closest(selector);
@@ -519,17 +389,11 @@
             };
         },
 
-        /**
-         * Dispara evento personalizado
-         */
         emit(target, eventName, detail = {}) {
             const event = new CustomEvent(eventName, { detail, bubbles: true });
             target.dispatchEvent(event);
         },
 
-        /**
-         * Limpia todas las delegaciones
-         */
         cleanup() {
             this._delegates.forEach(({ container, event, handler }) => {
                 container.removeEventListener(event, handler);
@@ -538,67 +402,39 @@
         }
     };
 
-    // ===== VALIDACIÓN DE FORMULARIOS =====
-
     const Validate = {
-        /**
-         * Valida email
-         */
         email(str) {
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
         },
 
-        /**
-         * Valida que no esté vacío
-         */
         required(str) {
             return str != null && String(str).trim() !== '';
         },
 
-        /**
-         * Valida longitud mínima
-         */
         minLength(str, min) {
             return String(str).length >= min;
         },
 
-        /**
-         * Valida rango numérico
-         */
         range(num, min, max) {
             const n = Number(num);
             return !isNaN(n) && n >= min && n <= max;
         },
 
-        /**
-         * Valida que sea número
-         */
         number(str) {
             return !isNaN(Number(str)) && !isNaN(parseFloat(str));
         }
     };
 
-    // ===== COLORES Y TEMAS =====
-
     const Theme = {
-        /**
-         * Obtiene variable CSS
-         */
         getVar(name, fallback = '') {
             return getComputedStyle(document.documentElement)
                 .getPropertyValue(name).trim() || fallback;
         },
 
-        /**
-         * Establece variable CSS
-         */
         setVar(name, value) {
             document.documentElement.style.setProperty(name, value);
         },
 
-        /**
-         * Convierte hex a rgb
-         */
         hexToRgb(hex) {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result ? {
@@ -608,15 +444,10 @@
             } : null;
         },
 
-        /**
-         * Ajusta opacidad de color
-         */
         fade(color, opacity) {
-            // Si es rgb(var(--name)), extraer
             if (color.includes('rgb(var')) {
                 return color.replace(')', `, ${opacity})`).replace('rgb', 'rgba');
             }
-            // Si es hex, convertir
             const rgb = this.hexToRgb(color);
             if (rgb) {
                 return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
@@ -625,12 +456,9 @@
         }
     };
 
-    // ===== EXPOSICIÓN GLOBAL =====
-
     window.NCLEXUtils = {
         version: CONFIG.VERSION,
         
-        // Módulos
         utils: Utils,
         storage: Storage,
         timing: Timing,
@@ -640,7 +468,6 @@
         validate: Validate,
         theme: Theme,
 
-        // Accesos directos comunes
         $: DOM.$,
         $$: DOM.$$,
         debounce: Timing.debounce,
@@ -650,8 +477,8 @@
         escapeHtml: DOM.escapeHtml,
         truncate: Format.truncate,
         relativeTime: Format.relativeTime,
+        formatFileSize: Format.formatFileSize,
         
-        // Helper para inicialización segura
         ready: Timing.ready
     };
 

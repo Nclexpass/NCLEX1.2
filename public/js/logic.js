@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.0) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.1) */
 
 (function () {
     'use strict';
@@ -38,9 +38,6 @@
   
     // ===== PERSISTENCIA SEGURA =====
     
-    /**
-     * Carga estado desde localStorage con manejo de errores
-     */
     function loadPersistedState() {
         try {
             const stored = localStorage.getItem('nclex_progress');
@@ -104,9 +101,6 @@
 
     // ===== SISTEMA DE REGISTRO DE TOPICS =====
     
-    /**
-     * Registra un topic con debounce para evitar re-renders múltiples
-     */
     function registerTopic(topic) {
         if (!topic || !topic.id) {
             console.warn('Intento de registrar topic inválido:', topic);
@@ -116,37 +110,28 @@
         const existingIndex = state.topics.findIndex(t => t.id === topic.id);
         
         if (existingIndex >= 0) {
-            // Merge conservador: preservar propiedades existentes si no vienen nuevas
             state.topics[existingIndex] = {
                 ...state.topics[existingIndex],
                 ...topic,
-                // Preservar render si el nuevo no lo tiene
                 render: topic.render || state.topics[existingIndex].render
             };
         } else {
             state.topics.push(topic);
         }
 
-        // Ordenar por order
         state.topics.sort((a, b) => (parseInt(a.order || 999) - parseInt(b.order || 999)));
         
-        // Queue update en lugar de immediate render
         queueUpdate();
     }
 
-    /**
-     * Sistema de cola de actualizaciones para evitar re-renders excesivos
-     */
     function queueUpdate() {
         const now = Date.now();
         
-        // Limpiar timeout anterior si existe
         if (state.updateQueue.length > 0) {
             clearTimeout(state.updateQueue[0]);
             state.updateQueue = [];
         }
         
-        // Solo actualizar si han pasado al menos 50ms desde el último
         const delay = Math.max(0, 50 - (now - state.lastUpdate));
         
         const timeoutId = setTimeout(() => {
@@ -155,12 +140,10 @@
             state.lastUpdate = Date.now();
             updateNav();
             
-            // Reconstruir índice de búsqueda si existe
-            if (window.SmartSearchEngine && typeof window.SmartSearchEngine.buildIndex === 'function') {
-                window.SmartSearchEngine.buildIndex(state.topics);
+            if (window.SmartSearchEngine && typeof window.SmartSearchEngine.buildIndices === 'function') {
+                window.SmartSearchEngine.buildIndices(state.topics);
             }
             
-            // Solo re-renderizar home si estamos ahí
             if (state.currentRoute === 'home') {
                 render('home');
             }
@@ -177,16 +160,12 @@
     };
   
     window.nclexApp = {
-        /**
-         * Navega a una ruta específica
-         */
         navigate(route) {
             if (state.isRendering) {
                 console.warn('Navegación bloqueada: render en progreso');
                 return;
             }
 
-            // Guardar posición de scroll actual
             const main = $('#main-content');
             if (main) {
                 state.scrollPositions[state.currentRoute] = main.scrollTop;
@@ -196,45 +175,32 @@
             render(route);
             updateNavActive(route);
             
-            // Restaurar scroll o ir al top
             if (main) {
                 main.scrollTop = (route === 'home' ? (state.scrollPositions['home'] || 0) : 0);
             }
             
-            // Limpiar resultados de búsqueda
             clearSearchResults();
         },
         
-        /**
-         * Alterna entre español e inglés
-         */
         toggleLanguage() {
             state.currentLang = state.currentLang === 'es' ? 'en' : 'es';
             safeStorageSet('nclex_lang', state.currentLang);
             applyLanguageGlobal();
             
-            // Re-renderizar vista actual para aplicar cambios
             render(state.currentRoute);
             updateNav();
         },
         
-        /**
-         * Alterna entre tema oscuro y claro
-         */
         toggleTheme() {
             state.currentTheme = state.currentTheme === 'dark' ? 'light' : 'dark';
             safeStorageSet('nclex_theme', state.currentTheme);
             applyTheme();
             
-            // Notificar a otros sistemas (skins, etc.)
             window.dispatchEvent(new CustomEvent('themechange', {
                 detail: { theme: state.currentTheme }
             }));
         },
         
-        /**
-         * Marca/desmarca un topic como completado
-         */
         toggleTopicComplete(topicId) {
             const index = state.completedTopics.indexOf(topicId);
             if (index > -1) {
@@ -247,23 +213,14 @@
             updateNav();
         },
 
-        /**
-         * Obtiene lista de topics
-         */
         getTopics() { 
             return [...state.topics]; 
         },
 
-        /**
-         * Obtiene ruta actual (para integración con skins.js)
-         */
         getCurrentRoute() {
             return state.currentRoute;
         },
 
-        /**
-         * Fuerza actualización de UI (para integración con skins.js)
-         */
         refreshUI() {
             render(state.currentRoute);
             updateNav();
@@ -272,9 +229,6 @@
   
     // ===== RENDERIZADO =====
 
-    /**
-     * Limpia resultados de búsqueda de ambos contenedores
-     */
     function clearSearchResults() {
         setTimeout(() => {
             const homeResults = $('#home-search-results');
@@ -294,9 +248,6 @@
         }, 50);
     }
   
-    /**
-     * Renderiza la vista de home
-     */
     function renderHome() {
         const total = state.topics.length;
         const completed = state.completedTopics.length;
@@ -328,7 +279,6 @@
                 </div>
             </div>
 
-            <!-- SMART SEARCH (HOME) -->
             <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg mb-10 transition-colors">
                 <h2 class="text-xl font-bold mb-4 text-[var(--brand-text)]">
                     <i class="fa-solid fa-search mr-2" style="color: rgb(var(--brand-blue-rgb));"></i> Smart Search
@@ -342,7 +292,6 @@
                 <div id="home-search-results" class="mt-3 w-full bg-[var(--brand-card)] border border-[var(--brand-border)] rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
             </div>
 
-            <!-- GRID DE ACCESO RÁPIDO -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
                 <div onclick="window.nclexApp.navigate('simulator')" 
                     class="p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform bg-gradient-to-br from-indigo-600 to-violet-600">
@@ -377,7 +326,6 @@
                 </div>
             </div>
 
-            <!-- MÓDULOS (temas) -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 ${state.topics.map(t => {
                     const isComplete = state.completedTopics.includes(t.id);
@@ -402,9 +350,6 @@
         `;
     }
   
-    /**
-     * Renderiza la vista actual de forma segura
-     */
     function render(route) {
         if (state.isRendering) {
             console.warn('Render bloqueado: ya hay uno en progreso');
@@ -419,7 +364,6 @@
 
         state.isRendering = true;
         
-        // Fade out suave
         view.style.opacity = '0';
         view.style.transform = 'translateY(10px)';
         
@@ -489,7 +433,6 @@
                     </div>
                 `;
             } finally {
-                // Fade in
                 requestAnimationFrame(() => {
                     view.style.opacity = '1';
                     view.style.transform = 'translateY(0)';
@@ -499,9 +442,6 @@
         }, 100);
     }
   
-    /**
-     * Actualiza la navegación lateral
-     */
     function updateNav() {
         const nav = $('#topics-nav');
         if (!nav) return;
@@ -525,13 +465,9 @@
             `;
         }).join('');
 
-        // Re-aplicar estado activo después de actualizar
         updateNavActive(state.currentRoute);
     }
   
-    /**
-     * Actualiza el estado activo de los botones de navegación
-     */
     function updateNavActive(route) {
         $$('.nav-btn').forEach(btn => {
             const btnRoute = btn.getAttribute('data-route');
@@ -539,7 +475,6 @@
             
             btn.classList.toggle('active', isActive);
             
-            // Asegurar que el icono mantenga su color
             const icon = btn.querySelector('i');
             if (icon && isActive) {
                 icon.style.color = `rgb(var(--brand-blue-rgb))`;
@@ -547,9 +482,6 @@
         });
     }
 
-    /**
-     * Aplica el idioma global a todos los elementos
-     */
     function applyLanguageGlobal() {
         const isEs = state.currentLang === 'es';
         
@@ -561,46 +493,33 @@
             el.classList.toggle('hidden-lang', isEs);
         });
 
-        // Actualizar lang del html
         document.documentElement.lang = state.currentLang;
     }
   
-    /**
-     * Aplica el tema (dark/light) al documento
-     */
     function applyTheme() {
         const isDark = state.currentTheme === 'dark';
         document.documentElement.classList.toggle('dark', isDark);
         
-        // Actualizar meta theme-color para móviles
         const metaTheme = $('meta[name="theme-color"]');
         if (metaTheme) {
             metaTheme.content = isDark ? '#0F0F11' : '#F5F5F7';
         }
     }
 
-    /**
-     * Inicializa la aplicación
-     */
     function init() {
-        console.log('🚀 NCLEX App v3.0 initializing...');
+        console.log('🚀 NCLEX App v3.1 initializing...');
         
-        // Cargar estado persistido
         loadPersistedState();
         
-        // Aplicar tema e idioma
         applyTheme();
         applyLanguageGlobal();
         
-        // Marcar como cargado
         state.isAppLoaded = true;
         
-        // Renderizar navegación y vista inicial
         updateNav();
         render('home');
         updateNavActive('home');
         
-        // Configurar scroll to top
         window.scrollToTop = function() {
             const main = $('#main-content');
             if (main) {
@@ -608,7 +527,6 @@
             }
         };
 
-        // Mostrar botón back-to-top al hacer scroll
         const mainContent = $('#main-content');
         const backToTop = $('#back-to-top');
         
@@ -620,10 +538,8 @@
             });
         }
         
-        // Notificar que la app está lista
         document.dispatchEvent(new CustomEvent('nclex:ready'));
         
-        // Ocultar loader
         if (typeof window.hideLoader === 'function') {
             window.hideLoader();
         }
@@ -631,15 +547,17 @@
         console.log('✅ NCLEX App initialized successfully');
     }
 
-    // ===== PUNTOS DE ENTRADA =====
-    
+    // ===== EXPONER FUNCIONES GLOBALES =====
+    window.applyGlobalLanguage = applyLanguageGlobal;
+    window.safeStorageGet = safeStorageGet;
+    window.safeStorageSet = safeStorageSet;
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
 
-    // Escuchar cambios de skin para re-renderizar si es necesario
     window.addEventListener('skinchange', (e) => {
         console.log('Skin changed, refreshing UI...');
         if (state.isAppLoaded) {

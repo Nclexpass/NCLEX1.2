@@ -1,28 +1,40 @@
-/* simulator.js — Motor Cloud FINAL (PROD) v3.0
-   REFACTORIZADO: Usa NCLEXUtils para eliminar código duplicado
-   - UI Estética + Multi-Selección de Temas
-   - CSV parser robusto (comillas + saltos de línea)
-   - Handlers seguros (sin JSON.stringify en onclick)
+/* simulator.js — Motor Cloud FINAL (PROD) v3.1
+   FIXED: Inicialización segura de NCLEXUtils
 */
 
 (function () {
   'use strict';
 
-  // ===== DEPENDENCIAS =====
-  const U = window.NCLEXUtils;
-  
-  if (!U) {
-    console.error('NCLEXUtils no está cargado. Cargando fallback...');
-    window.NCLEXUtils = {
-      storageGet: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } },
-      storageSet: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
-      debounce: (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; },
+  // ===== DEPENDENCIAS - FIXED =====
+  const U = window.NCLEXUtils || (() => {
+    console.warn('NCLEXUtils no está cargado. Cargando fallback...');
+    const fallback = {
       $: (s) => document.querySelector(s),
       $$: (s) => Array.from(document.querySelectorAll(s)),
+      storageGet: (k, d) => { 
+        try { return JSON.parse(localStorage.getItem(k)) || d; } 
+        catch { return d; } 
+      },
+      storageSet: (k, v) => { 
+        try { localStorage.setItem(k, JSON.stringify(v)); return true; } 
+        catch { return false; } 
+      },
+      debounce: (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; },
       escapeHtml: (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-      format: { truncate: (t, m) => t.length > m ? t.slice(0, m) + '...' : t }
+      format: { 
+        truncate: (t, m) => t.length > m ? t.slice(0, m) + '...' : t,
+        formatFileSize: (b) => {
+          if (!b || b === 0) return '0 B';
+          const k = 1024;
+          const sizes = ['B', 'KB', 'MB', 'GB'];
+          const i = Math.floor(Math.log(b) / Math.log(k));
+          return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+      }
     };
-  }
+    window.NCLEXUtils = fallback;
+    return fallback;
+  })();
 
   const { 
     storageGet, 
@@ -32,7 +44,7 @@
     $$, 
     escapeHtml, 
     format: { truncate }
-  } = window.NCLEXUtils;
+  } = U;
 
   // ===== CONFIGURACIÓN =====
   const CONFIG = {

@@ -1,4 +1,5 @@
-/* ngn_engine.js — Motor Next Generation NCLEX (VERSIÓN CORREGIDA 3.0) */
+/* ngn_engine.js — Motor Next Generation NCLEX (VERSIÓN CORREGIDA 3.1) */
+/* FIXED: Uso correcto de U.storageGet en getLang */
 
 (function () {
   'use strict';
@@ -250,7 +251,7 @@
   // ===== HELPERS =====
 
   function getLang() {
-    return storageGet('lang', 'es');
+    return U.storageGet('lang', 'es');  // ✅ FIXED: Usar U.storageGet
   }
 
   function t(es, en) {
@@ -441,7 +442,6 @@
         const isCorrect = opt.correct;
         const showResult = state.showRationale;
         
-        // Determinar estilos
         let borderClass = 'border-[var(--brand-border)]';
         let bgClass = 'bg-[var(--brand-card)]';
         let iconHtml = `<span class="w-6 h-6 rounded-full border-2 border-[var(--brand-border)] flex items-center justify-center text-xs ${isSelected ? 'bg-[rgb(var(--brand-blue-rgb))] border-[rgb(var(--brand-blue-rgb))] text-white' : 'text-transparent'}">${isSelected ? '✓' : ''}</span>`;
@@ -503,8 +503,6 @@
       `;
     },
 
-    // ===== ACCIONES =====
-
     switchTab(tabName) {
       state.currentTab = tabName;
       this.refresh();
@@ -519,7 +517,6 @@
       if (!state.answers[step]) state.answers[step] = [];
       
       if (isMulti) {
-        // SATA: toggle
         const idx = state.answers[step].indexOf(optionId);
         if (idx > -1) {
           state.answers[step].splice(idx, 1);
@@ -527,7 +524,6 @@
           state.answers[step].push(optionId);
         }
       } else {
-        // Single select: reemplazar
         state.answers[step] = [optionId];
       }
       
@@ -564,12 +560,10 @@
       
       view.innerHTML = this.generateLayoutHTML();
       
-      // Aplicar idioma global si existe
       if (typeof window.applyGlobalLanguage === 'function') {
         window.applyGlobalLanguage();
       }
       
-      // Actualizar estado del botón
       this.updateSubmitButton();
     },
 
@@ -581,17 +575,14 @@
       
       state.showRationale = true;
       
-      // Calcular score
       const correctOptions = currentQ.options.filter(o => o.correct).map(o => o.id);
       let isCorrect = false;
       
       if (currentQ.type === 'highlight') {
-        // SATA: todas las correctas y ninguna incorrecta
         const allCorrectSelected = correctOptions.every(id => answers.includes(id));
         const noIncorrectSelected = answers.every(id => correctOptions.includes(id));
         isCorrect = allCorrectSelected && noIncorrectSelected;
       } else {
-        // Single: la seleccionada es correcta
         isCorrect = correctOptions[0] === answers[0];
       }
       
@@ -621,7 +612,6 @@
       const view = document.getElementById('app-view');
       if (!view) return;
       
-      // Guardar en dashboard si existe
       if (window.Dashboard && typeof window.Dashboard.recordQuiz === 'function') {
         window.Dashboard.recordQuiz('NGN-' + c.id, state.score, c.questions.length);
       }
@@ -683,7 +673,6 @@
     }
   };
 
-  // ===== API PÚBLICA =====
   window.renderNGNCase = function(caseId) {
     state.activeCase = NGN_CASES.find(c => c.id === caseId) || NGN_CASES[0];
     state.currentQuestion = 0;

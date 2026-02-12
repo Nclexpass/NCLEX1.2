@@ -1,4 +1,6 @@
-// skins.js — Sistema de skins para NCLEX Masterclass (VERSIÓN CORREGIDA 3.0)
+// skins.js — Sistema de skins para NCLEX Masterclass (VERSIÓN CORREGIDA 3.1)
+// FIXED: Prevenir bucle infinito en observer de tema
+
 (function() {
     'use strict';
 
@@ -48,12 +50,10 @@
     let currentSkin = 'default';
     let isInitialized = false;
     let themeObserver = null;
+    let isApplyingSkin = false;  // ✅ FIXED: Flag para prevenir bucle
 
     // ===== UTILIDADES =====
     
-    /**
-     * Obtiene el tema actual (dark/light) del localStorage o del DOM
-     */
     function getCurrentTheme() {
         try {
             return localStorage.getItem(STORAGE_THEME_KEY) || 'dark';
@@ -62,9 +62,6 @@
         }
     }
 
-    /**
-     * Obtiene el idioma actual
-     */
     function getLang() {
         try {
             return localStorage.getItem('nclex_lang') || 'es';
@@ -73,11 +70,7 @@
         }
     }
 
-    /**
-     * Notifica a otros componentes que cambió la skin
-     */
     function notifySkinChange(skinId) {
-        // Evento personalizado para sincronización
         window.dispatchEvent(new CustomEvent('skinchange', { 
             detail: { 
                 skin: skinId,
@@ -86,7 +79,6 @@
             } 
         }));
 
-        // Sincronizar con logic.js si existe
         if (window.nclexApp && typeof window.nclexApp.refreshUI === 'function') {
             window.nclexApp.refreshUI();
         }
@@ -96,20 +88,23 @@
 
     // ===== APLICAR SKIN =====
     
-    /**
-     * Aplica una skin al documento
-     * @param {string} skinId - ID de la skin a aplicar
-     * @param {boolean} save - Si debe guardar en localStorage
-     */
     function applySkin(skinId, save = true) {
-        // Validar que la skin exista
+        // ✅ FIXED: Prevenir reentrada
+        if (isApplyingSkin) return;
+        isApplyingSkin = true;
+
+        // Pausar observer temporalmente
+        if (themeObserver) {
+            themeObserver.disconnect();
+        }
+
         const skin = SKINS.find(s => s.id === skinId);
         if (!skin) {
             console.warn(`Skin "${skinId}" no encontrada, usando default`);
             skinId = 'default';
         }
 
-        // Remover todas las skins previas de forma segura
+        // Remover todas las skins previas
         SKINS.forEach(s => {
             document.documentElement.classList.remove(`skin-${s.id}`);
         });
@@ -129,29 +124,26 @@
             }
         }
 
-        // Forzar actualización de elementos específicos
         updateSidebarElements();
         
-        // Notificar cambio
-        notifySkinChange(skinId);
+        // Reconectar observer después de un delay
+        setTimeout(() => {
+            initThemeObserver();
+            isApplyingSkin = false;  // Liberar flag
+            notifySkinChange(skinId);
+        }, 100);
     }
 
-    /**
-     * Actualiza elementos del sidebar que pueden quedar desincronizados
-     */
     function updateSidebarElements() {
         const sidebar = document.getElementById('main-sidebar');
         if (!sidebar) return;
 
-        // Forzar reflow para aplicar nuevas variables CSS
         sidebar.style.display = 'none';
-        sidebar.offsetHeight; // Trigger reflow
+        sidebar.offsetHeight;
         sidebar.style.display = '';
 
-        // Actualizar botón activo si existe
         const activeBtn = sidebar.querySelector('.nav-btn.active');
         if (activeBtn) {
-            // Re-aplicar clase para forzar recálculo de estilos
             activeBtn.classList.remove('active');
             setTimeout(() => activeBtn.classList.add('active'), 0);
         }
@@ -159,51 +151,34 @@
 
     // ===== OBSERVADOR DE TEMA =====
     
-    /**
-     * Inicializa observador de cambios de tema (dark/light)
-     */
     function initThemeObserver() {
-        // Escuchar cambios de tema desde logic.js
-        const originalToggleTheme = window.nclexApp?.toggleTheme;
-        if (originalToggleTheme && window.nclexApp) {
-            window.nclexApp.toggleTheme = function(...args) {
-                const result = originalToggleTheme.apply(this, args);
-                // Re-aplicar skin actual después de cambiar tema
-                setTimeout(() => applySkin(currentSkin, false), 50);
-                return result;
-            };
-        }
+        if (!window.MutationObserver || themeObserver) return;
 
-        // Observador de mutación para detectar cambios de clase en html
-        if (window.MutationObserver) {
-            themeObserver = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.attributeName === 'class') {
+        themeObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'class') {
+                    // Solo reaccionar si no estamos aplicando skin nosotros mismos
+                    if (!isApplyingSkin) {
                         const hasDark = document.documentElement.classList.contains('dark');
                         const storedTheme = getCurrentTheme();
                         
-                        // Si hay discrepancia, re-aplicar skin
                         if ((hasDark && storedTheme !== 'dark') || 
                             (!hasDark && storedTheme !== 'light')) {
                             applySkin(currentSkin, false);
                         }
                     }
-                });
+                }
             });
+        });
 
-            themeObserver.observe(document.documentElement, {
-                attributes: true,
-                attributeFilter: ['class']
-            });
-        }
+        themeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
     }
 
     // ===== RENDERIZAR SELECTOR =====
     
-    /**
-     * Genera el HTML del selector de skins
-     * @returns {string} HTML completo
-     */
     function renderSkinSelector() {
         const isEs = getLang() === 'es';
         
@@ -243,7 +218,6 @@
                                     aria-pressed="${isActive}"
                                 >
                                     <div class="flex items-start gap-4">
-                                        <!-- Previsualización de colores -->
                                         <div class="flex -space-x-2">
                                             ${skin.colors.map(color => `
                                                 <div class="w-8 h-8 rounded-full border-2 border-[var(--brand-card)] shadow-md" 
@@ -251,7 +225,6 @@
                                             `).join('')}
                                         </div>
                                         
-                                        <!-- Nombre de la skin -->
                                         <div class="flex-1">
                                             <div class="font-bold text-lg text-[var(--brand-text)]">
                                                 ${isEs ? skin.nameEs : skin.name}
@@ -262,7 +235,6 @@
                                             </div>
                                         </div>
                                         
-                                        <!-- Check de activo -->
                                         ${isActive ? `
                                             <div class="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center shadow-lg text-white text-xs"
                                                  style="background-color: rgb(var(--brand-blue-rgb));">
@@ -271,14 +243,12 @@
                                         ` : ''}
                                     </div>
                                     
-                                    <!-- Efecto hover -->
                                     <div class="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent to-white/5 dark:to-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                                 </button>
                             `;
                         }).join('')}
                     </div>
                     
-                    <!-- Footer informativo -->
                     <div class="p-6 pt-0 border-t border-[var(--brand-border)] mt-2">
                         <div class="flex items-start gap-3 text-xs text-[var(--brand-text-muted)]">
                             <i class="fa-solid fa-circle-info mt-0.5"></i>
@@ -304,9 +274,6 @@
 
     // ===== INICIALIZACIÓN SEGURA =====
     
-    /**
-     * Inicializa el sistema de skins una sola vez
-     */
     function init() {
         if (isInitialized) {
             console.log('🎨 SkinSystem ya inicializado');
@@ -315,7 +282,6 @@
         
         isInitialized = true;
         
-        // Cargar skin guardada
         try {
             const savedSkin = localStorage.getItem(STORAGE_KEY);
             if (savedSkin && SKINS.find(s => s.id === savedSkin)) {
@@ -325,11 +291,7 @@
             console.warn('No se pudo leer skin de localStorage');
         }
         
-        // Aplicar skin sin guardar (ya está guardada)
         applySkin(currentSkin, false);
-        
-        // Inicializar observador de tema
-        initThemeObserver();
         
         console.log('🎨 SkinSystem cargado. Skin actual:', currentSkin);
     }
@@ -339,20 +301,15 @@
         SKINS,
         currentSkin: () => currentSkin,
         
-        /**
-         * Cambia la skin activa
-         * @param {string} skinId - ID de la skin
-         */
         setSkin: function(skinId) {
             applySkin(skinId, true);
-            // Re-renderizar si estamos en la página de skins
+            
             if (window.nclexApp && typeof window.nclexApp.getCurrentRoute === 'function') {
                 const route = window.nclexApp.getCurrentRoute();
                 if (route === 'skins') {
                     const view = document.getElementById('app-view');
                     if (view && typeof window.SkinSystem.renderSkinSelector === 'function') {
                         view.innerHTML = window.SkinSystem.renderSkinSelector();
-                        // Aplicar idioma si existe la función
                         if (typeof window.applyGlobalLanguage === 'function') {
                             window.applyGlobalLanguage();
                         }
@@ -363,32 +320,21 @@
         
         renderSkinSelector,
         
-        /**
-         * Fuerza re-aplicación de la skin actual (útil para recuperarse de errores)
-         */
         refresh: function() {
             applySkin(currentSkin, false);
         },
         
-        /**
-         * Obtiene información de la skin actual
-         */
         getCurrentSkinInfo: function() {
             return SKINS.find(s => s.id === currentSkin) || SKINS[0];
         }
     };
 
-    // ===== PUNTOS DE ENTRADA =====
-    
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
-        // DOM ya listo, inicializar inmediatamente pero con pequeño delay
-        // para asegurar que otros scripts hayan registrado sus listeners
         setTimeout(init, 10);
     }
 
-    // Exponer para debugging
     window.__skinSystemDebug = {
         getState: () => ({ currentSkin, isInitialized, SKINS }),
         forceInit: init
