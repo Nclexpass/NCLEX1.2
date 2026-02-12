@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION (MASTER VERSION FIXED) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION (STRICT FIX) */
 
 (function () {
     'use strict';
@@ -6,7 +6,6 @@
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   
-    // --- COLOR MAP SYSTEM ---
     const colorMap = {
         blue:   { bg: 'bg-blue-500',   text: 'text-blue-500',   grad: 'from-blue-500 to-blue-600',   light: 'bg-blue-100',   dark: 'dark:bg-blue-900/30' },
         purple: { bg: 'bg-purple-500', text: 'text-purple-500', grad: 'from-purple-500 to-purple-600', light: 'bg-purple-100', dark: 'dark:bg-purple-900/30' },
@@ -21,13 +20,11 @@
 
     const getColor = (colorName) => colorMap[colorName] || colorMap['blue'];
   
-    // SAFE STORAGE
     let savedProgress = [];
     try {
         const stored = localStorage.getItem('nclex_progress');
         savedProgress = stored ? JSON.parse(stored) : [];
     } catch (e) {
-        console.warn("Error reading progress, resetting.", e);
         localStorage.setItem('nclex_progress', '[]');
     }
   
@@ -45,12 +42,12 @@
       scrollPositions: {} 
     };
   
-    // --- UTILITIES: SAFE EXTRACTION ---
     function normalizeFaIcon(icon) {
         if (!icon || typeof icon !== 'string') return 'book';
         return icon.replace('fa-solid ', '').replace('fa-', '').trim();
     }
 
+    // FIX: Manejo seguro de títulos para evitar crash
     function getBilingualTitle(t) {
         if (!t || !t.title) return 'Sin título';
         if (typeof t.title === 'object') {
@@ -59,6 +56,7 @@
         return t.title;
     }
 
+    // FIX: Manejo seguro de insignias para evitar el error "toLowerCase of undefined"
     function getClinicalBadges(t) {
         if (!t || !t.title) return '';
         let titleStr = typeof t.title === 'object' ? ((t.title.es || "") + (t.title.en || "")) : String(t.title);
@@ -73,7 +71,6 @@
         return badges;
     }
 
-    // --- REGISTRO GLOBAL DE TEMAS ---
     window.NCLEX = {
       registerTopic(topic) {
         if (!topic || !topic.id) return;
@@ -81,7 +78,6 @@
         if (idx >= 0) state.topics[idx] = topic;
         else state.topics.push(topic);
 
-        // Sort by 'order' property if exists, else ID
         state.topics.sort((a, b) => (parseInt(a.order || 999) - parseInt(b.order || 999)));
         
         if (state.updateTimer) clearTimeout(state.updateTimer);
@@ -129,47 +125,35 @@
       getTopics() { return state.topics; }
     };
   
-    // --- SMART SEARCH ---
     const SmartTextIndex = (() => {
       const index = [];
-    
       function stripHTML(html) {
         const div = document.createElement('div');
         div.innerHTML = html;
         return div.textContent || div.innerText || '';
       }
-    
       function normalize(text) {
         return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       }
-    
       function indexTopic(topic) {
         let rawContent = '';
         if (typeof topic.render === 'function') rawContent = topic.render();
         else if (typeof topic.content === 'string') rawContent = topic.content;
         
         let titleText = typeof topic.title === 'object' ? (topic.title.es + " " + topic.title.en) : String(topic.title || "");
-        
         index.push({
           id: topic.id,
           text: normalize(titleText + " " + stripHTML(rawContent))
         });
       }
-    
       function build(topics) {
         index.length = 0;
         topics.forEach(indexTopic);
       }
-    
-      function search(term) {
-        // Basic implementation for stability
-        return [];
-      }
-    
+      function search(term) { return []; }
       return { build, search };
     })();
 
-    // --- RENDERIZADO DEL HOME ---
     function renderHome() {
       const total = state.topics.length;
       const completed = state.completedTopics.length;
@@ -240,7 +224,6 @@
       `;
     }
   
-    // --- RENDER & INIT ---
     function render(route) {
       const view = $('#app-view');
       if (!view) return;
