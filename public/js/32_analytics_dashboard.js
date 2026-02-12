@@ -1,9 +1,10 @@
-/* 32_analytics_dashboard.js — Performance Dashboard (VERSIÓN CORREGIDA 3.0) */
+/* 32_analytics_dashboard.js — Performance Dashboard (VERSIÓN CLOUD SYNC 3.1) */
+/* Integrado con Firebase Auth para restaurar progreso automáticamente */
 
 (function () {
     'use strict';
     
-    console.log('📊 NCLEX Dashboard v3.0 loading...');
+    console.log('📊 NCLEX Dashboard v3.1 loading...');
 
     // ===== CONFIGURACIÓN =====
     const CONFIG = {
@@ -13,21 +14,21 @@
             timeSpent: 'nclex_time_spent',
             lastVisit: 'nclex_last_visit'
         },
-        CHART_COLORS: {
+        COLORS: {
             primary: 'rgb(var(--brand-blue-rgb))',
             success: '#22c55e',
             warning: '#f59e0b',
             danger: '#ef4444',
-            neutral: 'rgba(var(--brand-text-muted), 0.3)'
+            neutral: '#cbd5e1'
         }
     };
 
-    // ===== ESTADO DEL DASHBOARD =====
+    // ===== ESTADO =====
     const state = {
         isRegistered: false,
         stats: {
             completedModules: 0,
-            totalModules: 0,
+            totalModules: 30, // Aproximado, se ajusta dinámicamente
             quizAttempts: 0,
             averageScore: 0,
             studyStreak: 0,
@@ -39,448 +40,211 @@
 
     // ===== UTILIDADES =====
 
-    function safeStorageGet(key, defaultValue = null) {
+    function safeGet(key, fallback) {
         try {
             const item = localStorage.getItem(key);
-            return item ? JSON.parse(item) : defaultValue;
-        } catch (e) {
-            console.warn(`Error reading ${key}:`, e);
-            return defaultValue;
-        }
+            return item ? JSON.parse(item) : fallback;
+        } catch { return fallback; }
     }
 
-    function safeStorageSet(key, value) {
-        try {
-            localStorage.setItem(key, JSON.stringify(value));
-            return true;
-        } catch (e) {
-            console.warn(`Error saving ${key}:`, e);
-            return false;
-        }
-    }
-
-    function formatDuration(minutes) {
+    function formatTime(minutes) {
         if (minutes < 60) return `${minutes}m`;
-        const hours = Math.floor(minutes / 60);
-        const mins = minutes % 60;
-        return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-    }
-
-    function getRelativeTime(date) {
-        const now = new Date();
-        const diff = now - new Date(date);
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        
-        if (days === 0) return 'Hoy';
-        if (days === 1) return 'Ayer';
-        if (days < 7) return `Hace ${days} días`;
-        if (days < 30) return `Hace ${Math.floor(days / 7)} semanas`;
-        return `Hace ${Math.floor(days / 30)} meses`;
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return `${h}h ${m}m`;
     }
 
     // ===== CÁLCULO DE ESTADÍSTICAS =====
 
     function calculateStats() {
-        const topics = window.nclexApp?.getTopics() || [];
-        const completed = safeStorageGet(CONFIG.STORAGE_KEYS.progress, []);
-        const quizHistory = safeStorageGet(CONFIG.STORAGE_KEYS.quizHistory, []);
-        const timeSpent = safeStorageGet(CONFIG.STORAGE_KEYS.timeSpent, {});
-        const lastVisit = safeStorageGet(CONFIG.STORAGE_KEYS.lastVisit);
+        const history = safeGet(CONFIG.STORAGE_KEYS.quizHistory, []);
+        const timeSpent = safeGet(CONFIG.STORAGE_KEYS.timeSpent, {});
+        
+        // 1. Promedios y Totales
+        const totalQuizzes = history.length;
+        let totalScore = 0;
+        let questionCount = 0;
+        
+        // Agrupar por categorías
+        const catStats = {};
 
-        // Actualizar visita
-        const today = new Date().toISOString().split('T')[0];
-        if (lastVisit !== today) {
-            safeStorageSet(CONFIG.STORAGE_KEYS.lastVisit, today);
-        }
-
-        // Calcular racha de estudio
-        state.stats.studyStreak = calculateStreak();
-
-        // Módulos
-        state.stats.totalModules = topics.length;
-        state.stats.completedModules = completed.length;
-
-        // Quiz stats
-        state.stats.quizAttempts = quizHistory.length;
-        state.stats.averageScore = quizHistory.length > 0
-            ? Math.round(quizHistory.reduce((a, b) => a + (b.score || 0), 0) / quizHistory.length)
-            : 0;
-
-        // Tiempo total
-        state.stats.totalStudyTime = Object.values(timeSpent).reduce((a, b) => a + b, 0);
-
-        // Áreas fuertes y débiles (basado en quiz history por categoría)
-        const categoryScores = {};
-        quizHistory.forEach(quiz => {
-            if (!quiz.category) return;
-            if (!categoryScores[quiz.category]) {
-                categoryScores[quiz.category] = { total: 0, count: 0 };
+        history.forEach(quiz => {
+            totalScore += (quiz.score || 0);
+            questionCount += (quiz.total || 0);
+            
+            // Análisis por categoría
+            if (quiz.category) {
+                if (!catStats[quiz.category]) catStats[quiz.category] = { correct: 0, total: 0 };
+                catStats[quiz.category].correct += quiz.score;
+                catStats[quiz.category].total += quiz.total;
             }
-            categoryScores[quiz.category].total += quiz.score || 0;
-            categoryScores[quiz.category].count++;
         });
 
-        const categoryAverages = Object.entries(categoryScores).map(([cat, data]) => ({
-            category: cat,
-            average: data.total / data.count
-        })).sort((a, b) => b.average - a.average);
+        // 2. Áreas Fuertes y Débiles
+        const areas = Object.entries(catStats).map(([name, data]) => ({
+            name,
+            score: Math.round((data.correct / data.total) * 100)
+        }));
 
-        state.stats.strongAreas = categoryAverages.slice(0, 3).filter(a => a.average >= 70);
-        state.stats.weakAreas = categoryAverages.slice(-3).filter(a => a.average < 70).reverse();
+        areas.sort((a, b) => b.score - a.score); // Ordenar de mayor a menor
+
+        // 3. Tiempo Total
+        const totalMinutes = Object.values(timeSpent).reduce((a, b) => a + b, 0);
+
+        // Actualizar estado
+        state.stats = {
+            quizAttempts: totalQuizzes,
+            averageScore: questionCount > 0 ? Math.round((totalScore / questionCount) * 100) : 0,
+            totalStudyTime: totalMinutes,
+            strongAreas: areas.slice(0, 3), // Top 3
+            weakAreas: areas.slice(-3).reverse() // Bottom 3
+        };
 
         return state.stats;
     }
 
-    function calculateStreak() {
-        // Simplificado: contar días consecutivos con actividad
-        // En producción, esto vendría de un log detallado
-        return safeStorageGet('nclex_streak', 0);
-    }
-
-    // ===== RENDERIZADO =====
+    // ===== RENDERIZADO (UI) =====
 
     function renderDashboard() {
-        const stats = calculateStats();
-        const isEs = (localStorage.getItem('nclex_lang') || 'es') === 'es';
-        const percentComplete = stats.totalModules > 0 
-            ? Math.round((stats.completedModules / stats.totalModules) * 100) 
-            : 0;
-
-        // Determinar mensaje motivacional
-        let motivationMessage = isEs 
-            ? '¡Empieza tu viaje hacia el NCLEX!' 
-            : 'Start your NCLEX journey!';
+        const s = calculateStats();
         
-        if (stats.studyStreak > 0) {
-            motivationMessage = isEs
-                ? `🔥 ¡Racha de ${stats.studyStreak} días! ¡Sigue así!`
-                : `🔥 ${stats.studyStreak} day streak! Keep it up!`;
-        } else if (percentComplete > 0) {
-            motivationMessage = isEs
-                ? `Vas por buen camino. ¡${percentComplete}% completado!`
-                : `You're on track. ${percentComplete}% completed!`;
-        }
-
-        return `
-            <div class="p-6 max-w-7xl mx-auto animate-fade-in">
-                <!-- Header -->
-                <div class="mb-8">
-                    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-                        <div>
-                            <h1 class="text-3xl md:text-4xl font-black text-[var(--brand-text)] mb-2">
-                                <i class="fa-solid fa-chart-line mr-3" style="color: rgb(var(--brand-blue-rgb));"></i>
-                                ${isEs ? 'Panel de Rendimiento' : 'Performance Dashboard'}
-                            </h1>
-                            <p class="text-[var(--brand-text-muted)] text-lg">${motivationMessage}</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="window.Dashboard.refresh()" 
-                                class="px-4 py-2 rounded-xl bg-[var(--brand-card)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:bg-[var(--brand-bg)] transition flex items-center gap-2">
-                                <i class="fa-solid fa-rotate"></i>
-                                ${isEs ? 'Actualizar' : 'Refresh'}
-                            </button>
-                        </div>
+        // Generar HTML de áreas
+        const renderAreaList = (list, icon, colorClass) => {
+            if (list.length === 0) return `<div class="text-sm text-gray-400 italic py-2">Sin datos suficientes</div>`;
+            return list.map(area => `
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-${icon} ${colorClass}"></i>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${area.name}</span>
                     </div>
+                    <span class="text-xs font-bold px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800">${area.score}%</span>
                 </div>
-
-                <!-- Stats Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    ${renderStatCard({
-                        icon: 'book-open',
-                        value: `${stats.completedModules}/${stats.totalModules}`,
-                        label: isEs ? 'Módulos' : 'Modules',
-                        color: CONFIG.CHART_COLORS.primary,
-                        subtext: `${percentComplete}%`
-                    })}
-                    ${renderStatCard({
-                        icon: 'brain',
-                        value: stats.quizAttempts,
-                        label: isEs ? 'Quizzes' : 'Quizzes',
-                        color: CONFIG.CHART_COLORS.success,
-                        subtext: stats.averageScore > 0 ? `${stats.averageScore}% avg` : null
-                    })}
-                    ${renderStatCard({
-                        icon: 'fire',
-                        value: stats.studyStreak,
-                        label: isEs ? 'Días racha' : 'Day streak',
-                        color: CONFIG.CHART_COLORS.warning,
-                        subtext: stats.studyStreak > 5 ? (isEs ? '¡Increíble!' : 'Amazing!') : null
-                    })}
-                    ${renderStatCard({
-                        icon: 'clock',
-                        value: formatDuration(stats.totalStudyTime),
-                        label: isEs ? 'Tiempo estudio' : 'Study time',
-                        color: CONFIG.CHART_COLORS.neutral,
-                        subtext: null
-                    })}
-                </div>
-
-                <!-- Progress Section -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                    <!-- Main Progress -->
-                    <div class="lg:col-span-2 bg-[var(--brand-card)] rounded-3xl p-6 border border-[var(--brand-border)] shadow-lg">
-                        <h2 class="text-xl font-bold text-[var(--brand-text)] mb-4">
-                            ${isEs ? 'Progreso por Categoría' : 'Progress by Category'}
-                        </h2>
-                        <div class="space-y-4">
-                            ${renderCategoryProgress()}
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="bg-[var(--brand-card)] rounded-3xl p-6 border border-[var(--brand-border)] shadow-lg">
-                        <h2 class="text-xl font-bold text-[var(--brand-text)] mb-4">
-                            ${isEs ? 'Acciones Rápidas' : 'Quick Actions'}
-                        </h2>
-                        <div class="space-y-3">
-                            <button onclick="window.nclexApp.navigate('simulator')" 
-                                class="w-full p-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-left hover:opacity-90 transition group">
-                                <div class="flex items-center gap-3">
-                                    <i class="fa-solid fa-play text-xl group-hover:scale-110 transition-transform"></i>
-                                    <div>
-                                        <div class="font-bold">${isEs ? 'Iniciar Quiz' : 'Start Quiz'}</div>
-                                        <div class="text-xs opacity-80">${isEs ? 'Práctica adaptativa' : 'Adaptive practice'}</div>
-                                    </div>
-                                </div>
-                            </button>
-                            
-                            <button onclick="window.nclexApp.navigate('home')" 
-                                class="w-full p-4 rounded-2xl bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)] text-left hover:bg-[rgba(var(--brand-blue-rgb),0.05)] transition">
-                                <div class="flex items-center gap-3">
-                                    <i class="fa-solid fa-book" style="color: rgb(var(--brand-blue-rgb));"></i>
-                                    <div>
-                                        <div class="font-bold">${isEs ? 'Estudiar Módulos' : 'Study Modules'}</div>
-                                        <div class="text-xs text-[var(--brand-text-muted)]">${isEs ? 'Contenido estructurado' : 'Structured content'}</div>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Strengths & Weaknesses -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    ${renderAreasSection('strong', isEs)}
-                    ${renderAreasSection('weak', isEs)}
-                </div>
-
-                <!-- Recent Activity -->
-                <div class="mt-8 bg-[var(--brand-card)] rounded-3xl p-6 border border-[var(--brand-border)] shadow-lg">
-                    <h2 class="text-xl font-bold text-[var(--brand-text)] mb-4">
-                        ${isEs ? 'Actividad Reciente' : 'Recent Activity'}
-                    </h2>
-                    ${renderRecentActivity(isEs)}
-                </div>
-            </div>
-        `;
-    }
-
-    function renderStatCard({ icon, value, label, color, subtext }) {
-        return `
-            <div class="bg-[var(--brand-card)] rounded-2xl p-5 border border-[var(--brand-border)] shadow-sm hover:shadow-md transition-shadow">
-                <div class="flex items-start justify-between mb-3">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center" 
-                         style="background: ${color.replace('rgb', 'rgba').replace(')', ', 0.1)')}; color: ${color};">
-                        <i class="fa-solid fa-${icon}"></i>
-                    </div>
-                    ${subtext ? `<span class="text-xs font-medium px-2 py-1 rounded-full bg-[var(--brand-bg)] text-[var(--brand-text-muted)]">${subtext}</span>` : ''}
-                </div>
-                <div class="text-2xl font-black text-[var(--brand-text)]">${value}</div>
-                <div class="text-sm text-[var(--brand-text-muted)]">${label}</div>
-            </div>
-        `;
-    }
-
-    function renderCategoryProgress() {
-        const topics = window.nclexApp?.getTopics() || [];
-        const completed = safeStorageGet(CONFIG.STORAGE_KEYS.progress, []);
-        
-        // Agrupar por categorías (usar color como agrupador simple)
-        const categories = {};
-        topics.forEach(t => {
-            const color = t.color || 'blue';
-            if (!categories[color]) {
-                categories[color] = { total: 0, completed: 0, topics: [] };
-            }
-            categories[color].total++;
-            categories[color].topics.push(t);
-            if (completed.includes(t.id)) {
-                categories[color].completed++;
-            }
-        });
-
-        return Object.entries(categories).map(([color, data]) => {
-            const percent = Math.round((data.completed / data.total) * 100);
-            const colorData = getColorData(color);
-            
-            return `
-                <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-lg ${colorData.bg} flex items-center justify-center text-white flex-shrink-0">
-                        <i class="fa-solid fa-${data.topics[0]?.icon || 'book'}"></i>
-                    </div>
-                    <div class="flex-1">
-                        <div class="flex justify-between mb-1">
-                            <span class="font-medium text-[var(--brand-text)] text-sm">${colorData.label}</span>
-                            <span class="text-sm text-[var(--brand-text-muted)]">${data.completed}/${data.total}</span>
-                        </div>
-                        <div class="h-2 bg-[var(--brand-bg)] rounded-full overflow-hidden">
-                            <div class="h-full ${colorData.bg} transition-all duration-500" style="width: ${percent}%"></div>
-                        </div>
-                    </div>
-                    <span class="text-sm font-bold ${colorData.text} w-12 text-right">${percent}%</span>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function renderAreasSection(type, isEs) {
-        const isStrong = type === 'strong';
-        const areas = isStrong ? state.stats.strongAreas : state.stats.weakAreas;
-        const title = isStrong 
-            ? (isEs ? '💪 Áreas Fuertes' : '💪 Strong Areas')
-            : (isEs ? '📚 Áreas a Mejorar' : '📚 Areas to Improve');
-        const emptyMsg = isStrong
-            ? (isEs ? 'Completa más quizzes para ver tus fortalezas' : 'Complete more quizzes to see your strengths')
-            : (isEs ? '¡Sigue practicando para mejorar!' : 'Keep practicing to improve!');
-
-        return `
-            <div class="bg-[var(--brand-card)] rounded-3xl p-6 border border-[var(--brand-border)] shadow-lg">
-                <h3 class="text-lg font-bold text-[var(--brand-text)] mb-4">${title}</h3>
-                ${areas.length > 0 ? `
-                    <div class="space-y-3">
-                        ${areas.map(area => `
-                            <div class="flex items-center justify-between p-3 rounded-xl bg-[var(--brand-bg)]">
-                                <span class="font-medium text-[var(--brand-text)]">${area.category}</span>
-                                <span class="text-sm font-bold ${isStrong ? 'text-green-600' : 'text-amber-600'}">
-                                    ${Math.round(area.average)}%
-                                </span>
-                            </div>
-                        `).join('')}
-                    </div>
-                ` : `
-                    <div class="text-center py-8 text-[var(--brand-text-muted)]">
-                        <i class="fa-solid fa-chart-pie text-3xl mb-3 opacity-50"></i>
-                        <p class="text-sm">${emptyMsg}</p>
-                    </div>
-                `}
-            </div>
-        `;
-    }
-
-    function renderRecentActivity(isEs) {
-        const quizHistory = safeStorageGet(CONFIG.STORAGE_KEYS.quizHistory, []).slice(-5).reverse();
-        
-        if (quizHistory.length === 0) {
-            return `
-                <div class="text-center py-8 text-[var(--brand-text-muted)]">
-                    <i class="fa-solid fa-clipboard-list text-3xl mb-3 opacity-50"></i>
-                    <p>${isEs ? 'No hay actividad reciente. ¡Empieza a estudiar!' : 'No recent activity. Start studying!'}</p>
-                </div>
-            `;
-        }
-
-        return `
-            <div class="space-y-3">
-                ${quizHistory.map((quiz, index) => {
-                    const scoreColor = quiz.score >= 80 ? 'text-green-600' : quiz.score >= 60 ? 'text-amber-600' : 'text-red-600';
-                    const scoreBg = quiz.score >= 80 ? 'bg-green-100 dark:bg-green-900/30' : quiz.score >= 60 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-red-100 dark:bg-red-900/30';
-                    
-                    return `
-                        <div class="flex items-center gap-4 p-4 rounded-2xl bg-[var(--brand-bg)] hover:bg-[rgba(var(--brand-blue-rgb),0.05)] transition">
-                            <div class="w-10 h-10 rounded-full ${scoreBg} ${scoreColor} flex items-center justify-center font-bold">
-                                ${quiz.score}%
-                            </div>
-                            <div class="flex-1">
-                                <div class="font-medium text-[var(--brand-text)]">${quiz.category || (isEs ? 'Quiz General' : 'General Quiz')}</div>
-                                <div class="text-sm text-[var(--brand-text-muted)]">${getRelativeTime(quiz.date)}</div>
-                            </div>
-                            <i class="fa-solid fa-chevron-right text-[var(--brand-text-muted)]"></i>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
-    }
-
-    function getColorData(colorName) {
-        const map = {
-            blue:   { bg: 'bg-blue-500',   text: 'text-blue-600',   label: 'Fundamentos' },
-            purple: { bg: 'bg-purple-500', text: 'text-purple-600', label: 'Farmacología' },
-            green:  { bg: 'bg-green-500',  text: 'text-green-600',  label: 'Pediatría' },
-            red:    { bg: 'bg-red-500',    text: 'text-red-600',    label: 'Emergencias' },
-            orange: { bg: 'bg-orange-500', text: 'text-orange-600', label: 'Maternidad' },
-            teal:   { bg: 'bg-teal-500',   text: 'text-teal-600',   label: 'Salud Mental' },
-            indigo: { bg: 'bg-indigo-500', text: 'text-indigo-600', label: 'Cirugía' },
-            yellow: { bg: 'bg-yellow-500', text: 'text-yellow-600', label: 'Geriatría' }
+            `).join('');
         };
-        return map[colorName] || { bg: 'bg-gray-500', text: 'text-gray-600', label: 'General' };
+
+        return `
+            <div id="dashboard-container" class="animate-fade-in max-w-6xl mx-auto space-y-6">
+                
+                <div class="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-gray-200 dark:border-gray-800 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-gray-900 dark:text-white">
+                            <i class="fa-solid fa-chart-pie text-blue-500 mr-2"></i>Dashboard
+                        </h2>
+                        <p class="text-gray-500 text-sm mt-1">Tu progreso en tiempo real</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <div class="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                            <span class="block text-xs text-blue-500 font-bold uppercase">Promedio</span>
+                            <span class="text-xl font-black text-blue-600 dark:text-blue-400">${s.averageScore}%</span>
+                        </div>
+                        <div class="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                            <span class="block text-xs text-purple-500 font-bold uppercase">Tiempo</span>
+                            <span class="text-xl font-black text-purple-600 dark:text-purple-400">${formatTime(s.totalStudyTime)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <div class="bg-white dark:bg-[#1C1C1E] p-6 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <h3 class="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-yellow-500"></i> Áreas Fuertes
+                        </h3>
+                        <div class="space-y-3">
+                            ${renderAreaList(s.strongAreas, 'trophy', 'text-yellow-500')}
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-[#1C1C1E] p-6 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <h3 class="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-arrow-trend-up text-red-500"></i> Necesita Atención
+                        </h3>
+                        <div class="space-y-3">
+                            ${renderAreaList(s.weakAreas, 'triangle-exclamation', 'text-red-500')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold">¿Listo para practicar?</h3>
+                        <p class="text-blue-100 text-sm">El simulador adapta las preguntas a tus áreas débiles.</p>
+                    </div>
+                    <button onclick="window.nclexApp.navigate('simulator')" 
+                        class="px-6 py-3 bg-white text-blue-600 font-bold rounded-xl shadow-md hover:scale-105 transition-transform">
+                        Ir al Simulador
+                    </button>
+                </div>
+
+            </div>
+        `;
     }
 
-    // ===== API PÚBLICA =====
-
-    window.Dashboard = {
-        refresh() {
-            const view = document.getElementById('app-view');
-            if (view && state.isRegistered) {
-                view.innerHTML = renderDashboard();
-                if (typeof window.applyGlobalLanguage === 'function') {
-                    window.applyGlobalLanguage();
-                }
-            }
-        },
-        
-        recordQuiz(category, score, totalQuestions) {
-            const history = safeStorageGet(CONFIG.STORAGE_KEYS.quizHistory, []);
-            history.push({
-                category,
-                score: Math.round((score / totalQuestions) * 100),
-                date: new Date().toISOString(),
-                totalQuestions
-            });
-            // Mantener solo últimos 50
-            if (history.length > 50) history.shift();
-            safeStorageSet(CONFIG.STORAGE_KEYS.quizHistory, history);
-        },
-        
-        recordStudyTime(moduleId, minutes) {
-            const timeSpent = safeStorageGet(CONFIG.STORAGE_KEYS.timeSpent, {});
-            timeSpent[moduleId] = (timeSpent[moduleId] || 0) + minutes;
-            safeStorageSet(CONFIG.STORAGE_KEYS.timeSpent, timeSpent);
-        },
-        
-        getStats() {
-            return calculateStats();
-        }
-    };
-
-    // ===== REGISTRO EN SISTEMA =====
+    // ===== REGISTRO EN EL SISTEMA =====
 
     function register() {
         if (state.isRegistered) return;
+
+        // Esperar a que NCLEX esté listo
         if (!window.NCLEX || typeof window.NCLEX.registerTopic !== 'function') {
-            console.warn('NCLEX registry not found. Retrying...');
             setTimeout(register, 500);
             return;
         }
 
         window.NCLEX.registerTopic({
             id: 'dashboard',
-            order: 0,
-            title: {
-                es: 'Panel de Rendimiento',
-                en: 'Performance Dashboard'
-            },
+            order: 0, // Aparecerá primero
+            title: { es: 'Panel de Progreso', en: 'Progress Dashboard' },
             icon: 'chart-line',
             color: 'indigo',
             render: renderDashboard
         });
 
+        // Registrar función global para guardar resultados de Quizzes
+        window.Dashboard = {
+            recordQuiz: function(category, score, total) {
+                const history = safeGet(CONFIG.STORAGE_KEYS.quizHistory, []);
+                
+                history.unshift({
+                    date: Date.now(),
+                    category,
+                    score,
+                    total
+                });
+
+                // Mantener solo los últimos 50
+                if (history.length > 50) history.pop();
+
+                localStorage.setItem(CONFIG.STORAGE_KEYS.quizHistory, JSON.stringify(history));
+                
+                // Forzar sincronización inmediata si Auth está disponible
+                if (window.NCLEX_AUTH && window.NCLEX_AUTH.forceSave) {
+                    window.NCLEX_AUTH.forceSave();
+                }
+            }
+        };
+
         state.isRegistered = true;
-        console.log('✅ Dashboard registered successfully');
     }
 
-    // ===== INICIALIZACIÓN =====
+    // ===== LISTENER DE SINCRONIZACIÓN (LA PARTE CLAVE) =====
+    // Esto conecta con Auth.js para actualizar la pantalla cuando bajan datos
+    window.addEventListener('nclex:dataLoaded', () => {
+        console.log('☁️ Dashboard: Datos sincronizados. Actualizando...');
+        calculateStats(); // Recalcular con datos nuevos
+        
+        // Si el usuario está viendo el dashboard, refrescarlo
+        const container = document.getElementById('dashboard-container');
+        if (container && window.nclexApp) {
+            // Un pequeño truco para forzar el re-renderizado suave
+            const currentContent = renderDashboard();
+            if (currentContent !== container.innerHTML) {
+                container.outerHTML = currentContent;
+            }
+        }
+    });
 
+    // ===== INICIALIZACIÓN =====
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', register);
     } else {

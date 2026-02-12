@@ -1,10 +1,11 @@
-// auth.js — VERSIÓN CLOUD FINAL (Firebase Conectado & Bilingüe) - CORREGIDO v2
+// js/auth.js — VERSIÓN CLOUD SYNC (Sincronización de Progreso)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 (function() {
   'use strict';
 
+  // ===== 1. CONFIGURACIÓN FIREBASE =====
   const firebaseConfig = {
     apiKey: "AIzaSyC07GVdRw3IkVp230DTT1GyYS_gFFtPeHU",
     authDomain: "nclex-masterclass.firebaseapp.com",
@@ -18,324 +19,208 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   try {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
-      console.log("🔥 Firebase conectado");
+      console.log("🔥 Firebase Cloud Sync activo");
   } catch (e) {
-      console.error("Error Firebase:", e);
+      console.error("Error conectando a Firebase:", e);
   }
 
-  const ADMIN_PASSWORD = "Guitarra89#"; 
-  const SECRET_SALT = "NCLEX-MASTER-KEY-2026"; 
-  const STORAGE_KEY = 'nclex_user_session_v2'; 
+  // ===== 2. VARIABLES DE ESTADO =====
+  const STORAGE_KEY = 'nclex_user_session_v2';
+  const KEYS_TO_SYNC = [
+      'nclex_progress',      // Tu progreso general
+      'nclex_quiz_history',  // Historial de exámenes
+      'nclex_time_spent',    // Tiempo de estudio
+      'nclex_last_visit',    // Última visita
+      'sim_selected_cats',   // Preferencias del simulador
+      'books_cache'          // Caché de libros (opcional)
+  ];
+  let autoSaveInterval = null;
 
-  const bilingual = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
+  // ===== 3. SISTEMA DE SINCRONIZACIÓN (EL MOTOR NUEVO) =====
+  
+  // BAJAR DATOS (Cloud -> Local)
+  async function syncDown(userId) {
+      if (!db || !userId) return;
+      console.log('☁️ Descargando progreso de la nube...');
+      
+      try {
+          const docRef = doc(db, "users", userId);
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+              const data = docSnap.data();
+              
+              // Restaurar cada clave en localStorage
+              KEYS_TO_SYNC.forEach(key => {
+                  if (data[key]) {
+                      localStorage.setItem(key, JSON.stringify(data[key]));
+                  }
+              });
+              
+              console.log('✅ Progreso restaurado exitosamente');
+              // Avisar al Dashboard que los datos han cambiado
+              window.dispatchEvent(new Event('nclex:dataLoaded'));
+          } else {
+              console.log('✨ Usuario nuevo o sin datos previos');
+          }
+      } catch (error) {
+          console.error("Error descargando datos:", error);
+      }
+  }
+
+  // SUBIR DATOS (Local -> Cloud)
+  async function syncUp() {
+      const user = checkAuth();
+      if (!db || !user) return;
+
+      const dataToSave = {};
+      let hasData = false;
+
+      // Recolectar datos del localStorage
+      KEYS_TO_SYNC.forEach(key => {
+          const item = localStorage.getItem(key);
+          if (item) {
+              try {
+                  dataToSave[key] = JSON.parse(item);
+                  hasData = true;
+              } catch (e) {}
+          }
+      });
+      
+      // Agregar timestamp
+      dataToSave.lastSync = new Date().toISOString();
+
+      if (hasData) {
+          try {
+              await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
+              console.log('☁️ Progreso guardado en la nube');
+          } catch (error) {
+              console.error("Error subiendo datos:", error);
+          }
+      }
+  }
+
+  // Iniciar Autoguardado
+  function startAutoSave() {
+      if (autoSaveInterval) clearInterval(autoSaveInterval);
+      // Guardar cada 60 segundos
+      autoSaveInterval = setInterval(syncUp, 60000);
+  }
+
+  // ===== 4. LÓGICA DE AUTENTICACIÓN =====
 
   function checkAuth() {
-    const activeUser = localStorage.getItem(STORAGE_KEY);
-    if (activeUser) {
-      forceRemoveLoading();
-      updateUserUI(activeUser);
-      return true;
-    }
-    return false;
+    try {
+      const session = localStorage.getItem(STORAGE_KEY);
+      return session ? JSON.parse(session) : null;
+    } catch { return null; }
   }
 
-  function forceRemoveLoading() {
-    const loading = document.getElementById('loading');
-    if (loading) { 
-      loading.style.opacity = '0'; 
-      setTimeout(() => {
-        loading.classList.add('hidden');
-        loading.style.display = 'none';
-      }, 500); 
-    }
-  }
+  function renderAuthScreen() {
+    // Si ya existe el overlay, no duplicar
+    if (document.getElementById('auth-overlay')) return;
 
-  function renderAuthScreen(mode) {
-    // Forzar mostrar overlay sobre todo
-    forceRemoveLoading();
-    
-    let overlay = document.getElementById('auth-overlay');
-    if (overlay) overlay.remove();
-    
-    overlay = document.createElement('div');
+    const overlay = document.createElement('div');
     overlay.id = 'auth-overlay';
-    overlay.className = 'fixed inset-0 z-[9999] bg-[#0f172a] flex items-center justify-center p-4';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#0f172a;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.className = 'fixed inset-0 z-[100] bg-[#F5F5F7] flex items-center justify-center p-4';
+    overlay.innerHTML = `
+      <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-in border border-gray-200">
+        <div class="p-8 text-center">
+          <div class="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30">
+            <i class="fa-solid fa-user-nurse text-4xl text-white"></i>
+          </div>
+          <h1 class="text-2xl font-black text-gray-900 mb-2">NCLEX MASTERCLASS</h1>
+          <p class="text-gray-500 mb-8 font-medium">Inicia sesión para guardar tu progreso</p>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-left text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Usuario / ID</label>
+              <input type="text" id="auth-username" 
+                class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-lg rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-4 font-bold outline-none transition-all" 
+                placeholder="Ej. Estudiante2026">
+            </div>
+            
+            <button id="auth-login-btn" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-bold rounded-xl text-lg px-5 py-4 transition-all transform active:scale-95 shadow-lg shadow-blue-500/20">
+              Entrar y Sincronizar
+            </button>
+          </div>
+          
+          <p id="auth-error" class="mt-4 text-red-500 text-sm font-bold hidden"></p>
+        </div>
+        <div class="bg-gray-50 p-4 text-center border-t border-gray-100">
+          <p class="text-xs text-gray-400 font-medium">System v3.0 • Secure Cloud Sync</p>
+        </div>
+      </div>
+    `;
     document.body.appendChild(overlay);
 
-    if (mode === 'admin') renderAdminPanel(overlay);
-    else if (mode === 'register') renderRegisterPanel(overlay);
-    else renderLoginPanel(overlay);
+    // Event Listeners
+    const btn = document.getElementById('auth-login-btn');
+    const input = document.getElementById('auth-username');
     
-    // Sincronizar idioma
-    const lang = localStorage.getItem('nclex_lang') || 'es';
-    const isEs = lang === 'es';
-    overlay.querySelectorAll('.lang-es').forEach(el => el.classList.toggle('hidden-lang', !isEs));
-    overlay.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden-lang', isEs));
-  }
+    const handleLogin = async () => {
+        const username = input.value.trim();
+        if (username.length < 3) {
+            document.getElementById('auth-error').innerText = "Nombre muy corto";
+            document.getElementById('auth-error').classList.remove('hidden');
+            return;
+        }
 
-  function renderLoginPanel(overlay) {
-    overlay.innerHTML = `
-      <div class="w-full max-w-md bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl p-6 border border-gray-200 dark:border-white/10 animate-fade-in">
-        <div class="text-center mb-6">
-            <h2 class="text-3xl font-black text-slate-900 dark:text-white mb-1">${bilingual("Iniciar Sesión", "Login")}</h2>
-            <p class="text-green-500 text-xs font-bold uppercase flex items-center justify-center gap-2">
-                <i class="fa-solid fa-cloud"></i> ${bilingual("Sistema Cloud Activo", "Cloud System Active")}
-            </p>
-        </div>
-        <form id="login-form" class="space-y-4">
-          <div>
-            <label class="text-xs font-bold text-gray-500 uppercase ml-1">${bilingual("Usuario", "Username")}</label>
-            <input type="text" id="login-name" class="w-full bg-gray-100 dark:bg-black/30 text-gray-900 dark:text-white rounded-xl py-3 px-4 border-transparent focus:border-brand-blue outline-none font-bold placeholder-gray-400" placeholder="Ej: Maria" required autocomplete="username">
-          </div>
-          <div>
-            <label class="text-xs font-bold text-gray-500 uppercase ml-1">${bilingual("Contraseña", "Password")}</label>
-            <input type="password" id="login-pass" class="w-full bg-white dark:bg-black border-2 border-gray-200 dark:border-gray-700 focus:border-brand-blue rounded-xl py-3 px-4 outline-none dark:text-white placeholder-gray-400" placeholder="••••••••" required autocomplete="current-password">
-          </div>
-          <button type="submit" id="btn-login" class="w-full bg-brand-blue text-white font-bold py-4 rounded-xl hover:bg-blue-600 shadow-lg active:scale-[0.98] mt-2 transition-all">
-            ${bilingual("ENTRAR", "ENTER")}
-          </button>
-        </form>
-        <div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
-            <button onclick="window.nclexAuth.switchView('register')" class="text-brand-blue font-bold hover:underline text-sm uppercase tracking-wide">${bilingual("¿No tienes cuenta? Regístrate", "No account? Register")}</button>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('login-name').value;
-      const pass = document.getElementById('login-pass').value.trim();
-      const btn = document.getElementById('btn-login');
-      
-      btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> ${bilingual("Verificando...", "Verifying...")}`;
-      btn.disabled = true;
-
-      await loginUserFromCloud(name, pass, overlay);
-      
-      if (document.body.contains(btn)) {
-          btn.innerHTML = bilingual("ENTRAR", "ENTER");
-          btn.disabled = false;
-      }
-    });
-  }
-
-  function renderRegisterPanel(overlay) {
-    overlay.innerHTML = `
-      <div class="w-full max-w-md bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl p-6 border border-gray-200 dark:border-white/10 animate-fade-in">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-black text-slate-900 dark:text-white">${bilingual("Crear Cuenta", "Create Account")}</h2>
-            <button onclick="window.nclexAuth.showAdminLogin()" class="text-xs bg-gray-100 dark:bg-white/10 px-3 py-1 rounded-full text-gray-500 hover:text-brand-blue font-bold transition-colors">⚙ Admin</button>
-        </div>
-        <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl mb-4 border border-blue-100 dark:border-blue-800 flex items-start gap-3">
-             <i class="fa-solid fa-lock text-blue-500 mt-1"></i>
-             <p class="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">${bilingual("Necesitas un <strong>Código de Acceso</strong> proporcionado por el instructor.", "You need an <strong>Access Code</strong> provided by the instructor.")}</p>
-        </div>
-        <form id="register-form" class="space-y-3">
-          <div><label class="text-[10px] font-bold text-gray-500 uppercase ml-1">${bilingual("Nombre (Usuario)", "Name (Username)")}</label><input type="text" id="reg-name" required class="w-full bg-gray-100 dark:bg-black/30 rounded-xl py-3 px-4 outline-none dark:text-white font-bold" placeholder="Ej: Maria"></div>
-          <div><label class="text-[10px] font-bold text-gray-500 uppercase ml-1">${bilingual("Código de Acceso", "Access Code")}</label><input type="text" id="reg-token" required class="w-full bg-gray-100 dark:bg-black/30 rounded-xl py-3 px-4 outline-none font-mono text-center tracking-widest uppercase dark:text-white" placeholder="XXXXXX"></div>
-          <div><label class="text-[10px] font-bold text-gray-500 uppercase ml-1">${bilingual("Contraseña", "Password")}</label><input type="password" id="reg-pass" required class="w-full bg-gray-100 dark:bg-black/30 rounded-xl py-3 px-4 outline-none dark:text-white" placeholder="••••••••"></div>
-          <button type="submit" id="btn-reg" class="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-4 rounded-xl shadow-lg mt-2 active:scale-[0.98] hover:shadow-xl transition-all">${bilingual("REGISTRARME", "REGISTER")}</button>
-        </form>
-        <div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800 text-center">
-            <button onclick="window.nclexAuth.switchView('login')" class="text-brand-blue font-bold hover:underline text-sm uppercase tracking-wide">${bilingual("¿Ya tienes cuenta? Entrar", "Have account? Login")}</button>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('register-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = document.getElementById('reg-name').value;
-      const token = document.getElementById('reg-token').value.trim().toUpperCase();
-      const pass = document.getElementById('reg-pass').value.trim();
-      const btn = document.getElementById('btn-reg');
-
-      if (token === generateHash(name)) {
-        btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> ${bilingual("Creando...", "Creating...")}`;
+        // Animación de carga
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Conectando...';
         btn.disabled = true;
+
+        // 1. Guardar sesión local
+        const session = { name: username, loginTime: Date.now() };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+
+        // 2. DESCARGAR PROGRESO DE LA NUBE
+        await syncDown(username);
+
+        // 3. Cerrar overlay e iniciar app
+        startAutoSave();
+        overlay.remove();
         
-        await registerUserInCloud(name, pass, overlay);
-        
-        if (document.body.contains(btn)) {
-            btn.innerHTML = bilingual("REGISTRARME", "REGISTER");
-            btn.disabled = false;
-        }
-      } else {
-        alert(`⛔ CÓDIGO INVÁLIDO / INVALID CODE`);
-      }
-    });
+        // Forzar actualización de UI
+        if(window.nclexApp && window.nclexApp.refreshUI) window.nclexApp.refreshUI();
+    };
+
+    btn.onclick = handleLogin;
+    input.onkeypress = (e) => { if(e.key === 'Enter') handleLogin() };
   }
 
-  function renderAdminPanel(overlay) {
-    overlay.innerHTML = `
-      <div class="w-full max-w-md bg-slate-900 text-white rounded-3xl shadow-2xl p-8 border border-slate-700 animate-fade-in relative">
-        <button onclick="window.nclexAuth.switchView('login')" class="absolute top-4 right-4 text-gray-500 hover:text-white transition-colors"><i class="fa-solid fa-xmark fa-lg"></i></button>
-        <h2 class="text-xl font-bold mb-1 text-yellow-500"><i class="fa-solid fa-user-shield mr-2"></i>Instructor Panel</h2>
-        <div class="space-y-4 mt-6">
-            <div>
-                <label class="text-[10px] uppercase font-bold text-gray-400">${bilingual("Generar Acceso para:", "Generate Access for:")}</label>
-                <input type="text" id="admin-student-name" class="w-full bg-black/50 border border-gray-700 rounded-xl py-3 px-4 text-white outline-none focus:border-yellow-500 transition-colors" placeholder="Student Name...">
-            </div>
-            <button onclick="window.nclexAuth.generateForStudent()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-3 rounded-xl shadow-lg shadow-yellow-500/20 active:scale-95 transition-all">${bilingual("Generar Código", "Generate Code")}</button>
-            
-            <div id="result-area" class="hidden mt-4 bg-white/5 rounded-xl p-4 text-center border border-white/10">
-                <p class="text-xs text-gray-400 mb-2">${bilingual("Código generado:", "Generated Code:")}</p>
-                <div class="text-3xl font-mono font-black text-yellow-400 tracking-widest mb-3 select-all cursor-pointer" id="generated-code" onclick="window.nclexAuth.copyInvitation()">------</div>
-                <button onclick="window.nclexAuth.copyInvitation()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"><i class="fa-brands fa-whatsapp"></i> ${bilingual("Copiar Invitación", "Copy Invite")}</button>
-            </div>
-        </div>
-      </div>
-    `;
-  }
-
-  async function registerUserInCloud(name, pass, overlay) {
-    if (!db) { alert("Error: No hay conexión."); return false; }
-    const userId = name.trim().toLowerCase(); 
-    const userRef = doc(db, "students", userId);
-    
-    try {
-        const docSnap = await getDoc(userRef);
-        if (docSnap.exists()) {
-            alert("⚠️ USUARIO YA EXISTE / USER ALREADY EXISTS");
-            return false;
-        }
-        await setDoc(userRef, {
-            name: name.trim(), 
-            pass: pass, 
-            createdAt: new Date().toISOString(),
-            role: 'student',
-            lastLogin: new Date().toISOString(),
-            platform: 'web_v5'
-        });
-        loginSuccess(overlay, name.trim());
-        return true;
-    } catch (error) {
-        alert("Error de conexión / Connection error.");
-        return false;
+  // ===== 5. INICIALIZACIÓN =====
+  function init() {
+    const user = checkAuth();
+    if (!user) {
+      // Esperar a que el loader principal desaparezca para no superponerse
+      setTimeout(() => renderAuthScreen(), 1500);
+    } else {
+      console.log("👤 Usuario detectado:", user.name);
+      // Si ya está logueado, sincronizar (bajar cambios recientes) y activar autoguardado
+      syncDown(user.name); 
+      startAutoSave();
     }
   }
 
-  async function loginUserFromCloud(name, pass, overlay) {
-    if (!db) { alert("Error: No hay conexión."); return false; }
-    const userId = name.trim().toLowerCase();
-    const userRef = doc(db, "students", userId);
-
-    try {
-      const docSnap = await getDoc(userRef);
-      if (docSnap.exists()) {
-        const userData = docSnap.data();
-        if (userData.pass === pass) {
-          await setDoc(userRef, { lastLogin: new Date().toISOString() }, { merge: true });
-          loginSuccess(overlay, userData.name);
-          return true;
-        } else {
-          alert("❌ CONTRASEÑA INCORRECTA / WRONG PASSWORD");
-          return false;
-        }
-      } else {
-        alert("❌ USUARIO NO ENCONTRADO / USER NOT FOUND");
-        return false;
-      }
-    } catch (error) {
-      alert("Error de conexión / Connection error.");
-      return false;
-    }
-  }
-
-  function generateHash(name) {
-    const cleanName = name.trim().toLowerCase().replace(/\s+/g, '');
-    const stringToHash = cleanName + SECRET_SALT;
-    let hash = 0;
-    for (let i = 0; i < stringToHash.length; i++) {
-      hash = ((hash << 5) - hash) + stringToHash.charCodeAt(i);
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16).toUpperCase().slice(0, 6).padStart(6, 'X');
-  }
-
-  function loginSuccess(overlay, userName) {
-    localStorage.setItem(STORAGE_KEY, userName); 
-    overlay.remove();
-    updateUserUI(userName);
-  }
-
-  function updateUserUI(userName) {
-    const sidebarHeader = document.querySelector('aside .leading-tight');
-    if (sidebarHeader) {
-        let userSub = sidebarHeader.querySelector('.user-status-display');
-        if (!userSub) {
-            userSub = document.createElement('div');
-            userSub.className = 'user-status-display text-[10px] text-gray-500 font-medium mt-1';
-            sidebarHeader.appendChild(userSub);
-        }
-        userSub.innerHTML = `${bilingual("Estudiante:", "Student:")} <span class="text-brand-blue font-bold">${userName}</span>`;
-    }
-    
-    const nav = document.getElementById('sidebar-nav');
-    if (nav && !document.getElementById('logout-btn')) {
-        const btn = document.createElement('button');
-        btn.id = 'logout-btn';
-        btn.className = "auth-action-btn w-full flex items-center gap-4 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 mt-4 border border-transparent hover:border-red-200 transition-all group";
-        btn.innerHTML = `
-            <div class="w-6 flex justify-center"><i class="fa-solid fa-power-off group-hover:scale-110 transition-transform"></i></div>
-            <span class="hidden lg:block text-sm font-bold">${bilingual("Cerrar Sesión", "Log Out")}</span>`;
-        btn.onclick = () => window.nclexAuth.resetAuth();
-        nav.appendChild(btn);
-    }
-  }
-
-  window.nclexAuth = {
-      switchView: (viewName) => renderAuthScreen(viewName),
-      showAdminLogin: () => { 
-          const attempt = prompt("Contraseña de Instructor:");
-          if (attempt === ADMIN_PASSWORD) renderAuthScreen('admin'); 
-          else if (attempt !== null) alert("Acceso Denegado");
+  // Exponer función de logout globalmente
+  window.NCLEX_AUTH = {
+      logout: () => {
+          if(confirm("¿Cerrar sesión? Tu progreso local se mantendrá pero no se sincronizará.")) {
+              // Forzar una última subida antes de salir
+              syncUp().then(() => {
+                  localStorage.removeItem(STORAGE_KEY);
+                  location.reload();
+              });
+          }
       },
-      generateForStudent: () => {
-        const name = document.getElementById('admin-student-name').value;
-        if (!name) return alert("Escribe un nombre");
-        document.getElementById('result-area').classList.remove('hidden');
-        document.getElementById('generated-code').innerText = generateHash(name);
-      },
-      copyInvitation: () => {
-        const name = document.getElementById('admin-student-name').value;
-        const code = document.getElementById('generated-code').innerText;
-        const text = `🎓 NCLEX MASTERCLASS\n\nUser: ${name}\nCode: ${code}\nLink: ${window.location.href.split('#')[0]}`;
-        navigator.clipboard.writeText(text).then(() => alert("Copiado!")).catch(() => prompt("Copia manual:", text));
-      },
-      resetAuth: () => {
-        if(confirm("¿Cerrar sesión?")) {
-          localStorage.removeItem(STORAGE_KEY);
-          location.reload();
-        }
-      }
+      forceSave: syncUp // Para llamar manualmente si se desea
   };
 
-  // ===== INICIALIZACIÓN INMEDIATA =====
-  function init() {
-    // Si no hay usuario logueado, mostrar auth inmediatamente
-    if (!checkAuth()) {
-      // Esperar un momento por si el loader está visible
-      setTimeout(() => {
-        if (!localStorage.getItem(STORAGE_KEY)) {
-          renderAuthScreen('login');
-        }
-      }, 100);
-    }
-  }
-
-  // Ejecutar inmediatamente o cuando DOM esté listo
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
-
-  // Backup: si algo falla, forzar auth en 2 segundos
-  setTimeout(() => {
-    if (!localStorage.getItem(STORAGE_KEY) && !document.getElementById('auth-overlay')) {
-      renderAuthScreen('login');
-    }
-  }, 2000);
 
 })();
