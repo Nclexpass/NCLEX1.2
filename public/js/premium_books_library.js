@@ -1,5 +1,5 @@
-// premium_books_library.js — Visual Library v4.0 (Apple Books Style)
-// FEATURES: Portadas generadas automáticamente, Efecto 3D, Caché, Fechas arregladas
+// premium_books_library.js — Visual Library v5.0 (Luxury Edition)
+// FEATURES: Portadas "Editorial", Cinta Roja, Títulos Grandes, Visor Online
 
 (function () {
   'use strict';
@@ -29,168 +29,147 @@
     CACHE_TIME_KEY: 'books_cache_time',
     MAX_RETRIES: 2,
     RETRY_DELAY: 1500,
-    // Paleta de colores para las portadas (Estilo Medicina/Moderno)
+    // Paleta de colores "Editorial" (Más oscuros y elegantes)
     COVERS: [
-      ['#3b82f6', '#1d4ed8'], // Azul
-      ['#8b5cf6', '#6d28d9'], // Púrpura
-      ['#10b981', '#047857'], // Esmeralda
-      ['#f59e0b', '#b45309'], // Ámbar
-      ['#ec4899', '#be185d'], // Rosa
-      ['#6366f1', '#4338ca'], // Índigo
-      ['#0ea5e9', '#0369a1'], // Celeste
-      ['#64748b', '#334155']  // Slate
+      ['#1e3a8a', '#172554'], // Azul Marino Profundo
+      ['#581c87', '#3b0764'], // Púrpura Real
+      ['#065f46', '#064e3b'], // Verde Bosque
+      ['#9a3412', '#7c2d12'], // Terracota
+      ['#831843', '#500724'], // Vino
+      ['#3730a3', '#312e81'], // Índigo Oscuro
+      ['#0c4a6e', '#082f49'], // Azul Petróleo
+      ['#334155', '#0f172a']  // Pizarra
     ]
   };
 
   // ===== ESTADO =====
   const state = { books: [], isLoading: false, error: null, isOpen: false };
 
-  // ===== GENERADOR DE PORTADAS =====
-  // Asigna un color consistente basado en el nombre del libro
+  // ===== GENERADOR DE COLOR =====
   function getCoverColor(title) {
     let hash = 0;
-    for (let i = 0; i < title.length; i++) {
-      hash = title.charCodeAt(i) + ((hash << 5) - hash);
-    }
+    for (let i = 0; i < title.length; i++) { hash = title.charCodeAt(i) + ((hash << 5) - hash); }
     const index = Math.abs(hash) % CONFIG.COVERS.length;
     return CONFIG.COVERS[index];
   }
 
-  // ===== ESTILOS (CSS ART 3D) =====
+  // ===== ESTILOS (DISEÑO DE LUJO) =====
   function injectStyles() {
-    if (document.getElementById('nclex-library-styles-v4')) return;
+    if (document.getElementById('nclex-library-styles-v5')) return;
     const style = document.createElement('style');
-    style.id = 'nclex-library-styles-v4';
+    style.id = 'nclex-library-styles-v5';
     style.textContent = `
       /* Botón flotante */
       #nclex-library-btn { position: fixed; top: 24px; right: 24px; width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, rgb(var(--brand-blue-rgb)), rgba(var(--brand-blue-rgb), 0.8)); border: none; box-shadow: 0 8px 25px rgba(var(--brand-blue-rgb), 0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 9980; transition: all 0.2s; color: white; }
       #nclex-library-btn:hover { transform: translateY(-2px) scale(1.05); }
       
       /* Modal */
-      #nclex-library-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 9999; opacity: 0; transition: opacity 0.3s ease; }
+      #nclex-library-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); z-index: 9999; opacity: 0; transition: opacity 0.3s ease; }
       #nclex-library-modal.visible { display: flex; opacity: 1; }
-      
-      .nclex-lib-container { width: 100%; max-width: 1000px; height: 85vh; background: var(--brand-bg); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.3s ease; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+      .nclex-lib-container { width: 100%; max-width: 1100px; height: 90vh; background: var(--brand-bg); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.3s ease; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
       #nclex-library-modal.visible .nclex-lib-container { transform: scale(1); }
-
-      /* Grid de Libros (Estantería) */
+      
+      /* Grid de Libros */
       .nclex-lib-grid { 
         display: grid; 
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
-        gap: 32px 24px; 
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+        gap: 48px 32px; 
         padding: 40px; 
-        overflow-y: auto;
+        overflow-y: auto; 
       }
       
-      /* DISEÑO DE LIBRO 3D */
-      .book-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        perspective: 1000px;
-        cursor: pointer;
-        group: hover;
-      }
-
+      /* DISEÑO LIBRO 3D MEJORADO */
+      .book-item { display: flex; flex-direction: column; align-items: center; perspective: 1000px; group: hover; }
+      
       .book-cover {
-        width: 100%;
-        aspect-ratio: 2/3;
-        border-radius: 4px 12px 12px 4px;
+        width: 100%; aspect-ratio: 2/3.1; /* Un poco más alto */
+        border-radius: 2px 6px 6px 2px;
         position: relative;
         box-shadow: 
-          inset 4px 0 10px rgba(0,0,0,0.1), /* Sombra interior lomo */
-          inset -1px 0 2px rgba(255,255,255,0.3), /* Brillo borde */
-          5px 5px 15px rgba(0,0,0,0.15); /* Sombra 3D */
+          inset 10px 0 20px rgba(0,0,0,0.2), /* Sombra lomo fuerte */
+          5px 5px 15px rgba(0,0,0,0.25);
         transition: transform 0.3s ease, box-shadow 0.3s ease;
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        padding: 12px;
+        padding: 16px;
+        cursor: pointer;
+        border-left: 4px solid rgba(255,255,255,0.1); /* Efecto encuadernación */
       }
 
-      .book-item:hover .book-cover {
-        transform: translateY(-8px) rotateY(-5deg);
-        box-shadow: 
-          inset 4px 0 10px rgba(0,0,0,0.1),
-          15px 20px 30px rgba(0,0,0,0.25);
+      .book-item:hover .book-cover { 
+        transform: translateY(-10px) rotateY(-5deg); 
+        box-shadow: 15px 25px 40px rgba(0,0,0,0.35); 
       }
 
-      /* Decoración del libro */
-      .book-spine {
+      /* La Cinta Roja (Bookmark) */
+      .book-bookmark {
         position: absolute;
-        left: 0;
-        top: 0;
+        top: -5px;
+        right: 20px;
+        width: 24px;
+        height: 45px;
+        background: #dc2626; /* Rojo intenso */
+        box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        z-index: 30;
+      }
+      .book-bookmark::after {
+        content: '';
+        position: absolute;
         bottom: 0;
-        width: 12px;
-        background: rgba(0,0,0,0.2);
-        z-index: 10;
-        border-right: 1px solid rgba(255,255,255,0.1);
-      }
-      
-      .book-content {
-        z-index: 20;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-      }
-
-      .book-title {
-        font-family: 'Inter', sans-serif;
-        font-weight: 800;
-        color: white;
-        font-size: 13px;
-        line-height: 1.3;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        display: -webkit-box;
-        -webkit-line-clamp: 4;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        letter-spacing: -0.02em;
-      }
-
-      .book-icon {
-        color: rgba(255,255,255,0.8);
-        font-size: 20px;
-        align-self: flex-end;
-      }
-
-      .book-details {
-        margin-top: 12px;
-        text-align: center;
+        left: 0;
         width: 100%;
-      }
-      
-      .book-meta-title {
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--brand-text);
-        margin-bottom: 4px;
-        white-space: nowrap; 
-        overflow: hidden; 
-        text-overflow: ellipsis; 
-      }
-      
-      .book-meta-info {
-        font-size: 10px;
-        color: var(--brand-text-muted);
-        display: flex;
-        justify-content: center;
-        gap: 8px;
+        height: 10px;
+        background: inherit;
+        clip-path: polygon(0 0, 50% 100%, 100% 0);
+        transform: translateY(9px);
       }
 
-      /* Header & Footer */
-      .nclex-lib-header { padding: 20px; border-bottom: 1px solid var(--brand-border); display: flex; justify-content: space-between; align-items: center; }
+      /* Título Grande */
+      .book-content { z-index: 20; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; padding-top: 10px; }
+      .book-title { 
+        font-family: 'Inter', sans-serif; 
+        font-weight: 900; 
+        text-transform: uppercase;
+        color: white; 
+        font-size: 16px; /* Más grande */
+        line-height: 1.2; 
+        text-shadow: 0 2px 10px rgba(0,0,0,0.5); 
+        display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; 
+        letter-spacing: 0.02em;
+        text-align: center;
+      }
+      
+      /* Decoración inferior */
+      .book-bottom-deco {
+        position: absolute; bottom: 20px; left: 0; right: 0; height: 2px; background: rgba(255,215,0, 0.4); /* Dorado sutil */
+      }
+      .book-icon { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.3); font-size: 24px; }
+
+      /* Info y Botones */
+      .book-details { margin-top: 16px; text-align: center; width: 100%; }
+      .book-meta-info { font-size: 11px; color: var(--brand-text-muted); font-weight: 500; margin-bottom: 10px; }
+      
+      .book-actions { display: flex; gap: 8px; justify-content: center; opacity: 0; transform: translateY(10px); transition: all 0.2s; }
+      .book-item:hover .book-actions { opacity: 1; transform: translateY(0); }
+      
+      .action-btn { 
+        padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      }
+      .btn-read { background: #2563eb; color: white; border: 1px solid #1d4ed8; }
+      .btn-read:hover { background: #1d4ed8; transform: scale(1.05); }
+      .btn-down { background: white; color: #475569; border: 1px solid #e2e8f0; }
+      .btn-down:hover { background: #f8fafc; color: #0f172a; }
+      .dark .btn-down { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+
+      .nclex-lib-header { padding: 24px; border-bottom: 1px solid var(--brand-border); display: flex; justify-content: space-between; align-items: center; }
       .nclex-lib-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--brand-text-muted); }
     `;
     document.head.appendChild(style);
   }
 
   // ===== UTILIDADES =====
-  function isSpanishUI() {
-    const esEl = document.querySelector('.lang-es');
-    return esEl ? !esEl.classList.contains('hidden-lang') : true;
-  }
+  function isSpanishUI() { const esEl = document.querySelector('.lang-es'); return esEl ? !esEl.classList.contains('hidden-lang') : true; }
   function t(es, en) { return isSpanishUI() ? es : en; }
 
   // ===== FETCH DATOS =====
@@ -241,7 +220,7 @@
     const content = modal.querySelector('.nclex-lib-content');
 
     if (state.isLoading && !state.books.length) {
-      content.innerHTML = `<div class="nclex-lib-loading"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p>${t('Cargando biblioteca...', 'Loading Library...')}</p></div>`;
+      content.innerHTML = `<div class="nclex-lib-loading"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4 text-blue-500"></i><p class="font-bold">${t('Preparando estantería...', 'Preparing shelves...')}</p></div>`;
       return;
     }
 
@@ -253,34 +232,40 @@
     content.innerHTML = `<div class="nclex-lib-grid">
       ${state.books.map(book => {
         const [bgFrom, bgTo] = getCoverColor(book.name);
-        // Manejo seguro de fecha
-        let dateStr = '';
-        try {
-           const d = new Date(book.date);
-           if(!isNaN(d)) dateStr = d.toLocaleDateString(isSpanishUI() ? 'es-ES' : 'en-US', {month:'short', year:'numeric'});
-        } catch(e) {}
+        const googleViewerUrl = `https://docs.google.com/viewer?embedded=false&url=${encodeURIComponent(book.url)}`;
 
         return `
-        <a href="${book.url}" target="_blank" class="book-item group">
-          <div class="book-cover" style="background: linear-gradient(135deg, ${bgFrom}, ${bgTo});">
-            <div class="book-spine"></div>
+        <div class="book-item group">
+          <div class="book-cover" onclick="window.open('${googleViewerUrl}', '_blank')" 
+               style="background: radial-gradient(circle at top right, ${bgFrom}, ${bgTo});">
+            
+            <div class="book-bookmark"></div>
+            
             <div class="book-content">
               <div class="book-title">${escapeHtml(book.name)}</div>
-              <div class="book-icon"><i class="fa-solid fa-book-medical"></i></div>
             </div>
-            <div style="position:absolute; inset:0; background: linear-gradient(to right, rgba(255,255,255,0.1) 0%, transparent 100%); pointer-events:none;"></div>
+            
+            <div class="book-icon"><i class="fa-solid fa-staff-snake"></i></div>
+            <div class="book-bottom-deco"></div>
+            
+            <div style="position:absolute; inset:0; background: linear-gradient(to right, rgba(255,255,255,0.15) 0%, transparent 5%, transparent 95%, rgba(0,0,0,0.3) 100%); pointer-events:none;"></div>
           </div>
+          
           <div class="book-details">
-            <div class="book-meta-title">${escapeHtml(book.name)}</div>
             <div class="book-meta-info">
-              <span>${formatFileSize(book.size)}</span>
-              ${dateStr ? `<span>• ${dateStr}</span>` : ''}
+              <span>${formatFileSize(book.size)} • PDF</span>
             </div>
-            <div class="mt-2 text-xs font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
-               ${t('Descargar', 'Download')} <i class="fa-solid fa-arrow-down"></i>
+            
+            <div class="book-actions">
+                <a href="${googleViewerUrl}" target="_blank" class="action-btn btn-read">
+                    <i class="fa-solid fa-book-open"></i> ${t('Leer', 'Read')}
+                </a>
+                <a href="${book.url}" target="_blank" class="action-btn btn-down" title="${t('Descargar', 'Download')}">
+                    <i class="fa-solid fa-download"></i>
+                </a>
             </div>
           </div>
-        </a>
+        </div>
         `;
       }).join('')}
     </div>`;
@@ -291,9 +276,9 @@
     if (document.getElementById('nclex-library-btn')) return;
     injectStyles();
 
-    // Botón flotante
     const btn = document.createElement('button');
     btn.id = 'nclex-library-btn';
+    btn.setAttribute('aria-label', 'Open Library');
     btn.innerHTML = `<i class="fa-solid fa-book-open text-xl"></i>`;
     btn.onclick = () => {
       state.isOpen = true;
@@ -302,27 +287,33 @@
     };
     document.body.appendChild(btn);
 
-    // Modal Estructura
     const modal = document.createElement('div');
     modal.id = 'nclex-library-modal';
     modal.innerHTML = `
       <div class="nclex-lib-container">
         <div class="nclex-lib-header">
-          <h2 class="font-bold text-xl text-[var(--brand-text)] flex items-center gap-2">
-            <i class="fa-solid fa-graduation-cap text-blue-500"></i> Premium Library
-          </h2>
-          <button class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition"
+          <div>
+            <h2 class="font-black text-2xl text-[var(--brand-text)] flex items-center gap-3">
+              <span class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
+                <i class="fa-solid fa-book-medical"></i>
+              </span>
+              NCLEX LIBRARY
+            </h2>
+            <p class="text-xs text-[var(--brand-text-muted)] mt-1 ml-1 font-medium tracking-wide uppercase">
+              ${t('Recursos Premium & Guías de Estudio', 'Premium Resources & Study Guides')}
+            </p>
+          </div>
+          <button class="w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition"
             onclick="document.getElementById('nclex-library-modal').classList.remove('visible');">
-            <i class="fa-solid fa-xmark text-lg"></i>
+            <i class="fa-solid fa-xmark text-xl text-[var(--brand-text-muted)]"></i>
           </button>
         </div>
-        <div class="nclex-lib-content flex-1 overflow-y-auto bg-[var(--brand-bg)]"></div>
+        <div class="nclex-lib-content flex-1 overflow-y-auto bg-[var(--brand-bg)] custom-scrollbar"></div>
       </div>
     `;
     modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('visible'); };
     document.body.appendChild(modal);
 
-    // Precargar
     setTimeout(fetchBooks, 2500);
   }
 
