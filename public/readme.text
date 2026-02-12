@@ -1,0 +1,22 @@
+# NCLEX Masterclass OS v3.0
+
+Aplicación de estudio progresiva para el examen NCLEX-RN, con soporte offline, múltiples temas visuales y seguimiento de rendimiento.
+
+![Version](https://img.shields.io/badge/version-3.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![PWA](https://img.shields.io/badge/PWA-Ready-purple)
+
+## 🚀 Características Principales
+
+- 📚 **30+ Módulos de Contenido** - Organizados por sistema corporal y área clínica
+- 🎨 **5 Skins Visuales** - Personalización completa de la interfaz
+- 🌙 **Modo Oscuro/Claro** - Transición suave entre temas
+- 🧠 **Simulador Adaptativo** - Preguntas SATA y opción múltiple con CSV dinámico
+- 📊 **Dashboard de Rendimiento** - Seguimiento de progreso y áreas débiles
+- 🔍 **Smart Search** - Búsqueda con highlight en contenido de módulos
+- 📝 **Notas Rápidas** - Sistema tipo Apple Notes flotante
+- 📖 **Biblioteca PDF** - Integración con GitHub Releases
+- 🌐 **100% Offline** - Funciona sin conexión gracias al Service Worker
+- 🌍 **Bilingüe** - Español e Inglés completo
+
+## 📁 Estructura del Proyecto

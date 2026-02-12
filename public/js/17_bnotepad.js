@@ -1,18 +1,22 @@
-// 17_bnotepad.js — Apple Notes (Mejorado: robusto, accesible, sin conflictos)
+// 17_bnotepad.js — Apple Notes (VERSIÓN CORREGIDA 3.0)
+// FIXED: Prevención de duplicación, cleanup de eventos, sincronización con tema
+
 (function () {
     'use strict';
 
+    // ===== CONFIGURACIÓN =====
     const CONFIG = {
-        STORAGE_KEY: 'nclex_apple_notes_v6',
-        POS_KEY: 'nclex_apple_pos_v6',
-        Z_INDEX: 9995,
-        BTN_RIGHT: '84px',
-        BTN_TOP: '24px',
+        STORAGE_KEY: 'nclex_apple_notes_v7',
+        POS_KEY: 'nclex_apple_pos_v7',
+        Z_INDEX: 9985,
+        BTN_RIGHT: '24px',
+        BTN_TOP: '84px', // Movido para no tapar el botón de library
         DEFAULT_WIDTH: 360,
-        DEFAULT_HEIGHT: 480
+        DEFAULT_HEIGHT: 480,
+        MAX_INSTANCES: 1 // Prevenir múltiples instancias
     };
 
-    // Estado interno (no accesible globalmente)
+    // ===== ESTADO =====
     const state = {
         isOpen: false,
         content: '',
@@ -20,353 +24,686 @@
         y: 0,
         w: CONFIG.DEFAULT_WIDTH,
         h: CONFIG.DEFAULT_HEIGHT,
-        closeTimeout: null
+        closeTimeout: null,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        dragStartLeft: 0,
+        dragStartTop: 0
     };
 
-    // Referencias DOM
-    let triggerEl = null;
-    let winEl = null;
-    let textareaEl = null;
-    let isDragging = false;
-    let dragStartX = 0, dragStartY = 0;
-    let dragStartLeft = 0, dragStartTop = 0;
+    // ===== SINGLETON PATTERN =====
+    // Prevenir múltiples inicializaciones
+    if (window.__bnotepadInitialized) {
+        console.log('📝 BNotepad ya inicializado, ignorando...');
+        return;
+    }
+    window.__bnotepadInitialized = true;
 
-    // --- Persistencia ---
+    // Referencias DOM (cacheadas)
+    let elements = {
+        trigger: null,
+        window: null,
+        textarea: null,
+        header: null,
+        closeBtn: null,
+        downloadBtn: null
+    };
+
+    // Referencias a event listeners (para cleanup)
+    let eventListeners = [];
+
+    // ===== PERSISTENCIA SEGURA =====
+    
     function loadState() {
         try {
             const saved = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
             state.content = saved.content || '';
             state.isOpen = saved.isOpen || false;
-        } catch (e) {}
+        } catch (e) {
+            console.warn('Error loading notes:', e);
+            state.content = '';
+            state.isOpen = false;
+        }
 
         try {
             const pos = JSON.parse(localStorage.getItem(CONFIG.POS_KEY) || '{}');
             state.x = pos.x ?? (window.innerWidth - CONFIG.DEFAULT_WIDTH - 40);
-            state.y = pos.y ?? 90;
+            state.y = pos.y ?? 100;
             state.w = pos.w ?? CONFIG.DEFAULT_WIDTH;
             state.h = pos.h ?? CONFIG.DEFAULT_HEIGHT;
 
-            // Asegurar que la posición esté dentro de la ventana visible
-            state.x = Math.max(0, Math.min(state.x, window.innerWidth - state.w - 20));
-            state.y = Math.max(0, Math.min(state.y, window.innerHeight - state.h - 20));
-        } catch (e) {}
+            // Asegurar visibilidad en viewport
+            constrainToViewport();
+        } catch (e) {
+            console.warn('Error loading position:', e);
+            resetPosition();
+        }
     }
 
     function saveContent() {
-        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({
-            content: state.content,
-            isOpen: state.isOpen
-        }));
+        try {
+            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({
+                content: state.content,
+                isOpen: state.isOpen
+            }));
+        } catch (e) {
+            console.warn('Error saving notes:', e);
+        }
     }
 
     function savePosition() {
-        if (!winEl) return;
-        const rect = winEl.getBoundingClientRect();
-        state.x = rect.left;
-        state.y = rect.top;
-        state.w = rect.width;
-        state.h = rect.height;
-        localStorage.setItem(CONFIG.POS_KEY, JSON.stringify({
-            x: state.x, y: state.y, w: state.w, h: state.h
-        }));
+        if (!elements.window) return;
+        try {
+            const rect = elements.window.getBoundingClientRect();
+            state.x = rect.left;
+            state.y = rect.top;
+            state.w = rect.width;
+            state.h = rect.height;
+            localStorage.setItem(CONFIG.POS_KEY, JSON.stringify({
+                x: state.x, y: state.y, w: state.w, h: state.h
+            }));
+        } catch (e) {
+            console.warn('Error saving position:', e);
+        }
     }
 
-    // --- UI y estilos ---
+    function resetPosition() {
+        state.x = window.innerWidth - CONFIG.DEFAULT_WIDTH - 40;
+        state.y = 100;
+        state.w = CONFIG.DEFAULT_WIDTH;
+        state.h = CONFIG.DEFAULT_HEIGHT;
+    }
+
+    function constrainToViewport() {
+        const margin = 20;
+        state.x = Math.max(margin, Math.min(state.x, window.innerWidth - state.w - margin));
+        state.y = Math.max(margin, Math.min(state.y, window.innerHeight - state.h - margin));
+    }
+
+    // ===== UTILIDADES DE EVENTOS =====
+    
+    function addEventListenerWithCleanup(element, event, handler, options) {
+        element.addEventListener(event, handler, options);
+        eventListeners.push({ element, event, handler });
+    }
+
+    function cleanupEventListeners() {
+        eventListeners.forEach(({ element, event, handler }) => {
+            element.removeEventListener(event, handler);
+        });
+        eventListeners = [];
+    }
+
+    // ===== ESTILOS DINÁMICOS =====
+    
     function injectStyles() {
-        if (document.getElementById('apple-notes-style')) return;
+        if (document.getElementById('apple-notes-style-v3')) return;
+
         const style = document.createElement('style');
-        style.id = 'apple-notes-style';
+        style.id = 'apple-notes-style-v3';
         style.textContent = `
-            .an-trigger-btn {
-                position: fixed; width: 48px; height: 48px; border-radius: 16px;
-                background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(255, 255, 255, 0.4);
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); backdrop-filter: blur(10px);
-                display: flex; align-items: center; justify-content: center;
-                cursor: pointer; z-index: ${CONFIG.Z_INDEX}; transition: all 0.2s ease;
-                color: #1C1C1E;
+            /* Botón flotante */
+            #bnotepad-trigger-btn {
+                position: fixed;
+                top: ${CONFIG.BTN_TOP};
+                right: ${CONFIG.BTN_RIGHT};
+                width: 48px;
+                height: 48px;
+                border-radius: 14px;
+                background: var(--brand-card, rgba(255, 255, 255, 0.9));
+                border: 1px solid var(--brand-border, rgba(0, 0, 0, 0.1));
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                z-index: ${CONFIG.Z_INDEX};
+                transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                color: var(--brand-text, #1C1C1E);
             }
-            .dark .an-trigger-btn {
-                background: rgba(30, 30, 30, 0.6); border-color: rgba(255,255,255,0.1);
+            
+            .dark #bnotepad-trigger-btn {
+                background: var(--brand-card, rgba(28, 28, 30, 0.9));
+                border-color: var(--brand-border, rgba(255, 255, 255, 0.1));
+                color: var(--brand-text, #FFFFFF);
+            }
+            
+            #bnotepad-trigger-btn:hover {
+                transform: translateY(-2px) scale(1.05);
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            }
+            
+            #bnotepad-trigger-btn:active {
+                transform: scale(0.95);
+            }
+            
+            #bnotepad-trigger-btn.active {
+                background: rgb(var(--brand-blue-rgb, 0, 122, 255));
                 color: white;
+                border-color: transparent;
             }
-            .an-trigger-btn:hover {
-                transform: translateY(-2px); background: rgba(255, 255, 255, 0.9);
-                box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-            }
-            .an-window {
-                position: fixed; background: rgba(255, 255, 255, 0.85);
+
+            /* Ventana de notas */
+            #bnotepad-window {
+                position: fixed;
+                background: var(--brand-card, rgba(255, 255, 255, 0.95));
                 backdrop-filter: blur(25px) saturate(180%);
-                border: 1px solid rgba(0, 0, 0, 0.05); border-radius: 14px;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-                display: flex; flex-direction: column; overflow: hidden;
-                z-index: ${CONFIG.Z_INDEX}; transition: opacity 0.2s, transform 0.2s;
-                opacity: 0; transform: scale(0.95);
-                pointer-events: none; /* se activa cuando visible */
+                border: 1px solid var(--brand-border, rgba(0, 0, 0, 0.08));
+                border-radius: 16px;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                z-index: ${CONFIG.Z_INDEX + 1};
+                transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+                opacity: 0;
+                transform: scale(0.95) translateY(10px);
+                visibility: hidden;
+                min-width: 280px;
+                min-height: 200px;
             }
-            .dark .an-window {
-                background: rgba(40, 40, 40, 0.85); border-color: rgba(255,255,255,0.1);
-                color: white;
+            
+            .dark #bnotepad-window {
+                background: var(--brand-card, rgba(28, 28, 30, 0.95));
+                border-color: var(--brand-border, rgba(255, 255, 255, 0.1));
             }
-            .an-window.visible {
-                opacity: 1; transform: scale(1);
-                pointer-events: auto;
+            
+            #bnotepad-window.visible {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+                visibility: visible;
             }
-            .an-header {
-                height: 48px; display: flex; align-items: center;
-                justify-content: space-between; padding: 0 16px;
-                cursor: move; user-select: none;
+
+            /* Header arrastrable */
+            #bnotepad-header {
+                height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 16px;
+                cursor: grab;
+                user-select: none;
+                background: linear-gradient(to bottom, rgba(var(--brand-blue-rgb, 0, 122, 255), 0.08), transparent);
+                border-bottom: 1px solid var(--brand-border, rgba(0, 0, 0, 0.05));
             }
-            .an-traffic { display: flex; gap: 8px; }
-            .an-dot { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; }
+            
+            #bnotepad-header:active {
+                cursor: grabbing;
+            }
+
+            /* Botones de tráfico */
+            .bnotepad-traffic { 
+                display: flex; 
+                gap: 8px; 
+            }
+            
+            .bnotepad-dot { 
+                width: 12px; 
+                height: 12px; 
+                border-radius: 50%; 
+                cursor: pointer;
+                transition: transform 0.15s;
+                position: relative;
+            }
+            
+            .bnotepad-dot:hover {
+                transform: scale(1.1);
+            }
+            
+            .bnotepad-dot::after {
+                content: '';
+                position: absolute;
+                inset: -4px;
+                border-radius: 50%;
+            }
+            
             .dot-red { background: #FF5F57; }
             .dot-yellow { background: #FEBC2E; }
             .dot-green { background: #28C840; }
-            .an-textarea {
-                flex: 1; width: 100%; background: transparent; border: none;
-                resize: none; padding: 10px 20px; font-size: 17px; outline: none;
-                font-family: inherit;
+
+            /* Área de texto */
+            #bnotepad-textarea {
+                flex: 1;
+                width: 100%;
+                background: transparent;
+                border: none;
+                resize: none;
+                padding: 16px 20px;
+                font-size: 15px;
+                line-height: 1.6;
+                outline: none;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: var(--brand-text, #1C1C1E);
+                tab-size: 4;
             }
-            .dark .an-textarea { color: #E5E5E5; }
+            
+            .dark #bnotepad-textarea { 
+                color: var(--brand-text, #E5E5E5); 
+            }
+            
+            #bnotepad-textarea::placeholder {
+                color: var(--brand-text-muted, #8E8E93);
+            }
+
+            /* Botón de descarga */
+            #bnotepad-download {
+                width: 28px;
+                height: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 6px;
+                transition: all 0.15s;
+                color: var(--brand-text-muted, #8E8E93);
+            }
+            
+            #bnotepad-download:hover {
+                background: rgba(var(--brand-blue-rgb, 0, 122, 255), 0.1);
+                color: rgb(var(--brand-blue-rgb, 0, 122, 255));
+            }
+
+            /* Título */
+            .bnotepad-title {
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--brand-text-muted, #8E8E93);
+            }
+
+            /* Resize handle */
+            .bnotepad-resize-handle {
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                width: 20px;
+                height: 20px;
+                cursor: nwse-resize;
+                background: linear-gradient(135deg, transparent 50%, var(--brand-text-muted, #C7C7CC) 50%);
+                border-bottom-right-radius: 16px;
+                opacity: 0.3;
+                transition: opacity 0.15s;
+            }
+            
+            .bnotepad-resize-handle:hover {
+                opacity: 0.6;
+            }
+
+            /* Animación de notificación */
+            @keyframes bnotepad-pulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+            }
+            
+            .bnotepad-notify {
+                animation: bnotepad-pulse 0.3s ease;
+            }
         `;
         document.head.appendChild(style);
     }
 
+    // ===== CREACIÓN DE ELEMENTOS =====
+    
     function createElements() {
-        if (triggerEl && winEl) return;
+        // Verificar si ya existen (prevenir duplicados)
+        if (elements.trigger && document.body.contains(elements.trigger)) {
+            console.log('📝 Elementos ya existen, reutilizando...');
+            return;
+        }
 
         injectStyles();
 
         // Botón flotante
-        triggerEl = document.createElement('div');
-        triggerEl.id = 'apple-notes-trigger';
-        triggerEl.className = 'an-trigger-btn';
-        triggerEl.style.top = CONFIG.BTN_TOP;
-        triggerEl.style.right = CONFIG.BTN_RIGHT;
-        triggerEl.setAttribute('aria-label', 'Abrir bloc de notas');
-        triggerEl.setAttribute('role', 'button');
-        triggerEl.setAttribute('tabindex', '0');
-        triggerEl.innerHTML = `<i class="fa-regular fa-note-sticky text-yellow-500 text-xl" aria-hidden="true"></i>`;
-        triggerEl.addEventListener('click', toggleNotepad);
-        triggerEl.addEventListener('keydown', (e) => {
+        elements.trigger = document.createElement('button');
+        elements.trigger.id = 'bnotepad-trigger-btn';
+        elements.trigger.setAttribute('aria-label', 'Abrir bloc de notas');
+        elements.trigger.setAttribute('title', 'Quick Notes (Ctrl/Cmd + Shift + N)');
+        elements.trigger.innerHTML = `
+            <i class="fa-regular fa-note-sticky text-xl"></i>
+        `;
+        
+        // Ventana
+        elements.window = document.createElement('div');
+        elements.window.id = 'bnotepad-window';
+        elements.window.setAttribute('role', 'dialog');
+        elements.window.setAttribute('aria-label', 'Bloc de notas');
+        elements.window.innerHTML = `
+            <div id="bnotepad-header">
+                <div class="bnotepad-traffic">
+                    <div class="bnotepad-dot dot-red" data-action="close" title="Cerrar" role="button" tabindex="0" aria-label="Cerrar"></div>
+                    <div class="bnotepad-dot dot-yellow" data-action="minimize" title="Minimizar" role="button" tabindex="0" aria-label="Minimizar"></div>
+                    <div class="bnotepad-dot dot-green" data-action="maximize" title="Maximizar" role="button" tabindex="0" aria-label="Maximizar"></div>
+                </div>
+                <div class="bnotepad-title">Quick Notes</div>
+                <button id="bnotepad-download" title="Descargar nota" aria-label="Descargar nota">
+                    <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                </button>
+            </div>
+            <textarea id="bnotepad-textarea" placeholder="Escribe tus notas aquí...&#10;&#10;• Ctrl+N: Nueva nota&#10;• Ctrl+S: Guardar&#10;• Esc: Cerrar"></textarea>
+            <div class="bnotepad-resize-handle"></div>
+        `;
+
+        document.body.appendChild(elements.trigger);
+        document.body.appendChild(elements.window);
+
+        // Cachear referencias internas
+        elements.textarea = elements.window.querySelector('#bnotepad-textarea');
+        elements.header = elements.window.querySelector('#bnotepad-header');
+        elements.closeBtn = elements.window.querySelector('.dot-red');
+        elements.downloadBtn = elements.window.querySelector('#bnotepad-download');
+
+        // Aplicar posición y contenido guardado
+        applyStateToElements();
+        
+        // Configurar eventos
+        setupEvents();
+    }
+
+    function applyStateToElements() {
+        if (!elements.window || !elements.textarea) return;
+
+        elements.window.style.left = state.x + 'px';
+        elements.window.style.top = state.y + 'px';
+        elements.window.style.width = state.w + 'px';
+        elements.window.style.height = state.h + 'px';
+        elements.textarea.value = state.content;
+    }
+
+    // ===== EVENTOS =====
+    
+    function setupEvents() {
+        // Limpiar listeners anteriores si existen
+        cleanupEventListeners();
+
+        // Botón trigger
+        addEventListenerWithCleanup(elements.trigger, 'click', toggleNotepad);
+        addEventListenerWithCleanup(elements.trigger, 'keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 toggleNotepad();
             }
         });
 
-        // Ventana
-        winEl = document.createElement('div');
-        winEl.id = 'apple-notes-window';
-        winEl.className = 'an-window';
-        winEl.innerHTML = `
-            <div class="an-header" id="an-header">
-                <div class="an-traffic">
-                    <div class="an-dot dot-red" aria-label="Cerrar" role="button" tabindex="0"></div>
-                    <div class="an-dot dot-yellow" aria-label="Minimizar" role="button" tabindex="0"></div>
-                    <div class="an-dot dot-green" aria-label="Maximizar" role="button" tabindex="0"></div>
-                </div>
-                <div class="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Quick Notes</div>
-                <div class="text-yellow-500 cursor-pointer" id="an-download" aria-label="Descargar nota" role="button" tabindex="0">
-                    <i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i>
-                </div>
-            </div>
-            <textarea id="an-textarea" class="an-textarea" placeholder="Start writing..."></textarea>
-        `;
-
-        // Aplicar posición y tamaño iniciales
-        winEl.style.left = state.x + 'px';
-        winEl.style.top = state.y + 'px';
-        winEl.style.width = state.w + 'px';
-        winEl.style.height = state.h + 'px';
-
-        document.body.appendChild(triggerEl);
-        document.body.appendChild(winEl);
-
-        textareaEl = winEl.querySelector('#an-textarea');
-        textareaEl.value = state.content;
-
-        // Eventos internos
-        setupEvents();
-    }
-
-    // --- Eventos ---
-    function setupEvents() {
-        // Header: arrastre
-        const header = winEl.querySelector('#an-header');
-        header.addEventListener('mousedown', startDrag);
-        // Para evitar que el foco del textarea active el arrastre accidentalmente
-        header.addEventListener('dragstart', (e) => e.preventDefault());
-
-        // Botones de tráfico
-        const redDot = winEl.querySelector('.dot-red');
-        redDot.addEventListener('click', closeNotepad);
-        redDot.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                closeNotepad();
-            }
+        // Header - arrastre
+        addEventListenerWithCleanup(elements.header, 'mousedown', startDrag);
+        
+        // Botones de tráfico (delegación de eventos)
+        const trafficContainer = elements.header.querySelector('.bnotepad-traffic');
+        addEventListenerWithCleanup(trafficContainer, 'click', (e) => {
+            const dot = e.target.closest('.bnotepad-dot');
+            if (!dot) return;
+            
+            const action = dot.dataset.action;
+            if (action === 'close') closeNotepad();
+            else if (action === 'minimize') minimizeNotepad();
+            else if (action === 'maximize') maximizeNotepad();
         });
 
-        // Botón de descarga
-        const downloadBtn = winEl.querySelector('#an-download');
-        downloadBtn.addEventListener('click', downloadNote);
-        downloadBtn.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                downloadNote();
-            }
-        });
+        // Botón descarga
+        addEventListenerWithCleanup(elements.downloadBtn, 'click', downloadNote);
 
-        // Textarea: guardar cambios
-        textareaEl.addEventListener('input', (e) => {
+        // Textarea - guardar cambios
+        let saveTimeout;
+        addEventListenerWithCleanup(elements.textarea, 'input', (e) => {
             state.content = e.target.value;
-            saveContent();
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveContent, 300); // Debounce de 300ms
         });
 
-        // Al redimensionar la ventana, ajustar posición si está fuera
-        window.addEventListener('resize', () => {
-            if (!winEl) return;
-            const rect = winEl.getBoundingClientRect();
-            let newX = rect.left;
-            let newY = rect.top;
-            let changed = false;
-            if (rect.right > window.innerWidth) {
-                newX = window.innerWidth - rect.width - 20;
-                changed = true;
-            }
-            if (rect.bottom > window.innerHeight) {
-                newY = window.innerHeight - rect.height - 20;
-                changed = true;
-            }
-            if (rect.left < 0) {
-                newX = 20;
-                changed = true;
-            }
-            if (rect.top < 0) {
-                newY = 20;
-                changed = true;
-            }
-            if (changed) {
-                winEl.style.left = newX + 'px';
-                winEl.style.top = newY + 'px';
-                savePosition();
-            }
-        });
+        // Atajos de teclado
+        addEventListenerWithCleanup(document, 'keydown', handleKeyboard);
+
+        // Resize de ventana
+        addEventListenerWithCleanup(window, 'resize', handleWindowResize);
+
+        // Clic fuera para cerrar (opcional, descomentar si se desea)
+        // addEventListenerWithCleanup(document, 'mousedown', (e) => {
+        //     if (state.isOpen && !elements.window.contains(e.target) && !elements.trigger.contains(e.target)) {
+        //         closeNotepad();
+        //     }
+        // });
     }
 
-    // --- Arrastre con addEventListener y limpieza ---
+    function handleKeyboard(e) {
+        // Ctrl/Cmd + Shift + N: Toggle notepad
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'N') {
+            e.preventDefault();
+            toggleNotepad();
+        }
+        
+        // Esc: Cerrar si está abierto
+        if (e.key === 'Escape' && state.isOpen) {
+            closeNotepad();
+        }
+        
+        // Ctrl/Cmd + S: Guardar (prevenir comportamiento por defecto)
+        if ((e.ctrlKey || e.metaKey) && e.key === 's' && state.isOpen) {
+            e.preventDefault();
+            saveContent();
+            showSaveFeedback();
+        }
+    }
+
+    function showSaveFeedback() {
+        const originalText = elements.downloadBtn.innerHTML;
+        elements.downloadBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        elements.downloadBtn.classList.add('bnotepad-notify');
+        
+        setTimeout(() => {
+            elements.downloadBtn.innerHTML = originalText;
+            elements.downloadBtn.classList.remove('bnotepad-notify');
+        }, 1000);
+    }
+
+    function handleWindowResize() {
+        if (!elements.window) return;
+        
+        // Asegurar que la ventana siga visible
+        const rect = elements.window.getBoundingClientRect();
+        let needsUpdate = false;
+        
+        if (rect.right > window.innerWidth) {
+            state.x = window.innerWidth - state.w - 20;
+            needsUpdate = true;
+        }
+        if (rect.bottom > window.innerHeight) {
+            state.y = window.innerHeight - state.h - 20;
+            needsUpdate = true;
+        }
+        
+        if (needsUpdate) {
+            applyStateToElements();
+            savePosition();
+        }
+    }
+
+    // ===== ARRASTRE =====
+    
     function startDrag(e) {
-        // No iniciar si se hizo clic en los botones de tráfico o descarga
-        if (e.target.closest('.an-traffic') || e.target.closest('#an-download')) return;
+        // Ignorar si se hizo clic en botones
+        if (e.target.closest('.bnotepad-dot') || e.target.closest('#bnotepad-download')) return;
+        if (e.button !== 0) return; // Solo clic izquierdo
+        
         e.preventDefault();
 
-        isDragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        dragStartLeft = winEl.offsetLeft;
-        dragStartTop = winEl.offsetTop;
+        state.isDragging = true;
+        state.dragStartX = e.clientX;
+        state.dragStartY = e.clientY;
+        state.dragStartLeft = elements.window.offsetLeft;
+        state.dragStartTop = elements.window.offsetTop;
 
-        document.addEventListener('mousemove', onDragMove);
+        // Agregar listeners temporales
+        document.addEventListener('mousemove', onDragMove, { passive: false });
         document.addEventListener('mouseup', onDragEnd);
     }
 
     function onDragMove(e) {
-        if (!isDragging) return;
+        if (!state.isDragging) return;
         e.preventDefault();
 
-        let newLeft = dragStartLeft + (e.clientX - dragStartX);
-        let newTop = dragStartTop + (e.clientY - dragStartY);
+        let newLeft = state.dragStartLeft + (e.clientX - state.dragStartX);
+        let newTop = state.dragStartTop + (e.clientY - state.dragStartY);
 
-        // Limitar dentro de la ventana (con margen)
-        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - winEl.offsetWidth - 20));
-        newTop = Math.max(0, Math.min(newTop, window.innerHeight - winEl.offsetHeight - 20));
+        // Limitar al viewport
+        const margin = 10;
+        newLeft = Math.max(margin, Math.min(newLeft, window.innerWidth - elements.window.offsetWidth - margin));
+        newTop = Math.max(margin, Math.min(newTop, window.innerHeight - elements.window.offsetHeight - margin));
 
-        winEl.style.left = newLeft + 'px';
-        winEl.style.top = newTop + 'px';
+        elements.window.style.left = newLeft + 'px';
+        elements.window.style.top = newTop + 'px';
     }
 
     function onDragEnd() {
-        if (isDragging) {
-            isDragging = false;
-            savePosition();
-        }
+        if (!state.isDragging) return;
+        
+        state.isDragging = false;
+        savePosition();
+        
         document.removeEventListener('mousemove', onDragMove);
         document.removeEventListener('mouseup', onDragEnd);
     }
 
-    // --- Control de visibilidad ---
+    // ===== CONTROL DE VISIBILIDAD =====
+    
     function toggleNotepad() {
-        if (state.isOpen) {
-            closeNotepad();
-        } else {
-            openNotepad();
-        }
+        state.isOpen ? closeNotepad() : openNotepad();
     }
 
     function openNotepad() {
-        if (!winEl) return;
-        // Cancelar cualquier cierre pendiente
+        if (!elements.window) return;
+        
+        // Cancelar cierre pendiente
         if (state.closeTimeout) {
             clearTimeout(state.closeTimeout);
             state.closeTimeout = null;
         }
-        winEl.classList.add('visible');
-        winEl.classList.remove('hidden'); // por si acaso
+        
+        elements.window.classList.add('visible');
+        elements.trigger.classList.add('active');
         state.isOpen = true;
-        saveContent(); // persistir estado abierto
-        triggerEl?.setAttribute('aria-label', 'Cerrar bloc de notas');
-        // Enfocar textarea para escritura inmediata
-        setTimeout(() => textareaEl?.focus(), 50);
+        saveContent();
+        
+        // Enfocar textarea
+        setTimeout(() => {
+            elements.textarea?.focus();
+            elements.textarea?.setSelectionRange(
+                elements.textarea.value.length, 
+                elements.textarea.value.length
+            );
+        }, 50);
     }
 
     function closeNotepad() {
-        if (!winEl) return;
-        winEl.classList.remove('visible');
-        // Esperar animación antes de ocultar con hidden (para no bloquear interacción)
+        if (!elements.window) return;
+        
+        elements.window.classList.remove('visible');
+        elements.trigger.classList.remove('active');
+        
+        // Delay para animación
         state.closeTimeout = setTimeout(() => {
-            winEl.classList.add('hidden');
             state.closeTimeout = null;
         }, 200);
+        
         state.isOpen = false;
         saveContent();
-        triggerEl?.setAttribute('aria-label', 'Abrir bloc de notas');
     }
 
-    // --- Descarga ---
+    function minimizeNotepad() {
+        // Por ahora, mismo comportamiento que cerrar
+        closeNotepad();
+    }
+
+    function maximizeNotepad() {
+        if (!elements.window) return;
+        
+        const isMaximized = elements.window.style.width === '100vw';
+        
+        if (isMaximized) {
+            // Restaurar
+            applyStateToElements();
+        } else {
+            // Maximizar
+            elements.window.style.left = '0';
+            elements.window.style.top = '0';
+            elements.window.style.width = '100vw';
+            elements.window.style.height = '100vh';
+        }
+    }
+
+    // ===== DESCARGA =====
+    
     function downloadNote() {
-        const content = textareaEl?.value || state.content || '';
-        const blob = new Blob([content], { type: 'text/plain' });
+        const content = elements.textarea?.value || state.content || '';
+        const timestamp = new Date().toISOString().split('T')[0];
+        const filename = `NCLEX_Notes_${timestamp}.txt`;
+        
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
+        
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'NCLEX_Notes.txt';
+        a.download = filename;
+        a.style.display = 'none';
+        
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+        
+        showSaveFeedback();
     }
 
-    // --- Inicialización ---
+    // ===== API PÚBLICA =====
+    
+    window.BNotepad = {
+        open: openNotepad,
+        close: closeNotepad,
+        toggle: toggleNotepad,
+        getContent: () => state.content,
+        setContent: (text) => {
+            state.content = text;
+            if (elements.textarea) elements.textarea.value = text;
+            saveContent();
+        },
+        isOpen: () => state.isOpen
+    };
+
+    // Compatibilidad legacy
+    window.anClose = closeNotepad;
+    window.anDownload = downloadNote;
+
+    // ===== INICIALIZACIÓN =====
+    
     function init() {
+        console.log('📝 BNotepad v3.0 initializing...');
+        
         loadState();
         createElements();
-
-        // Restaurar visibilidad según estado guardado
+        
+        // Restaurar estado
         if (state.isOpen) {
             openNotepad();
-        } else {
-            // Asegurar que la ventana esté oculta pero con posición correcta
-            winEl.classList.add('hidden');
-            winEl.classList.remove('visible');
         }
-
-        // Exponer API mínima si es necesario (opcional, pero mejor evitarlo)
-        // Para compatibilidad con código legacy que espera window.anClose / window.anDownload
-        window.anClose = closeNotepad;
-        window.anDownload = downloadNote;
+        
+        console.log('✅ BNotepad initialized');
     }
 
+    // Punto de entrada
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
+
+    // Cleanup al cerrar página
+    window.addEventListener('beforeunload', () => {
+        saveContent();
+        savePosition();
+    });
+
 })();
