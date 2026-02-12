@@ -20,7 +20,13 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        brand: { blue: '#007AFF', bg: '#F5F5F7', dark: '#000000', card: '#1C1C1E', border: '#2C2C2E' }
+                        brand: {
+                            blue: 'var(--brand-blue, #007AFF)',
+                            bg: 'var(--brand-bg, #F5F5F7)',
+                            dark: 'var(--brand-dark, #000000)',
+                            card: 'var(--brand-card, #FFFFFF)',
+                            border: 'var(--brand-border, #E2E8F0)'
+                        }
                     },
                     animation: { 'fade-in': 'fadeIn 0.4s ease-out forwards' },
                     keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
@@ -28,14 +34,87 @@
             }
         }
     </script>
+    
     <style>
+        /* ===== VARIABLES CSS GLOBALES (skin por defecto) ===== */
+        :root {
+            --brand-blue: #007AFF;
+            --brand-bg: #F5F5F7;
+            --brand-dark: #000000;
+            --brand-card: #FFFFFF;
+            --brand-border: #E2E8F0;
+        }
+
+        .dark {
+            --brand-bg: #000000;
+            --brand-card: #1C1C1E;
+            --brand-border: #2C2C2E;
+        }
+
+        /* ===== SKIN OCEAN ===== */
+        .skin-ocean {
+            --brand-blue: #0A84FF;
+            --brand-bg: #E9F2FA;
+            --brand-dark: #001B36;
+            --brand-card: #FFFFFF;
+            --brand-border: #B8D4E3;
+        }
+        .dark.skin-ocean {
+            --brand-bg: #001B36;
+            --brand-card: #0A2E4A;
+            --brand-border: #2C5F7A;
+        }
+
+        /* ===== SKIN FOREST ===== */
+        .skin-forest {
+            --brand-blue: #2C6E49;
+            --brand-bg: #F4F9F4;
+            --brand-dark: #1A2E1A;
+            --brand-card: #FFFFFF;
+            --brand-border: #D0DFD0;
+        }
+        .dark.skin-forest {
+            --brand-bg: #1A2E1A;
+            --brand-card: #253725;
+            --brand-border: #3A543A;
+        }
+
+        /* ===== SKIN LAVENDER ===== */
+        .skin-lavender {
+            --brand-blue: #9B87F8;
+            --brand-bg: #F8F7FF;
+            --brand-dark: #2D2B55;
+            --brand-card: #FFFFFF;
+            --brand-border: #D6D0F0;
+        }
+        .dark.skin-lavender {
+            --brand-bg: #2D2B55;
+            --brand-card: #3A3866;
+            --brand-border: #524F7A;
+        }
+
+        /* ===== SKIN MIDNIGHT ===== */
+        .skin-midnight {
+            --brand-blue: #FFB347;
+            --brand-bg: #F5F3F0;
+            --brand-dark: #121212;
+            --brand-card: #FFFFFF;
+            --brand-border: #E0DCD0;
+        }
+        .dark.skin-midnight {
+            --brand-bg: #121212;
+            --brand-card: #1E1E1E;
+            --brand-border: #FFB34730;
+        }
+
+        /* ===== UTILIDADES EXISTENTES ===== */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden-lang { display: none !important; }
         .nav-btn.active { background-color: rgba(0, 122, 255, 0.1); color: #007AFF; font-weight: 700; }
         .dark .nav-btn.active { background-color: rgba(0, 122, 255, 0.2); color: #60a5fa; }
-        
-        /* === CONTENEDOR DE RESULTADOS DEL SIDEBAR (barra izquierda) === */
+
+        /* ===== RESULTADOS DE BÚSQUEDA ===== */
         #sidebar-search-results {
             max-height: 500px;
             overflow-y: auto;
@@ -50,26 +129,25 @@
             display: none;
         }
         .dark #sidebar-search-results {
-            background-color: #1C1C1E;
-            border: 1px solid #2C2C2E;
+            background-color: var(--brand-card);
+            border: 1px solid var(--brand-border);
             border-top: none;
         }
         #sidebar-search-results.active { display: block; }
 
-        /* === CONTENEDOR DE RESULTADOS DEL HOME (Smart Search) === */
         #home-search-results {
             max-height: 400px;
             overflow-y: auto;
             margin-top: 0.75rem;
             border-radius: 0.75rem;
             background-color: white;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--brand-border);
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             display: none;
         }
         .dark #home-search-results {
-            background-color: #1C1C1E;
-            border-color: #2C2C2E;
+            background-color: var(--brand-card);
+            border-color: var(--brand-border);
         }
         #home-search-results.active { display: block; }
     </style>
@@ -102,7 +180,6 @@
             <div class="relative group">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base group-focus-within:text-brand-blue transition-colors"></i>
                 <input type="text" id="global-search" placeholder="Buscar / Search..." autocomplete="off" class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500">
-                <!-- Resultados del sidebar (renombrado) -->
                 <div id="sidebar-search-results" class="no-scrollbar"></div>
             </div>
         </div>
@@ -179,7 +256,7 @@
     <script defer src="js/32_analytics_dashboard.js?v=2.1"></script>
     <script defer src="js/premium_books_library.js?v=2.1"></script>
     
-    <!-- 🆕 SISTEMA DE SKINS (AGREGADO) -->
+    <!-- 🆕 SISTEMA DE SKINS -->
     <script defer src="js/skins.js?v=2.1"></script>
 
 </body>

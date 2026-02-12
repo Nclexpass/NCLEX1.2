@@ -1,4 +1,4 @@
-// skins.js — Sistema de skins para NCLEX Masterclass
+// skins.js — Sistema de skins para NCLEX Masterclass (VERSIÓN FINAL)
 (function() {
     'use strict';
 
@@ -43,6 +43,7 @@
 
     const STORAGE_KEY = 'nclex_skin';
     let currentSkin = localStorage.getItem(STORAGE_KEY) || 'default';
+    let isInitialized = false;
 
     // ===== APLICAR SKIN =====
     function applySkin(skinId) {
@@ -180,21 +181,13 @@
         renderSkinSelector
     };
 
-    // ===== INICIALIZACIÓN =====
+    // ===== INICIALIZACIÓN (UNA SOLA VEZ) =====
     function init() {
+        if (isInitialized) return;
+        isInitialized = true;
+        
         // Aplicar skin guardada al cargar la página
         applySkin(currentSkin);
-        
-        // Escuchar cambios de idioma para re-renderizar si es necesario
-        window.addEventListener('languagechange', () => {
-            if (window.nclexApp && window.nclexApp.currentRoute === 'skins') {
-                // Pequeño hack para re-renderizar la vista de skins
-                const view = document.getElementById('app-view');
-                if (view && window.SkinSystem) {
-                    view.innerHTML = window.SkinSystem.renderSkinSelector();
-                }
-            }
-        });
         
         console.log('🎨 SkinSystem cargado. Skin actual:', currentSkin);
     }
