@@ -1,299 +1,825 @@
-// 17_bnotepad.js — Versión Arrastrable e Independiente (Derecha)
-(function() {
-    'use strict';
-    
-    // --- CONFIGURACIÓN ---
-    const CONFIG = {
-        STORAGE_KEY: 'notes_pos_v2',
-        DEFAULT_POSITION: { right: '20px', bottom: '20px' },
-        DRAG_THRESHOLD: 5, // píxeles mínimos para considerar arrastre
-        Z_INDEX: 9990
+// 17_bnotepad.js — Apple Notepad (Completo) + Trigger opcional arrastrable
+(function () {
+  'use strict';
+
+  // ==========================================
+  //  A) APPLE NOTEPAD (VENTANA COMPLETA)
+  // ==========================================
+  const CONFIG = {
+    STORAGE_KEY: 'nclex_notebook_apple',
+    AUTO_SAVE_DELAY: 1500,
+    MAX_PAGES: 50,
+    DEFAULT_COLORS: [
+      { name: 'yellow', value: '#FFD60A', darkValue: '#FFB800' },
+      { name: 'blue', value: '#007AFF', darkValue: '#0A84FF' },
+      { name: 'pink', value: '#FF2D55', darkValue: '#FF375F' },
+      { name: 'green', value: '#34C759', darkValue: '#30D158' },
+      { name: 'purple', value: '#AF52DE', darkValue: '#BF5AF2' },
+      { name: 'orange', value: '#FF9500', darkValue: '#FF9F0A' }
+    ]
+  };
+
+  const state = {
+    pages: [],
+    currentIndex: 0,
+    isDragging: false,
+    autoSaveTimer: null,
+    isFullscreen: false,
+    sidebarOpen: true
+  };
+
+  function t(es, en) {
+    // detecta idioma según visibilidad de .lang-es (tu sistema)
+    const esEl = document.querySelector('.lang-es');
+    const isEsVisible = esEl && esEl.offsetParent !== null;
+    return isEsVisible ? es : en;
+  }
+
+  function loadData() {
+    try {
+      const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
+      state.pages = raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      console.error('Error loading notes:', e);
+      state.pages = [];
+    }
+    if (state.pages.length === 0) createNewPage();
+  }
+
+  function saveData() {
+    clearTimeout(state.autoSaveTimer);
+    state.autoSaveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state.pages));
+        showSaveIndicator();
+        updateFooterMeta();
+      } catch (e) {
+        console.error('Error saving notes:', e);
+      }
+    }, CONFIG.AUTO_SAVE_DELAY);
+  }
+
+  function createNewPage(colorIndex = 0) {
+    const color = CONFIG.DEFAULT_COLORS[colorIndex % CONFIG.DEFAULT_COLORS.length];
+    const newPage = {
+      id: Date.now() + Math.random(),
+      content: '',
+      color: color.name,
+      colorValue: color.value,
+      darkColorValue: color.darkValue,
+      date: new Date().toISOString(),
+      title: `New Note ${state.pages.length + 1}`,
+      tags: [],
+      starred: false
     };
-    
-    // --- GESTIÓN DE POSICIÓN ---
-    const PositionManager = {
-        save(el) {
-            const rect = el.getBoundingClientRect();
-            localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({
-                x: rect.left,
-                y: rect.top,
-                width: window.innerWidth,
-                height: window.innerHeight
-            }));
-        },
-        
-        load(el) {
-            try {
-                const saved = localStorage.getItem(CONFIG.STORAGE_KEY);
-                if (!saved) return false;
-                
-                const { x, y, width: savedWidth, height: savedHeight } = JSON.parse(saved);
-                
-                // Verificar si la ventana ha cambiado significativamente de tamaño
-                const currentWidth = window.innerWidth;
-                const currentHeight = window.innerHeight;
-                const widthRatio = currentWidth / savedWidth;
-                const heightRatio = currentHeight / savedHeight;
-                
-                if (widthRatio < 0.8 || widthRatio > 1.2 || heightRatio < 0.8 || heightRatio > 1.2) {
-                    console.log('Ventana redimensionada significativamente, usando posición por defecto');
-                    return false;
-                }
-                
-                // Ajustar posición si está fuera de los límites visibles
-                const maxX = currentWidth - el.offsetWidth;
-                const maxY = currentHeight - el.offsetHeight;
-                
-                const adjustedX = Math.max(10, Math.min(x, maxX - 10));
-                const adjustedY = Math.max(10, Math.min(y, maxY - 10));
-                
-                el.style.left = `${adjustedX}px`;
-                el.style.top = `${adjustedY}px`;
-                el.style.right = 'auto';
-                el.style.bottom = 'auto';
-                
-                return true;
-            } catch (e) {
-                console.error('Error cargando posición:', e);
-                return false;
-            }
-        },
-        
-        setDefault(el) {
-            Object.assign(el.style, CONFIG.DEFAULT_POSITION);
-        }
+    state.pages.push(newPage);
+    return newPage;
+  }
+
+  function showSaveIndicator() {
+    const indicator = document.getElementById('save-indicator');
+    if (!indicator) return;
+    indicator.classList.remove('opacity-0');
+    indicator.classList.add('opacity-100');
+    setTimeout(() => {
+      indicator.classList.remove('opacity-100');
+      indicator.classList.add('opacity-0');
+    }, 2000);
+  }
+
+  function formatAppleDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (diffDays === 1) return 'Yesterday at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'long' });
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  function updateEditorTheme(lightColor, darkColor) {
+    const editor = document.getElementById('notepad-editor');
+    if (!editor) return;
+    const isDark = document.documentElement.classList.contains('dark');
+    editor.style.backgroundColor = (isDark ? darkColor : lightColor) + '20';
+    editor.style.color = isDark ? '#f0f0f0' : '#1a1a1a';
+  }
+
+  function updateColorTheme(colorValue) {
+    document.documentElement.style.setProperty('--accent-color', colorValue);
+  }
+
+  function updatePageCounter() {
+    const c = document.getElementById('page-counter');
+    if (c) c.textContent = `${state.currentIndex + 1} of ${state.pages.length}`;
+  }
+
+  function updatePageTitle() {
+    const p = state.pages[state.currentIndex];
+    if (!p) return;
+    const d = document.getElementById('page-title-display');
+    const i = document.getElementById('page-title-input');
+    if (d) d.textContent = p.title;
+    if (i) i.value = p.title;
+  }
+
+  function updateFooterMeta() {
+    const page = state.pages[state.currentIndex];
+    const lastSaved = document.getElementById('last-saved');
+    const charCount = document.getElementById('char-count');
+    const editor = document.getElementById('notepad-editor');
+
+    if (page && lastSaved) {
+      lastSaved.textContent = t('Guardado recientemente', 'Last saved just now');
+    }
+    if (charCount && editor) {
+      const n = (editor.value || '').length;
+      charCount.textContent = `${n} ${t('caracteres', 'characters')}`;
+    }
+  }
+
+  function updateSidebar() {
+    const sidebar = document.getElementById('sidebar-content');
+    if (!sidebar) return;
+
+    let html = '<div class="space-y-1">';
+    state.pages.forEach((page, index) => {
+      const isActive = index === state.currentIndex;
+      html += `
+        <div class="sidebar-page ${isActive ? 'active' : ''}" onclick="window.notepadActions.goToPage(${index})">
+          <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer">
+            <div class="w-2 h-2 rounded-full" style="background-color: ${page.colorValue}"></div>
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-sm truncate">${page.title}</div>
+              <div class="text-xs text-gray-500 truncate">${formatAppleDate(page.date)}</div>
+            </div>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+
+    sidebar.innerHTML = html;
+  }
+
+  function renderPage() {
+    const page = state.pages[state.currentIndex];
+    if (!page) return;
+
+    const textArea = document.getElementById('notepad-editor');
+    if (textArea) {
+      textArea.value = page.content;
+      updateEditorTheme(page.colorValue, page.darkColorValue);
+    }
+
+    updatePageCounter();
+    updatePageTitle();
+    updateColorTheme(page.colorValue);
+    updateSidebar();
+    updateFooterMeta();
+  }
+
+  function centerWindow() {
+    const win = document.getElementById('notepad-window');
+    if (!win) return;
+    const width = win.offsetWidth || 800;
+    const height = win.offsetHeight || 600;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+    win.style.left = `${Math.max(20, left)}px`;
+    win.style.top = `${Math.max(20, top)}px`;
+  }
+
+  function setupWindowDrag() {
+    const win = document.getElementById('notepad-window');
+    if (!win) return;
+
+    // ✅ IMPORTANTE: scope al titlebar del notepad (no agarrar el del Library modal)
+    const header = win.querySelector('.apple-titlebar');
+    if (!header) return;
+
+    let sx, sy, il, it;
+
+    const move = (e) => {
+      if (!state.isDragging) return;
+      e.preventDefault();
+      const c = e.type === 'touchmove' ? e.touches[0] : e;
+      const dx = c.clientX - sx;
+      const dy = c.clientY - sy;
+      win.style.left = `${Math.max(0, Math.min(il + dx, window.innerWidth - win.offsetWidth))}px`;
+      win.style.top = `${Math.max(0, Math.min(it + dy, window.innerHeight - win.offsetHeight))}px`;
     };
-    
-    // --- SISTEMA DE ARRASTRE ---
-    class DraggableManager {
-        constructor(el, onMoveCallback, onClickCallback) {
-            this.el = el;
-            this.onMoveCallback = onMoveCallback;
-            this.onClickCallback = onClickCallback;
-            this.isDragging = false;
-            this.hasMoved = false;
-            this.startX = 0;
-            this.startY = 0;
-            this.initialLeft = 0;
-            this.initialTop = 0;
-            this.animationId = null;
-            
-            this.bindEvents();
-        }
-        
-        bindEvents() {
-            this.el.addEventListener('mousedown', this.handleStart.bind(this));
-            this.el.addEventListener('touchstart', this.handleStart.bind(this), { passive: false });
-            
-            // Prevenir arrastre accidental de imágenes/texto
-            this.el.addEventListener('dragstart', (e) => e.preventDefault());
-            this.el.style.userSelect = 'none';
-            this.el.style.webkitUserSelect = 'none';
-        }
-        
-        handleStart(e) {
-            // Ignorar si se hace clic en un botón
-            if (e.target.closest('button') || e.target.closest('a')) return;
-            
-            const isTouch = e.type === 'touchstart';
-            const clientX = isTouch ? e.touches[0].clientX : e.clientX;
-            const clientY = isTouch ? e.touches[0].clientY : e.clientY;
-            
-            this.isDragging = true;
-            this.hasMoved = false;
-            this.startX = clientX;
-            this.startY = clientY;
-            
-            const rect = this.el.getBoundingClientRect();
-            this.initialLeft = rect.left;
-            this.initialTop = rect.top;
-            
-            // Desactivar transiciones durante el arrastre
-            this.el.style.transition = 'none';
-            this.el.style.cursor = 'grabbing';
-            
-            // Agregar clase durante el arrastre
-            this.el.classList.add('dragging');
-            
-            // Vincular eventos de movimiento
-            const moveEvent = isTouch ? 'touchmove' : 'mousemove';
-            const endEvent = isTouch ? 'touchend' : 'mouseup';
-            
-            document.addEventListener(moveEvent, this.handleMove.bind(this), { passive: false });
-            document.addEventListener(endEvent, this.handleEnd.bind(this));
-            
-            // También vincular eventos a nivel de documento para casos de cursor fuera
-            if (!isTouch) {
-                document.addEventListener('mouseleave', this.handleEnd.bind(this));
-            }
-            
-            e.preventDefault();
-        }
-        
-        handleMove(e) {
-            if (!this.isDragging) return;
-            
-            const isTouch = e.type === 'touchmove';
-            const clientX = isTouch ? e.touches[0].clientX : e.clientX;
-            const clientY = isTouch ? e.touches[0].clientY : e.clientY;
-            
-            const dx = clientX - this.startX;
-            const dy = clientY - this.startY;
-            
-            // Verificar si superó el umbral de arrastre
-            if (!this.hasMoved && (Math.abs(dx) > CONFIG.DRAG_THRESHOLD || Math.abs(dy) > CONFIG.DRAG_THRESHOLD)) {
-                this.hasMoved = true;
-            }
-            
-            // Calcular nueva posición
-            const newLeft = this.initialLeft + dx;
-            const newTop = this.initialTop + dy;
-            
-            // Limitar a los bordes de la ventana
-            const maxX = window.innerWidth - this.el.offsetWidth;
-            const maxY = window.innerHeight - this.el.offsetHeight;
-            
-            const boundedLeft = Math.max(0, Math.min(newLeft, maxX));
-            const boundedTop = Math.max(0, Math.min(newTop, maxY));
-            
-            // Aplicar transformación para mejor rendimiento
-            this.el.style.transform = `translate3d(${boundedLeft - this.initialLeft}px, ${boundedTop - this.initialTop}px, 0)`;
-            
-            // Llamar callback si existe
-            if (this.onMoveCallback) {
-                this.onMoveCallback(boundedLeft, boundedTop);
-            }
-            
-            if (this.hasMoved) {
-                e.preventDefault();
-            }
-        }
-        
-        handleEnd() {
-            if (!this.isDragging) return;
-            
-            this.isDragging = false;
-            this.el.style.cursor = '';
-            this.el.classList.remove('dragging');
-            
-            // Restaurar transformación y actualizar posición real
-            const transform = window.getComputedStyle(this.el).transform;
-            if (transform && transform !== 'none') {
-                const matrix = new DOMMatrixReadOnly(transform);
-                const finalLeft = this.initialLeft + matrix.m41;
-                const finalTop = this.initialTop + matrix.m42;
-                
-                this.el.style.transform = 'none';
-                this.el.style.left = `${finalLeft}px`;
-                this.el.style.top = `${finalTop}px`;
-                this.el.style.right = 'auto';
-                this.el.style.bottom = 'auto';
-            }
-            
-            // Restaurar transición
-            this.el.style.transition = '';
-            
-            // Guardar posición
-            PositionManager.save(this.el);
-            
-            // Limpiar eventos
-            this.cleanupEvents();
-            
-            // Si no se movió, ejecutar callback de clic
-            if (!this.hasMoved && this.onClickCallback) {
-                this.onClickCallback();
-            }
-        }
-        
-        cleanupEvents() {
-            document.removeEventListener('mousemove', this.handleMove.bind(this));
-            document.removeEventListener('mouseup', this.handleEnd.bind(this));
-            document.removeEventListener('touchmove', this.handleMove.bind(this));
-            document.removeEventListener('touchend', this.handleEnd.bind(this));
-            document.removeEventListener('mouseleave', this.handleEnd.bind(this));
-        }
-        
-        destroy() {
-            this.cleanupEvents();
-            this.el.removeEventListener('mousedown', this.handleStart.bind(this));
-            this.el.removeEventListener('touchstart', this.handleStart.bind(this));
-        }
-    }
-    
-    // --- INTERFAZ DE USUARIO ---
-    function createTriggerButton() {
-        const trigger = document.createElement('div');
-        trigger.id = 'notes-float-btn';
-        trigger.className = 'fixed z-[9990] w-14 h-14 bg-white dark:bg-gray-800 rounded-2xl shadow-xl flex items-center justify-center border border-gray-200 dark:border-gray-700 cursor-move group hover:shadow-2xl transition-all duration-200';
-        
-        // Efecto de iluminación
-        trigger.innerHTML = `
-            <div class="absolute inset-0 bg-gradient-to-br from-yellow-300 to-orange-400 opacity-20 rounded-2xl pointer-events-none group-hover:opacity-30 transition-opacity"></div>
-            <div class="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-300/30 pointer-events-none transition-all"></div>
-            <i class="fa-solid fa-pen-nib text-2xl text-orange-500 dark:text-orange-400 pointer-events-none relative z-10 group-hover:scale-110 transition-transform"></i>
-            <div class="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
-        `;
-        
-        // Estilos adicionales
-        Object.assign(trigger.style, {
-            willChange: 'transform',
-            backfaceVisibility: 'hidden'
-        });
-        
-        return trigger;
-    }
-    
-    // --- INICIALIZACIÓN ---
-    function init() {
-        // Esperar a que cargue el DOM
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', buildUI);
-        } else {
-            buildUI();
-        }
-    }
-    
-    function buildUI() {
-        // Crear botón trigger
-        const trigger = createTriggerButton();
-        document.body.appendChild(trigger);
-        
-        // Cargar o establecer posición por defecto
-        if (!PositionManager.load(trigger)) {
-            PositionManager.setDefault(trigger);
-        }
-        
-        // Inicializar sistema de arrastre
-        new DraggableManager(trigger, null, () => {
-            // Callback al hacer clic (sin arrastrar)
-            if (typeof window.toggleNotepad === 'function') {
-                window.toggleNotepad();
-            }
-        });
-        
-        // Ajustar posición en redimensionamiento
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                const rect = trigger.getBoundingClientRect();
-                const isOutOfView = rect.right < 0 || rect.bottom < 0 || 
-                                   rect.left > window.innerWidth || 
-                                   rect.top > window.innerHeight;
-                
-                if (isOutOfView) {
-                    PositionManager.setDefault(trigger);
-                }
-            }, 250);
-        });
-    }
-    
-    // Exponer función global
-    window.toggleNotepad = window.toggleNotepad || function() {
-        console.log('Notepad toggle function called - override this in your implementation');
+
+    const end = () => {
+      state.isDragging = false;
+      win.style.cursor = '';
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', end);
+      document.removeEventListener('touchmove', move);
+      document.removeEventListener('touchend', end);
     };
-    
-    // Inicializar
+
+    const start = (e) => {
+      if (e.target.closest('button') || state.isFullscreen) return;
+      state.isDragging = true;
+      const c = e.type === 'touchstart' ? e.touches[0] : e;
+      sx = c.clientX;
+      sy = c.clientY;
+      const r = win.getBoundingClientRect();
+      il = r.left;
+      it = r.top;
+      win.style.cursor = 'grabbing';
+
+      document.addEventListener(e.type === 'touchstart' ? 'touchmove' : 'mousemove', move, { passive: false });
+      document.addEventListener(e.type === 'touchstart' ? 'touchend' : 'mouseup', end);
+      e.preventDefault();
+    };
+
+    header.addEventListener('mousedown', start);
+    header.addEventListener('touchstart', start, { passive: false });
+  }
+
+  function setupResizeHandle() {
+    const win = document.getElementById('notepad-window');
+    if (!win) return;
+    const handle = win.querySelector('.notepad-resize-handle');
+    if (!handle) return;
+
+    let resizing = false, sw, sh, sx, sy;
+
+    const res = (e) => {
+      if (!resizing) return;
+      win.style.width = `${Math.max(400, sw + e.clientX - sx)}px`;
+      win.style.height = `${Math.max(300, sh + e.clientY - sy)}px`;
+    };
+
+    const stop = () => {
+      resizing = false;
+      document.removeEventListener('mousemove', res);
+      document.removeEventListener('mouseup', stop);
+    };
+
+    handle.addEventListener('mousedown', (e) => {
+      resizing = true;
+      sw = parseInt(getComputedStyle(win).width, 10);
+      sh = parseInt(getComputedStyle(win).height, 10);
+      sx = e.clientX;
+      sy = e.clientY;
+      document.addEventListener('mousemove', res);
+      document.addEventListener('mouseup', stop);
+      e.preventDefault();
+    });
+  }
+
+  function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      const win = document.getElementById('notepad-window');
+      if (!win || win.classList.contains('hidden')) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveData();
+        showSaveIndicator();
+      }
+      if (e.key === 'Escape') window.closeNotepad();
+    });
+  }
+
+  function createNotepadWindow() {
+    const container = document.getElementById('notepad-container');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div id="notepad-window" class="fixed z-[9999] hidden flex-col w-[800px] h-[600px] max-w-[90vw] max-h-[90vh] apple-glass rounded-2xl overflow-hidden transition-all duration-300">
+        <div class="apple-titlebar flex items-center justify-between px-4 py-2.5 cursor-move select-none">
+          <div class="flex items-center">
+            <div class="apple-control apple-control-close" onclick="window.closeNotepad()"></div>
+            <div class="apple-control apple-control-minimize" onclick="window.closeNotepad()"></div>
+            <div class="apple-control apple-control-maximize" onclick="window.notepadActions.toggleFullscreen()"></div>
+          </div>
+
+          <div class="flex items-center gap-3 absolute left-1/2 transform -translate-x-1/2">
+            <i class="fa-solid fa-book text-gray-600 dark:text-gray-300 text-sm"></i>
+            <span id="page-title-display" class="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate max-w-[200px]"></span>
+            <span id="page-counter" class="text-xs text-gray-500 font-medium"></span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="window.notepadActions.toggleStar()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10"><i class="fa-regular fa-star text-sm"></i></button>
+            <button onclick="window.notepadActions.toggleSidebar()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10"><i class="fa-solid fa-sidebar text-sm"></i></button>
+            <button onclick="window.notepadActions.exportPage()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10"><i class="fa-solid fa-arrow-up-from-bracket text-sm"></i></button>
+          </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden">
+          <div id="notepad-sidebar" class="apple-sidebar flex flex-col w-64 transition-all duration-300">
+            <div class="p-4 border-b border-gray-200 dark:border-white/10">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold text-gray-800 dark:text-gray-200">${t('Notas', 'Notes')}</h3>
+                <button onclick="window.notepadActions.addPage()" class="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500 text-white hover:bg-blue-600">
+                  <i class="fa-solid fa-plus text-sm"></i>
+                </button>
+              </div>
+              <input id="page-title-input" type="text" class="apple-input w-full mb-2" placeholder="${t('Título de nota...', 'Note title...')}" oninput="window.notepadActions.updateTitle(this.value)">
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-2 apple-scrollbar" id="sidebar-content"></div>
+
+            <div class="p-4 border-t border-gray-200 dark:border-white/10">
+              <div class="mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">COLORES</div>
+              <div class="flex gap-2">
+                ${CONFIG.DEFAULT_COLORS.map((color, index) =>
+                  `<button onclick="window.notepadActions.changeColor(${index})"
+                    class="w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 shadow-sm hover:scale-110 transition-transform"
+                    style="background-color: ${color.value}"></button>`
+                ).join('')}
+              </div>
+            </div>
+          </div>
+
+          <div id="notepad-content" class="flex-1 flex flex-col transition-all duration-300 ml-64">
+            <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-white/10">
+              <div class="flex items-center gap-2">
+                <button onclick="window.notepadActions.prevPage()" class="apple-button flex items-center gap-1"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                <button onclick="window.notepadActions.addPage()" class="apple-button flex items-center gap-1"><i class="fa-solid fa-plus text-xs"></i> ${t('Nueva', 'New')}</button>
+                <button onclick="window.notepadActions.nextPage()" class="apple-button flex items-center gap-1"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="save-indicator" class="text-xs text-green-500 opacity-0 transition-opacity"><i class="fa-solid fa-check"></i> ${t('Guardado', 'Saved')}</span>
+                <span class="text-xs text-gray-500">${new Date().toLocaleDateString()}</span>
+              </div>
+            </div>
+
+            <textarea id="notepad-editor"
+              class="flex-1 w-full apple-editor text-gray-900 dark:text-gray-100 p-6 focus:outline-none resize-none placeholder-gray-400 dark:placeholder-gray-500"
+              placeholder="${t('Escribe tus notas aquí...', 'Start writing your notes here...')}"
+              oninput="window.notepadActions.updateContent(this.value)"></textarea>
+
+            <div class="px-4 py-2 border-t border-gray-200 dark:border-white/10 text-xs text-gray-500 flex justify-between">
+              <div><i class="fa-regular fa-clock mr-1"></i><span id="last-saved">${t('Guardado recientemente', 'Last saved just now')}</span></div>
+              <div><i class="fa-solid fa-keyboard mr-1"></i><span id="char-count">0 ${t('caracteres', 'characters')}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="notepad-resize-handle"></div>
+      </div>
+
+      <div id="delete-modal" class="fixed inset-0 z-[10000] hidden">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 apple-modal rounded-2xl p-6 w-96">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <i class="fa-solid fa-trash text-red-600 dark:text-red-400"></i>
+            </div>
+            <div>
+              <h3 class="font-semibold text-gray-900 dark:text-white">${t('Eliminar Nota', 'Delete Note')}</h3>
+              <p class="text-sm text-gray-600 dark:text-gray-300">${t('Esta acción no se puede deshacer.', 'This action cannot be undone.')}</p>
+            </div>
+          </div>
+          <p class="text-gray-700 dark:text-gray-300 mb-6">${t('¿Estás seguro?', 'Are you sure?')}</p>
+          <div class="flex justify-end gap-3">
+            <button onclick="document.getElementById('delete-modal').classList.add('hidden')" class="apple-button">${t('Cancelar', 'Cancel')}</button>
+            <button onclick="window.notepadActions.confirmDelete(); document.getElementById('delete-modal').classList.add('hidden')"
+              class="accent-button bg-red-500 hover:bg-red-600">${t('Eliminar', 'Delete')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    setupWindowDrag();
+    setupKeyboardShortcuts();
+    setupResizeHandle();
+    renderPage();
+
+    // Mostrar
+    setTimeout(() => {
+      const win = document.getElementById('notepad-window');
+      if (!win) return;
+      win.classList.remove('hidden');
+      win.classList.add('flex');
+      centerWindow();
+      document.body.style.overflow = 'hidden';
+    }, 10);
+  }
+
+  // API global
+  window.toggleNotepad = function () {
+    const win = document.getElementById('notepad-window');
+    if (!win) {
+      createNotepadWindow();
+      return;
+    }
+    if (win.classList.contains('hidden')) window.openNotepad();
+    else window.closeNotepad();
+  };
+
+  window.openNotepad = function () {
+    const win = document.getElementById('notepad-window');
+    if (!win) {
+      createNotepadWindow();
+      return;
+    }
+    win.classList.remove('hidden');
+    win.classList.add('flex');
+    win.style.opacity = '0';
+    win.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      win.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+      win.style.opacity = '1';
+      win.style.transform = 'scale(1)';
+    }, 10);
+    centerWindow();
+    document.body.style.overflow = 'hidden';
+    renderPage();
+  };
+
+  window.closeNotepad = function () {
+    const win = document.getElementById('notepad-window');
+    if (!win) return;
+    win.style.opacity = '0';
+    win.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      win.classList.add('hidden');
+      win.classList.remove('flex');
+      win.style.opacity = '1';
+      win.style.transform = 'scale(1)';
+    }, 300);
+    document.body.style.overflow = '';
+    saveData();
+  };
+
+  window.notepadActions = {
+    updateContent(text) {
+      if (!state.pages[state.currentIndex]) return;
+      state.pages[state.currentIndex].content = text;
+      state.pages[state.currentIndex].date = new Date().toISOString();
+      saveData();
+      updateFooterMeta();
+    },
+    updateTitle(newTitle) {
+      const nt = (newTitle || '').trim();
+      if (!nt || !state.pages[state.currentIndex]) return;
+      state.pages[state.currentIndex].title = nt;
+      updatePageTitle();
+      updateSidebar();
+      saveData();
+    },
+    nextPage() {
+      if (state.currentIndex < state.pages.length - 1) {
+        state.currentIndex++;
+        renderPage();
+      } else {
+        this.addPage();
+      }
+    },
+    prevPage() {
+      if (state.currentIndex > 0) {
+        state.currentIndex--;
+        renderPage();
+      }
+    },
+    goToPage(index) {
+      if (index < 0 || index >= state.pages.length) return;
+      state.currentIndex = index;
+      renderPage();
+    },
+    addPage() {
+      if (state.pages.length >= CONFIG.MAX_PAGES) return;
+      createNewPage(state.pages.length);
+      state.currentIndex = state.pages.length - 1;
+      renderPage();
+      saveData();
+    },
+    deletePage() {
+      if (state.pages.length <= 1) {
+        state.pages[0].content = '';
+        renderPage();
+        saveData();
+        return;
+      }
+      const modal = document.getElementById('delete-modal');
+      if (modal) modal.classList.remove('hidden');
+    },
+    confirmDelete() {
+      state.pages.splice(state.currentIndex, 1);
+      if (state.currentIndex >= state.pages.length) state.currentIndex = state.pages.length - 1;
+      renderPage();
+      saveData();
+    },
+    changeColor(index) {
+      const c = CONFIG.DEFAULT_COLORS[index];
+      if (!c || !state.pages[state.currentIndex]) return;
+      state.pages[state.currentIndex].color = c.name;
+      state.pages[state.currentIndex].colorValue = c.value;
+      state.pages[state.currentIndex].darkColorValue = c.darkValue;
+      renderPage();
+      saveData();
+    },
+    toggleStar() {
+      if (!state.pages[state.currentIndex]) return;
+      state.pages[state.currentIndex].starred = !state.pages[state.currentIndex].starred;
+      updateSidebar();
+      saveData();
+    },
+    toggleSidebar() {
+      state.sidebarOpen = !state.sidebarOpen;
+      const s = document.getElementById('notepad-sidebar');
+      const c = document.getElementById('notepad-content');
+      if (!s || !c) return;
+
+      if (state.sidebarOpen) {
+        s.classList.remove('hidden', 'w-0');
+        s.classList.add('flex', 'w-64');
+        c.classList.remove('ml-0');
+        c.classList.add('ml-64');
+      } else {
+        s.classList.add('hidden', 'w-0');
+        s.classList.remove('flex', 'w-64');
+        c.classList.remove('ml-64');
+        c.classList.add('ml-0');
+      }
+    },
+    exportPage() {
+      const p = state.pages[state.currentIndex];
+      if (!p) return;
+      const blob = new Blob([`# ${p.title}\n\n${p.content}`], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${p.title}.md`;
+      a.click();
+    },
+    toggleFullscreen() {
+      const win = document.getElementById('notepad-window');
+      if (!win) return;
+      state.isFullscreen = !state.isFullscreen;
+      if (state.isFullscreen) {
+        win.style.width = '100vw';
+        win.style.height = '100vh';
+        win.style.top = '0';
+        win.style.left = '0';
+      } else {
+        win.style.width = '';
+        win.style.height = '';
+        centerWindow();
+      }
+    }
+  };
+
+  // Dark mode observer: actualiza el editor cuando cambie la clase "dark"
+  const darkModeObserver = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.attributeName === 'class') {
+        const page = state.pages[state.currentIndex];
+        if (page) updateEditorTheme(page.colorValue, page.darkColorValue);
+      }
+    }
+  });
+  darkModeObserver.observe(document.documentElement, { attributes: true });
+
+  // ==========================================
+  //  B) TRIGGER FLOTANTE ARRASTRABLE (OPCIONAL)
+  // ==========================================
+  const FLOAT_CFG = {
+    STORAGE_KEY: 'notes_pos_v2',
+    DEFAULT_POSITION: { right: '20px', bottom: '20px' },
+    DRAG_THRESHOLD: 5,
+    Z_INDEX: 9990
+  };
+
+  const PositionManager = {
+    save(el) {
+      const rect = el.getBoundingClientRect();
+      localStorage.setItem(FLOAT_CFG.STORAGE_KEY, JSON.stringify({
+        x: rect.left,
+        y: rect.top,
+        width: window.innerWidth,
+        height: window.innerHeight
+      }));
+    },
+    load(el) {
+      try {
+        const saved = localStorage.getItem(FLOAT_CFG.STORAGE_KEY);
+        if (!saved) return false;
+
+        const { x, y, width: savedWidth, height: savedHeight } = JSON.parse(saved);
+
+        const currentWidth = window.innerWidth;
+        const currentHeight = window.innerHeight;
+        const widthRatio = currentWidth / savedWidth;
+        const heightRatio = currentHeight / savedHeight;
+
+        if (widthRatio < 0.8 || widthRatio > 1.2 || heightRatio < 0.8 || heightRatio > 1.2) {
+          return false;
+        }
+
+        const maxX = currentWidth - el.offsetWidth;
+        const maxY = currentHeight - el.offsetHeight;
+
+        const adjustedX = Math.max(10, Math.min(x, maxX - 10));
+        const adjustedY = Math.max(10, Math.min(y, maxY - 10));
+
+        el.style.left = `${adjustedX}px`;
+        el.style.top = `${adjustedY}px`;
+        el.style.right = 'auto';
+        el.style.bottom = 'auto';
+        return true;
+      } catch (e) {
+        console.error('Error cargando posición:', e);
+        return false;
+      }
+    },
+    setDefault(el) {
+      Object.assign(el.style, FLOAT_CFG.DEFAULT_POSITION);
+    }
+  };
+
+  class DraggableManager {
+    constructor(el, onMoveCallback, onClickCallback) {
+      this.el = el;
+      this.onMoveCallback = onMoveCallback;
+      this.onClickCallback = onClickCallback;
+
+      this.isDragging = false;
+      this.hasMoved = false;
+      this.startX = 0;
+      this.startY = 0;
+      this.initialLeft = 0;
+      this.initialTop = 0;
+
+      // ✅ handlers bind una sola vez (para poder remover bien)
+      this._start = this.handleStart.bind(this);
+      this._move = this.handleMove.bind(this);
+      this._end = this.handleEnd.bind(this);
+
+      this.bindEvents();
+    }
+
+    bindEvents() {
+      this.el.addEventListener('mousedown', this._start);
+      this.el.addEventListener('touchstart', this._start, { passive: false });
+      this.el.addEventListener('dragstart', (e) => e.preventDefault());
+      this.el.style.userSelect = 'none';
+      this.el.style.webkitUserSelect = 'none';
+    }
+
+    handleStart(e) {
+      if (e.target.closest('button') || e.target.closest('a')) return;
+
+      const isTouch = e.type === 'touchstart';
+      const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+      const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+      this.isDragging = true;
+      this.hasMoved = false;
+      this.startX = clientX;
+      this.startY = clientY;
+
+      const rect = this.el.getBoundingClientRect();
+      this.initialLeft = rect.left;
+      this.initialTop = rect.top;
+
+      this.el.style.transition = 'none';
+      this.el.style.cursor = 'grabbing';
+      this.el.classList.add('dragging');
+
+      document.addEventListener(isTouch ? 'touchmove' : 'mousemove', this._move, { passive: false });
+      document.addEventListener(isTouch ? 'touchend' : 'mouseup', this._end);
+
+      if (!isTouch) document.addEventListener('mouseleave', this._end);
+
+      e.preventDefault();
+    }
+
+    handleMove(e) {
+      if (!this.isDragging) return;
+
+      const isTouch = e.type === 'touchmove';
+      const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+      const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+      const dx = clientX - this.startX;
+      const dy = clientY - this.startY;
+
+      if (!this.hasMoved && (Math.abs(dx) > FLOAT_CFG.DRAG_THRESHOLD || Math.abs(dy) > FLOAT_CFG.DRAG_THRESHOLD)) {
+        this.hasMoved = true;
+      }
+
+      const newLeft = this.initialLeft + dx;
+      const newTop = this.initialTop + dy;
+
+      const maxX = window.innerWidth - this.el.offsetWidth;
+      const maxY = window.innerHeight - this.el.offsetHeight;
+
+      const boundedLeft = Math.max(0, Math.min(newLeft, maxX));
+      const boundedTop = Math.max(0, Math.min(newTop, maxY));
+
+      this.el.style.transform = `translate3d(${boundedLeft - this.initialLeft}px, ${boundedTop - this.initialTop}px, 0)`;
+
+      if (this.onMoveCallback) this.onMoveCallback(boundedLeft, boundedTop);
+      if (this.hasMoved) e.preventDefault();
+    }
+
+    handleEnd() {
+      if (!this.isDragging) return;
+
+      this.isDragging = false;
+      this.el.style.cursor = '';
+      this.el.classList.remove('dragging');
+
+      const transform = window.getComputedStyle(this.el).transform;
+      if (transform && transform !== 'none') {
+        const matrix = new DOMMatrixReadOnly(transform);
+        const finalLeft = this.initialLeft + matrix.m41;
+        const finalTop = this.initialTop + matrix.m42;
+
+        this.el.style.transform = 'none';
+        this.el.style.left = `${finalLeft}px`;
+        this.el.style.top = `${finalTop}px`;
+        this.el.style.right = 'auto';
+        this.el.style.bottom = 'auto';
+      }
+
+      this.el.style.transition = '';
+      PositionManager.save(this.el);
+      this.cleanupEvents();
+
+      if (!this.hasMoved && this.onClickCallback) this.onClickCallback();
+    }
+
+    cleanupEvents() {
+      document.removeEventListener('mousemove', this._move);
+      document.removeEventListener('mouseup', this._end);
+      document.removeEventListener('touchmove', this._move);
+      document.removeEventListener('touchend', this._end);
+      document.removeEventListener('mouseleave', this._end);
+    }
+  }
+
+  function createTriggerButton() {
+    const trigger = document.createElement('div');
+    trigger.id = 'notes-float-btn';
+    trigger.className =
+      'fixed z-[9990] w-14 h-14 bg-white dark:bg-gray-800 rounded-2xl shadow-xl flex items-center justify-center border border-gray-200 dark:border-gray-700 cursor-move group hover:shadow-2xl transition-all duration-200';
+
+    trigger.innerHTML = `
+      <div class="absolute inset-0 bg-gradient-to-br from-yellow-300 to-orange-400 opacity-20 rounded-2xl pointer-events-none group-hover:opacity-30 transition-opacity"></div>
+      <div class="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-300/30 pointer-events-none transition-all"></div>
+      <i class="fa-solid fa-pen-nib text-2xl text-orange-500 dark:text-orange-400 pointer-events-none relative z-10 group-hover:scale-110 transition-transform"></i>
+      <div class="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+    `;
+
+    Object.assign(trigger.style, {
+      willChange: 'transform',
+      backfaceVisibility: 'hidden',
+      zIndex: String(FLOAT_CFG.Z_INDEX)
+    });
+
+    return trigger;
+  }
+
+  function initFloatingTriggerIfNeeded() {
+    const wantFloating = !!window.NCLEX_NOTEPAD_FLOATING_BUTTON;
+    const hasNotebookTab = !!document.querySelector('.notebook-tab');
+
+    // Por defecto: si ya tienes notebook-tab en el HTML, NO creamos el botón flotante.
+    if (!wantFloating && hasNotebookTab) return;
+
+    if (document.getElementById('notes-float-btn')) return;
+
+    const trigger = createTriggerButton();
+    document.body.appendChild(trigger);
+
+    if (!PositionManager.load(trigger)) PositionManager.setDefault(trigger);
+
+    new DraggableManager(trigger, null, () => window.toggleNotepad());
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const rect = trigger.getBoundingClientRect();
+        const isOutOfView =
+          rect.right < 0 || rect.bottom < 0 ||
+          rect.left > window.innerWidth || rect.top > window.innerHeight;
+
+        if (isOutOfView) PositionManager.setDefault(trigger);
+      }, 250);
+    });
+  }
+
+  // ==========================================
+  //  INIT
+  // ==========================================
+  function init() {
+    loadData();
+    initFloatingTriggerIfNeeded();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
     init();
-    
+  }
 })();

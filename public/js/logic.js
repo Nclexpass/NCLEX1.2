@@ -35,6 +35,7 @@
   const app = window.nclexApp = window.nclexApp || {};
   app.topics = app.topics || [];
   app.currentRoute = app.currentRoute || 'home';
+  app._lastPayload = app._lastPayload || null;
 
   const LANG_KEY = 'nclex_lang';
   const THEME_KEY = 'nclex_theme';
@@ -90,15 +91,91 @@
   }
 
   // ----------------------------
-  // Registro de temas
+  // Sidebar topics
   // ----------------------------
+  function renderSidebarTopics() {
+    const container = $('#topics-nav');
+    if (!container) return;
+
+    const html = (app.topics || []).map(topic => {
+      const icon = normalizeFaIcon(topic.icon);
+      const titleEs = topic.titleEs || '';
+      const titleEn = topic.titleEn || titleEs || '';
+
+      return `
+        <button
+          onclick="window.nclexApp.navigate('topic', {id: '${escapeHtml(topic.id)}'})"
+          data-route="topic"
+          data-topic-id="${escapeHtml(topic.id)}"
+          class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 group">
+          <div class="w-6 flex justify-center">
+            <i class="fa-solid fa-${icon} text-xl text-brand-blue group-hover:scale-110 transition-transform"></i>
+          </div>
+          <span class="hidden lg:block text-base font-bold lang-es">${escapeHtml(titleEs)}</span>
+          <span class="hidden lg:block text-base font-bold lang-en hidden-lang">${escapeHtml(titleEn)}</span>
+        </button>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+    applyGlobalLanguage(container);
+
+    // refresca active state
+    updateNavActive(app.currentRoute, app._lastPayload);
+  }
+
+  function updateHomeTopicsCount() {
+    const el = $('#topics-count');
+    if (el) el.textContent = String(app.topics.length);
+  }
+
+  // ----------------------------
+  // Registro de temas (compatible con ambos formatos)
+  // ----------------------------
+  function normalizeTopicShape(topic) {
+    // Soporta:
+    // - titleEs/titleEn (antiguo)
+    // - title: {es,en} (nuevo)
+    if (topic.title && typeof topic.title === 'object') {
+      topic.titleEs = topic.titleEs ?? topic.title.es ?? '';
+      topic.titleEn = topic.titleEn ?? topic.title.en ?? topic.title.es ?? '';
+    } else {
+      topic.titleEs = topic.titleEs ?? '';
+      topic.titleEn = topic.titleEn ?? topic.titleEs ?? '';
+    }
+
+    if (topic.subtitle && typeof topic.subtitle === 'object') {
+      topic.subtitleEs = topic.subtitleEs ?? topic.subtitle.es ?? '';
+      topic.subtitleEn = topic.subtitleEn ?? topic.subtitle.en ?? topic.subtitle.es ?? '';
+    } else {
+      topic.subtitleEs = topic.subtitleEs ?? '';
+      topic.subtitleEn = topic.subtitleEn ?? topic.subtitleEs ?? '';
+    }
+
+    topic.tags = Array.isArray(topic.tags) ? topic.tags : (topic.tags ? [topic.tags] : []);
+    topic.icon = topic.icon || 'book-medical';
+    return topic;
+  }
+
   function registerTopic(topic) {
     if (!topic || !topic.id) return;
+
+    normalizeTopicShape(topic);
+
     // evita duplicados
     if (app.topics.some(t => t.id === topic.id)) return;
+
     app.topics.push(topic);
+
     // Mantén un espejo simple para otros módulos
     window.NCLEX_TOPICS = app.topics;
+
+    // invalida índice inteligente
+    SmartTextIndex.built = false;
+
+    // actualiza UI sidebar y contador home (sin re-render pesado)
+    renderSidebarTopics();
+    updateHomeTopicsCount();
   }
 
   // API pública para tus scripts de temas
@@ -108,17 +185,45 @@
   // ----------------------------
   // Índice inteligente (para búsqueda home)
   // ----------------------------
+  function stripHtml(html) {
+    return safeText(html)
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   const SmartTextIndex = {
     items: [],
     built: false,
 
     build() {
       this.items = [];
-      app.topics.forEach(topic => {
-        const blocks = (topic.content || []).map(b => `${b.titleEs || ''} ${b.titleEn || ''} ${b.contentEs || ''} ${b.contentEn || ''}`).join(' ');
-        const haystack = `${topic.titleEs || ''} ${topic.titleEn || ''} ${topic.tags?.join(' ') || ''} ${blocks}`;
-        this.items.push({ type: 'topic', topic, haystack: haystack.toLowerCase() });
+      (app.topics || []).forEach(topic => {
+        const titleEs = topic.titleEs || '';
+        const titleEn = topic.titleEn || titleEs || '';
+        const tags = (topic.tags || []).join(' ');
+
+        let blocksText = '';
+        if (Array.isArray(topic.content)) {
+          blocksText = topic.content.map(b =>
+            `${b.titleEs || ''} ${b.titleEn || ''} ${b.contentEs || ''} ${b.contentEn || ''}`
+          ).join(' ');
+        } else if (typeof topic.render === 'function') {
+          // Indexa el contenido HTML renderizado (para temas tipo 01_newborn.js)
+          try {
+            const html = topic.render();
+            blocksText = stripHtml(html);
+          } catch (e) {
+            blocksText = '';
+          }
+        }
+
+        const haystack = `${titleEs} ${titleEn} ${tags} ${blocksText}`.toLowerCase();
+        this.items.push({ type: 'topic', topic, haystack });
       });
+
       this.built = true;
     },
 
@@ -175,7 +280,7 @@
             <div class="mt-4 flex items-center justify-between">
               <div class="text-xs font-bold text-gray-600 dark:text-gray-300">
                 <span class="lang-es">Temas cargados:</span><span class="lang-en hidden-lang">Topics loaded:</span>
-                <span class="font-black">${totalTopics}</span>
+                <span id="topics-count" class="font-black">${totalTopics}</span>
               </div>
             </div>
 
@@ -193,7 +298,6 @@
   }
 
   function renderTopics() {
-    // Usa el mismo Home si quieres o crea una vista aparte
     renderHome();
   }
 
@@ -206,6 +310,27 @@
 
     localStorage.setItem(LAST_TOPIC_KEY, topicId);
 
+    // ✅ NUEVO: si el tema trae render() (como 01_newborn.js) lo usamos
+    if (typeof topic.render === 'function') {
+      setView(`
+        <div class="max-w-7xl mx-auto p-4 sm:p-6">
+          <div class="flex items-center justify-between gap-2 mb-6">
+            <button onclick="window.nclexApp.navigate('home')" class="px-4 py-2 rounded-2xl bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white font-black hover:opacity-90 transition">
+              <span class="lang-es">← Volver</span><span class="lang-en hidden-lang">← Back</span>
+            </button>
+
+            <button onclick="window.nclexApp.navigate('simulator')" class="px-4 py-2 rounded-2xl bg-brand-blue text-white font-black shadow hover:shadow-lg transition">
+              <span class="lang-es">Simulador</span><span class="lang-en hidden-lang">Simulator</span>
+            </button>
+          </div>
+
+          ${topic.render()}
+        </div>
+      `);
+      return;
+    }
+
+    // ✅ fallback: formato antiguo por bloques
     const blocks = (topic.content || []).map(block => `
       <div class="p-5 rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-brand-card shadow-sm">
         <div class="font-black text-gray-900 dark:text-white text-lg mb-2">
@@ -258,7 +383,6 @@
   }
 
   function renderSimulator() {
-    // simulator.js expone window.renderSimulatorPage
     if (window.renderSimulatorPage) {
       setView(window.renderSimulatorPage());
     } else {
@@ -266,24 +390,51 @@
     }
   }
 
-  function updateNavActive(route) {
+  function updateNavActive(route, payload) {
     const navButtons = $$('[data-route]');
     navButtons.forEach(btn => {
       const r = btn.getAttribute('data-route');
-      if (r === route) btn.classList.add('active');
-      else btn.classList.remove('active');
+      if (r !== route) {
+        btn.classList.remove('active');
+        return;
+      }
+
+      // ruta topic: activa solo el topic correcto
+      if (route === 'topic') {
+        const tid = btn.getAttribute('data-topic-id');
+        if (tid && payload?.id === tid) btn.classList.add('active');
+        else btn.classList.remove('active');
+        return;
+      }
+
+      btn.classList.add('active');
     });
   }
 
   app.navigate = function (route, payload) {
     app.currentRoute = route;
-    updateNavActive(route);
+    app._lastPayload = payload || null;
+    updateNavActive(route, payload);
 
     if (route === 'home') renderHome();
     else if (route === 'topics') renderTopics();
     else if (route === 'topic') renderTopicDetail(payload?.id);
     else if (route === 'simulator') renderSimulator();
     else renderHome();
+  };
+
+  // ✅ NUEVO: botones del sidebar ahora sí funcionan
+  app.toggleLanguage = function () {
+    const newLang = getLang() === 'es' ? 'en' : 'es';
+    setLang(newLang);
+    applyGlobalLanguage();
+    renderSidebarTopics();
+    // re-render de la ruta actual para placeholders/textos
+    app.navigate(app.currentRoute, app._lastPayload);
+  };
+
+  app.toggleTheme = function () {
+    toggleTheme();
   };
 
   // Atajo: navegar a una pregunta del simulador desde la búsqueda
@@ -304,11 +455,11 @@
   // Sidebar Search (desactivado aquí)
   // ----------------------------
   function initSearch() {
-      // Sidebar search is handled by 31_search_service.js (SearchService). Avoid double-binding.
-      return;
-    }
+    // Sidebar search is handled by 31_search_service.js (SearchService). Avoid double-binding.
+    return;
+  }
 
-    // --- BUSCADOR DE PÁGINA PRINCIPAL (INTELIGENTE) ---
+  // --- BUSCADOR DE PÁGINA PRINCIPAL (INTELIGENTE) ---
   function initHomeSearch() {
     const input = $('#dashboard-search');
     const resultsContainer = $('#dashboard-search-results');
@@ -328,61 +479,61 @@
   }
 
   function performHomeSearch(term, resultsContainer) {
+    const qTerm = (term || '').toLowerCase().trim();
     const searchResults = [];
 
     // 1) Preguntas del simulador (Google Sheet)
     if (window.SIMULATOR_QUESTIONS && Array.isArray(window.SIMULATOR_QUESTIONS)) {
-        window.SIMULATOR_QUESTIONS.forEach((q, idx) => {
-          let score = 0;
-          const matches = [];
+      window.SIMULATOR_QUESTIONS.forEach((q, idx) => {
+        let score = 0;
+        const matches = [];
 
-          const textCore = (q.textEs || q.textEn || q.text || '').toString().toLowerCase();
-          const rationaleCore = (q.rationaleEs || q.rationaleEn || q.explanation || '').toString().toLowerCase();
-          const catCore = (q.category || '').toString().toLowerCase();
+        const textCore = (q.textEs || q.textEn || q.text || '').toString().toLowerCase();
+        const rationaleCore = (q.rationaleEs || q.rationaleEn || q.explanation || '').toString().toLowerCase();
+        const catCore = (q.category || '').toString().toLowerCase();
 
-          const optionsCore = Array.isArray(q.options)
-            ? q.options.map(o => (o.textEs || o.textEn || o.text || '')).join(' ').toString().toLowerCase()
-            : '';
+        const optionsCore = Array.isArray(q.options)
+          ? q.options.map(o => (o.textEs || o.textEn || o.text || '')).join(' ').toString().toLowerCase()
+          : '';
 
-          const tags = (q.tags || []).map(t => (t || '').toString().toLowerCase());
+        const tags = (q.tags || []).map(tg => (tg || '').toString().toLowerCase());
 
-          if (textCore.includes(term)) { score += 10; matches.push('question'); }
-          if (optionsCore.includes(term)) { score += 6; matches.push('options'); }
-          if (rationaleCore.includes(term)) { score += 4; matches.push('rationale'); }
-          if (catCore.includes(term)) { score += 2; matches.push('category'); }
+        if (textCore.includes(qTerm)) { score += 10; matches.push('question'); }
+        if (optionsCore.includes(qTerm)) { score += 6; matches.push('options'); }
+        if (rationaleCore.includes(qTerm)) { score += 4; matches.push('rationale'); }
+        if (catCore.includes(qTerm)) { score += 2; matches.push('category'); }
 
-          const tagMatches = tags.filter(tag => tag.includes(term));
-          if (tagMatches.length > 0) { score += tagMatches.length * 2; matches.push(`tags (${tagMatches.length} matches)`); }
+        const tagMatches = tags.filter(tag => tag.includes(qTerm));
+        if (tagMatches.length > 0) { score += tagMatches.length * 2; matches.push(`tags (${tagMatches.length} matches)`); }
 
-          if (score > 0) {
-            const titleEsRaw = (q.textEs || q.text || q.textEn || '').toString();
-            const titleEnRaw = (q.textEn || q.text || q.textEs || '').toString();
-            const cut = (s) => {
-              const t = (s || '').toString().trim();
-              return t.length > 90 ? (t.slice(0, 90) + '...') : t;
-            };
+        if (score > 0) {
+          const titleEsRaw = (q.textEs || q.text || q.textEn || '').toString();
+          const titleEnRaw = (q.textEn || q.text || q.textEs || '').toString();
+          const cut = (s) => {
+            const tt = (s || '').toString().trim();
+            return tt.length > 90 ? (tt.slice(0, 90) + '...') : tt;
+          };
 
-            const cat = (q.category || '').toString().trim();
-            searchResults.push({
-              type: 'question',
-              question: q,
-              index: idx,
-              score,
-              matches,
-              title: { es: cut(titleEsRaw), en: cut(titleEnRaw) },
-              subtitle: {
-                es: cat ? `Simulador • ${cat}` : 'Pregunta del Simulador',
-                en: cat ? `Simulator • ${cat}` : 'Simulator Question'
-              },
-              color: 'purple'
-            });
-          }
-        });
-      }
-
-      const textMatches = SmartTextIndex.search(term);
+          const cat = (q.category || '').toString().trim();
+          searchResults.push({
+            type: 'question',
+            question: q,
+            index: idx,
+            score,
+            matches,
+            title: { es: cut(titleEsRaw), en: cut(titleEnRaw) },
+            subtitle: {
+              es: cat ? `Simulador • ${cat}` : 'Pregunta del Simulador',
+              en: cat ? `Simulator • ${cat}` : 'Simulator Question'
+            },
+            color: 'purple'
+          });
+        }
+      });
+    }
 
     // 2) Temas (texto completo)
+    const textMatches = SmartTextIndex.search(qTerm);
     textMatches.forEach(m => {
       const topic = m.topic;
       const titleEs = topic.titleEs || '';
@@ -471,23 +622,25 @@
     initSearch();
     applyGlobalLanguage();
 
+    // Render sidebar topics (ya deberían estar registrados cuando dispare DOMContentLoaded)
+    renderSidebarTopics();
+    updateHomeTopicsCount();
+
     // Ruta inicial
     const initial = app.currentRoute || 'home';
-    app.navigate(initial);
+    app.navigate(initial, app._lastPayload);
 
     // Botones UI globales (si existen)
     const langBtn = $('#lang-toggle');
     if (langBtn) {
       langBtn.addEventListener('click', () => {
-        const newLang = getLang() === 'es' ? 'en' : 'es';
-        setLang(newLang);
-        applyGlobalLanguage();
+        app.toggleLanguage();
       });
     }
 
     const themeBtn = $('#theme-toggle');
     if (themeBtn) {
-      themeBtn.addEventListener('click', () => toggleTheme());
+      themeBtn.addEventListener('click', () => app.toggleTheme());
     }
   }
 

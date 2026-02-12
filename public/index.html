@@ -6,14 +6,13 @@
     <meta name="description" content="NCLEX-RN Masterclass Study Application - Comprehensive Nursing Education Platform | Plataforma Integral de Educación en Enfermería">
     <meta name="theme-color" content="#F5F5F7">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NCLEX MASTERCLASS | By Reynier Diaz Gerones</title>
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
+
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -67,12 +66,12 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden-lang { display: none !important; }
-        
+
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.3); border-radius: 999px; }
         .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); }
         ::-webkit-scrollbar-track { background: transparent; }
-        
+
         .nav-btn.active {
             background-color: rgba(0, 122, 255, 0.1);
             color: #007AFF;
@@ -82,14 +81,14 @@
             background-color: rgba(0, 122, 255, 0.2);
             color: #60a5fa;
         }
-        
+
         .line-clamp-2 {
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
-        
+
         #home-search-results {
             max-height: 500px;
             overflow-y: auto;
@@ -104,7 +103,7 @@
             animation: slideIn 0.2s ease-out;
             display: none;
         }
-        
+
         .dark #home-search-results {
             background-color: #1C1C1E;
             box-shadow: 0 20px 60px rgba(0,0,0,0.4);
@@ -127,7 +126,7 @@
                 0 2px 4px -1px rgba(0, 0, 0, 0.06),
                 inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
         }
-        
+
         .dark .apple-glass {
             background: rgba(28, 28, 30, 0.8);
             border: 1px solid rgba(44, 44, 46, 0.8);
@@ -136,7 +135,7 @@
                 0 2px 4px -1px rgba(0, 0, 0, 0.2),
                 inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
         }
-        
+
         .apple-titlebar {
             background: linear-gradient(to bottom, 
                 rgba(255, 255, 255, 0.9), 
@@ -146,7 +145,7 @@
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
-        
+
         .dark .apple-titlebar {
             background: linear-gradient(to bottom, 
                 rgba(44, 44, 46, 0.9), 
@@ -154,7 +153,7 @@
             );
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .apple-button {
             background: linear-gradient(180deg, 
                 rgba(255, 255, 255, 0.9) 0%, 
@@ -168,22 +167,7 @@
             color: #007AFF;
             transition: all 0.2s ease;
         }
-        
-        .apple-button:hover {
-            background: linear-gradient(180deg, 
-                rgba(255, 255, 255, 1) 0%, 
-                rgba(242, 242, 247, 1) 100%
-            );
-            border-color: rgba(0, 0, 0, 0.15);
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        
-        .apple-button:active {
-            transform: translateY(0);
-            box-shadow: none;
-        }
-        
+
         .apple-control {
             width: 12px;
             height: 12px;
@@ -192,155 +176,41 @@
             margin-right: 8px;
             transition: transform 0.2s ease;
         }
-        
-        .apple-control:hover {
-            transform: scale(1.1);
-        }
-        
+
         .apple-control-close { background: #FF5F57; }
         .apple-control-minimize { background: #FFBD2E; }
         .apple-control-maximize { background: #28CA42; }
-        
-        .apple-scrollbar::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        .apple-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-            border-radius: 4px;
-        }
-        
-        .apple-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 4px;
-        }
-        
-        .apple-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(0, 0, 0, 0.2);
-        }
-        
-        .dark .apple-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        .dark .apple-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
+
+        .apple-scrollbar::-webkit-scrollbar { width: 8px; }
+        .apple-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+        .apple-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 4px; }
+        .dark .apple-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
+
         .apple-editor {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 15px;
             line-height: 1.6;
             letter-spacing: -0.01em;
         }
-        
+
         .apple-sidebar {
             background: rgba(242, 242, 247, 0.6);
             border-right: 1px solid rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
-        
+
         .dark .apple-sidebar {
             background: rgba(28, 28, 30, 0.6);
             border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .sidebar-page.active {
             background: rgba(0, 122, 255, 0.1);
             border: 1px solid rgba(0, 122, 255, 0.2);
         }
-        
-        .apple-modal {
-            background: rgba(242, 242, 247, 0.95);
-            backdrop-filter: blur(30px) saturate(200%);
-            -webkit-backdrop-filter: blur(30px) saturate(200%);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 
-                0 20px 25px -5px rgba(0, 0, 0, 0.1),
-                0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-        
-        .dark .apple-modal {
-            background: rgba(28, 28, 30, 0.95);
-            border: 1px solid rgba(44, 44, 46, 0.8);
-        }
-        
-        .apple-input {
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }
-        
-        .apple-input:focus {
-            outline: none;
-            border-color: #007AFF;
-            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
-        }
-        
-        .dark .apple-input {
-            background: rgba(44, 44, 46, 0.8);
-            border-color: rgba(255, 255, 255, 0.1);
-            color: white;
-        }
-        
-        .accent-button {
-            background: #007AFF;
-            color: white;
-            border: none;
-            border-radius: 6.5px;
-            padding: 4px 12px;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-        
-        .accent-button:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
-        }
 
-        /* Notepad specific */
-        #notepad-container {
-            animation: glassIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        .notepad-resize-handle {
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 15px;
-            height: 15px;
-            cursor: se-resize;
-            opacity: 0.5;
-            transition: opacity 0.2s;
-        }
-        
-        .notepad-resize-handle:hover {
-            opacity: 1;
-        }
-        
-        .notepad-resize-handle::after {
-            content: '';
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 8px;
-            height: 8px;
-            border-right: 2px solid currentColor;
-            border-bottom: 2px solid currentColor;
-        }
-
-        /* Pulse slow animation */
-        .animate-pulse-slow {
-            animation: pulseSlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-
-        /* Pestaña lateral semioculta para la libreta (único bloc de notas) */
+        /* Pestaña lateral semioculta para la libreta */
         .notebook-tab {
             position: fixed;
             right: 0;
@@ -352,20 +222,19 @@
             padding: 12px 16px 12px 20px;
             box-shadow: -4px 0 20px rgba(0,0,0,0.1);
         }
-        .notebook-tab:hover {
-            transform: translateY(-50%) translateX(0);
-        }
+        .notebook-tab:hover { transform: translateY(-50%) translateX(0); }
         @media (max-width: 768px) {
-            .notebook-tab {
-                transform: translateY(-50%) translateX(60%);
-                padding: 10px 12px 10px 16px;
-            }
+            .notebook-tab { transform: translateY(-50%) translateX(60%); padding: 10px 12px 10px 16px; }
+        }
+
+        .animate-pulse-slow {
+            animation: pulseSlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
     </style>
 </head>
 
 <body class="bg-brand-bg text-slate-900 dark:bg-brand-dark dark:text-slate-100 min-h-screen overflow-hidden flex flex-col md:flex-row font-sans transition-colors duration-300">
-    
+
     <noscript>
         <div class="fixed inset-0 bg-white z-[999] flex items-center justify-center text-center p-4">
             <h1 class="text-2xl font-bold text-red-600">JavaScript Required / JavaScript Requerido</h1>
@@ -385,7 +254,7 @@
             </p>
         </div>
     </div>
-    
+
     <aside aria-label="Navegación principal" class="w-20 lg:w-80 flex flex-col border-r border-gray-200 dark:border-brand-border bg-white/95 dark:bg-brand-card/95 backdrop-blur-md z-50 shadow-xl flex-shrink-0 h-screen sticky top-0 transition-all duration-300">
         <div class="p-5 lg:p-6 flex items-center gap-4 border-b border-gray-100 dark:border-brand-border/50">
             <div class="w-12 h-12 bg-gradient-to-br from-brand-blue to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0">
@@ -408,27 +277,32 @@
         </div>
 
         <nav class="flex-1 px-3 lg:px-5 py-6 space-y-2 overflow-y-auto no-scrollbar" id="sidebar-nav">
-            <button onclick="if (window.nclexApp && typeof window.nclexApp.navigate === 'function') { window.nclexApp.navigate('home'); } else { console.warn('nclexApp no disponible'); }" data-route="home" class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 group">
+            <button onclick="window.nclexApp?.navigate ? window.nclexApp.navigate('home') : console.warn('nclexApp no disponible')" data-route="home" class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 group">
                 <div class="w-6 flex justify-center"><i class="fa-solid fa-house text-xl text-brand-blue group-hover:scale-110 transition-transform"></i></div>
                 <span class="hidden lg:block text-base font-bold lang-es">Inicio</span><span class="hidden lg:block text-base font-bold lang-en hidden-lang">Home</span>
             </button>
+
             <div class="my-4 border-t border-gray-200 dark:border-white/10 mx-2" role="separator"></div>
+
             <div id="topics-nav" class="space-y-2 pb-4"></div>
-            <button onclick="if (window.nclexApp && typeof window.nclexApp.navigate === 'function') { window.nclexApp.navigate('simulator'); } else { console.warn('nclexApp no disponible'); }" data-route="simulator" class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 group mt-4 border border-dashed border-gray-300 dark:border-gray-600 hover:border-brand-blue dark:hover:border-brand-blue">
+
+            <button onclick="window.nclexApp?.navigate ? window.nclexApp.navigate('simulator') : console.warn('nclexApp no disponible')" data-route="simulator" class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 group mt-4 border border-dashed border-gray-300 dark:border-gray-600 hover:border-brand-blue dark:hover:border-brand-blue">
                 <div class="w-6 flex justify-center"><i class="fa-solid fa-brain text-xl text-purple-500 group-hover:rotate-12 transition-transform"></i></div>
                 <span class="hidden lg:block text-base font-bold lang-es">Simulador</span><span class="hidden lg:block text-base font-bold lang-en hidden-lang">Simulator</span>
             </button>
         </nav>
 
         <div class="p-5 lg:p-6 border-t border-gray-200 dark:border-brand-border bg-gray-50 dark:bg-black/20 space-y-4">
-            <button onclick="if (window.nclexApp && typeof window.nclexApp.toggleLanguage === 'function') { window.nclexApp.toggleLanguage(); } else { console.warn('toggleLanguage no disponible'); }" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-brand-blue text-white hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/20 active:scale-95 duration-150">
+            <button onclick="window.nclexApp?.toggleLanguage ? window.nclexApp.toggleLanguage() : console.warn('toggleLanguage no disponible')" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-brand-blue text-white hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/20 active:scale-95 duration-150">
                 <i class="fa-solid fa-language text-lg"></i>
                 <span class="hidden lg:inline font-bold text-sm lang-es">Switch to English</span><span class="hidden lg:inline font-bold text-sm lang-en hidden-lang">Cambiar a Español</span>
             </button>
-            <button onclick="if (window.nclexApp && typeof window.nclexApp.toggleTheme === 'function') { window.nclexApp.toggleTheme(); } else { console.warn('toggleTheme no disponible'); }" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-brand-border text-sm font-bold text-gray-600 hover:text-brand-blue dark:hover:text-white transition-colors shadow-sm hover:shadow-md">
+
+            <button onclick="window.nclexApp?.toggleTheme ? window.nclexApp.toggleTheme() : console.warn('toggleTheme no disponible')" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-brand-border text-sm font-bold text-gray-600 hover:text-brand-blue dark:hover:text-white transition-colors shadow-sm hover:shadow-md">
                 <i class="fa-solid fa-circle-half-stroke text-lg"></i>
                 <span class="hidden lg:inline lang-es">Tema</span><span class="hidden lg:inline lang-en hidden-lang">Theme</span>
             </button>
+
             <div class="pt-4 mt-2 border-t border-gray-200 dark:border-white/5 text-center">
                 <p class="text-xs leading-tight text-gray-500 font-medium mb-2">Created by <span class="text-gray-700 dark:text-gray-200 font-bold">Reynier Diaz Gerones</span></p>
             </div>
@@ -441,7 +315,7 @@
 
     <div id="notepad-container" class="fixed z-[9999]"></div>
 
-    <!-- Pestaña lateral de la libreta - única, semioculta, se revela al hover -->
+    <!-- Pestaña lateral de la libreta -->
     <button onclick="window.toggleNotepad()" aria-label="Abrir Notas / Open Notes"
         class="notebook-tab apple-glass bg-gradient-to-br from-blue-500/90 to-purple-600/90 dark:from-blue-600/90 dark:to-purple-700/90 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 flex items-center justify-center transition-all duration-300 hover:-translate-y-1/2 hover:scale-105 active:scale-95 group">
         <div class="absolute inset-0 rounded-l-full bg-gradient-to-br from-white/20 to-transparent"></div>
@@ -493,380 +367,10 @@
     <script src="js/14_gastrointestinal.js"></script>
     <script src="js/15_integumentary_burns.js"></script>
     <script src="js/16_labs_values.js"></script>
-    <script src="js/17_bnotepad.js"></script>
-    <script>
-    // 17_bnotepad.js — Super Libreta Sticky con Diseño Apple - CORREGIDO
-    (function() {
-        'use strict';
 
-        // CONFIGURACIÓN
-        const CONFIG = {
-            STORAGE_KEY: 'nclex_notebook_apple',
-            AUTO_SAVE_DELAY: 1500,
-            MAX_PAGES: 50,
-            DEFAULT_COLORS: [
-                { name: 'yellow', value: '#FFD60A', darkValue: '#FFB800' },
-                { name: 'blue', value: '#007AFF', darkValue: '#0A84FF' },
-                { name: 'pink', value: '#FF2D55', darkValue: '#FF375F' },
-                { name: 'green', value: '#34C759', darkValue: '#30D158' },
-                { name: 'purple', value: '#AF52DE', darkValue: '#BF5AF2' },
-                { name: 'orange', value: '#FF9500', darkValue: '#FF9F0A' }
-            ]
-        };
+    <!-- ✅ SOLO una vez (externo). NO inline. -->
+    <script src="js/17_bnotepad.js?v=2.0"></script>
 
-        // ESTADO
-        const state = {
-            pages: [],
-            currentIndex: 0,
-            isDragging: false,
-            autoSaveTimer: null,
-            isFullscreen: false,
-            sidebarOpen: true,
-            selectedTool: 'select'
-        };
-
-        function loadData() {
-            try {
-                const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
-                state.pages = raw ? JSON.parse(raw) : [];
-            } catch (e) {
-                console.error("Error loading notes:", e);
-                state.pages = [];
-            }
-            if (state.pages.length === 0) createNewPage();
-        }
-
-        function saveData() {
-            clearTimeout(state.autoSaveTimer);
-            state.autoSaveTimer = setTimeout(() => {
-                try {
-                    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state.pages));
-                    showSaveIndicator();
-                } catch (e) {
-                    console.error("Error saving notes:", e);
-                }
-            }, CONFIG.AUTO_SAVE_DELAY);
-        }
-
-        function createNewPage(colorIndex = 0) {
-            const color = CONFIG.DEFAULT_COLORS[colorIndex % CONFIG.DEFAULT_COLORS.length];
-            const newPage = {
-                id: Date.now() + Math.random(),
-                content: '',
-                color: color.name,
-                colorValue: color.value,
-                darkColorValue: color.darkValue,
-                date: new Date().toISOString(),
-                title: `New Note ${state.pages.length + 1}`,
-                tags: [],
-                starred: false
-            };
-            state.pages.push(newPage);
-            return newPage;
-        }
-
-        function showSaveIndicator() {
-            const indicator = document.getElementById('save-indicator');
-            if (indicator) {
-                indicator.classList.remove('opacity-0');
-                indicator.classList.add('opacity-100');
-                setTimeout(() => {
-                    indicator.classList.remove('opacity-100');
-                    indicator.classList.add('opacity-0');
-                }, 2000);
-            }
-        }
-
-        function formatAppleDate(dateString) {
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffTime = Math.abs(now - date);
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays === 0) return 'Today at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            else if (diffDays === 1) return 'Yesterday at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            else if (diffDays < 7) return date.toLocaleDateString([], { weekday: 'long' });
-            else return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-        }
-
-        function t(es, en) {
-            const esEl = document.querySelector('.lang-es');
-            return esEl && esEl.offsetParent !== null ? es : en;
-        }
-
-        window.toggleNotepad = function() {
-            const win = document.getElementById('notepad-window');
-            if (!win) { createNotepadWindow(); return; }
-            if (win.classList.contains('hidden')) openNotepad();
-            else closeNotepad();
-        };
-
-        window.openNotepad = function() {
-            const win = document.getElementById('notepad-window');
-            if (!win) { createNotepadWindow(); return; }
-            win.classList.remove('hidden');
-            win.classList.add('flex');
-            win.style.opacity = '0';
-            win.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                win.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
-                win.style.opacity = '1';
-                win.style.transform = 'scale(1)';
-            }, 10);
-            centerWindow();
-            document.body.style.overflow = 'hidden';
-            renderPage();
-        };
-
-        window.closeNotepad = function() {
-            const win = document.getElementById('notepad-window');
-            if (!win) return;
-            win.style.opacity = '0';
-            win.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                win.classList.add('hidden');
-                win.classList.remove('flex');
-                win.style.opacity = '1';
-                win.style.transform = 'scale(1)';
-            }, 300);
-            document.body.style.overflow = '';
-            saveData();
-        };
-
-        function centerWindow() {
-            const win = document.getElementById('notepad-window');
-            if (!win) return;
-            const width = win.offsetWidth || 800;
-            const height = win.offsetHeight || 600;
-            const left = (window.innerWidth - width) / 2;
-            const top = (window.innerHeight - height) / 2;
-            win.style.left = `${Math.max(20, left)}px`;
-            win.style.top = `${Math.max(20, top)}px`;
-        }
-
-        function createNotepadWindow() {
-            const container = document.getElementById('notepad-container');
-            if (!container) return;
-            container.innerHTML = `
-                <div id="notepad-window" class="fixed z-[9999] hidden flex-col w-[800px] h-[600px] max-w-[90vw] max-h-[90vh] apple-glass rounded-2xl overflow-hidden transition-all duration-300">
-                    <div class="apple-titlebar flex items-center justify-between px-4 py-2.5 cursor-move select-none">
-                        <div class="flex items-center">
-                            <div class="apple-control apple-control-close" onclick="window.closeNotepad()"></div>
-                            <div class="apple-control apple-control-minimize" onclick="window.closeNotepad()"></div>
-                            <div class="apple-control apple-control-maximize" onclick="window.notepadActions.toggleFullscreen()"></div>
-                        </div>
-                        <div class="flex items-center gap-3 absolute left-1/2 transform -translate-x-1/2">
-                            <i class="fa-solid fa-book text-gray-600 dark:text-gray-300 text-sm"></i>
-                            <span id="page-title-display" class="font-semibold text-gray-800 dark:text-gray-200 text-sm truncate max-w-[200px]"></span>
-                            <span id="page-counter" class="text-xs text-gray-500 font-medium"></span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button onclick="window.notepadActions.toggleStar()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10"><i class="fa-regular fa-star text-sm"></i></button>
-                            <button onclick="window.notepadActions.toggleSidebar()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10"><i class="fa-solid fa-sidebar text-sm"></i></button>
-                            <button onclick="window.notepadActions.exportPage()" class="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-white/10"><i class="fa-solid fa-arrow-up-from-bracket text-sm"></i></button>
-                        </div>
-                    </div>
-                    <div class="flex flex-1 overflow-hidden">
-                        <div id="notepad-sidebar" class="apple-sidebar flex flex-col w-64 transition-all duration-300">
-                            <div class="p-4 border-b border-gray-200 dark:border-white/10">
-                                <div class="flex items-center justify-between mb-3"><h3 class="font-semibold text-gray-800 dark:text-gray-200">${t('Notas', 'Notes')}</h3><button onclick="window.notepadActions.addPage()" class="w-8 h-8 rounded-full flex items-center justify-center bg-blue-500 text-white hover:bg-blue-600"><i class="fa-solid fa-plus text-sm"></i></button></div>
-                                <input id="page-title-input" type="text" class="apple-input w-full mb-2" placeholder="${t('Título de nota...', 'Note title...')}" oninput="window.notepadActions.updateTitle(this.value)">
-                            </div>
-                            <div class="flex-1 overflow-y-auto p-2 apple-scrollbar" id="sidebar-content"></div>
-                            <div class="p-4 border-t border-gray-200 dark:border-white/10"><div class="mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">COLORES</div><div class="flex gap-2">${CONFIG.DEFAULT_COLORS.map((color, index) => `<button onclick="window.notepadActions.changeColor(${index})" class="w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 shadow-sm hover:scale-110 transition-transform" style="background-color: ${color.value}"></button>`).join('')}</div></div>
-                        </div>
-                        <div id="notepad-content" class="flex-1 flex flex-col transition-all duration-300 ml-64">
-                            <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-white/10">
-                                <div class="flex items-center gap-2">
-                                    <button onclick="window.notepadActions.prevPage()" class="apple-button flex items-center gap-1"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-                                    <button onclick="window.notepadActions.addPage()" class="apple-button flex items-center gap-1"><i class="fa-solid fa-plus text-xs"></i> ${t('Nueva', 'New')}</button>
-                                    <button onclick="window.notepadActions.nextPage()" class="apple-button flex items-center gap-1"><i class="fa-solid fa-chevron-right text-xs"></i></button>
-                                </div>
-                                <div class="flex items-center gap-2"><span id="save-indicator" class="text-xs text-green-500 opacity-0 transition-opacity"><i class="fa-solid fa-check"></i> ${t('Guardado', 'Saved')}</span><span class="text-xs text-gray-500">${new Date().toLocaleDateString()}</span></div>
-                            </div>
-                            <textarea id="notepad-editor" class="flex-1 w-full apple-editor text-gray-900 dark:text-gray-100 p-6 focus:outline-none resize-none placeholder-gray-400 dark:placeholder-gray-500" placeholder="${t('Escribe tus notas aquí...', 'Start writing your notes here...')}" oninput="window.notepadActions.updateContent(this.value)"></textarea>
-                            <div class="px-4 py-2 border-t border-gray-200 dark:border-white/10 text-xs text-gray-500 flex justify-between"><div><i class="fa-regular fa-clock mr-1"></i><span id="last-saved">${t('Guardado recientemente', 'Last saved just now')}</span></div><div><i class="fa-solid fa-keyboard mr-1"></i><span id="char-count">0 ${t('caracteres', 'characters')}</span></div></div>
-                        </div>
-                    </div>
-                    <div class="notepad-resize-handle"></div>
-                </div>
-                <div id="delete-modal" class="fixed inset-0 z-[10000] hidden"><div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div><div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 apple-modal rounded-2xl p-6 w-96"><div class="flex items-center gap-3 mb-4"><div class="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center"><i class="fa-solid fa-trash text-red-600 dark:text-red-400"></i></div><div><h3 class="font-semibold text-gray-900 dark:text-white">${t('Eliminar Nota', 'Delete Note')}</h3><p class="text-sm text-gray-600 dark:text-gray-300">${t('Esta acción no se puede deshacer.', 'This action cannot be undone.')}</p></div></div><p class="text-gray-700 dark:text-gray-300 mb-6">${t('¿Estás seguro?', 'Are you sure?')}</p><div class="flex justify-end gap-3"><button onclick="document.getElementById('delete-modal').classList.add('hidden')" class="apple-button">${t('Cancelar', 'Cancel')}</button><button onclick="window.notepadActions.confirmDelete(); document.getElementById('delete-modal').classList.add('hidden')" class="accent-button bg-red-500 hover:bg-red-600">${t('Eliminar', 'Delete')}</button></div></div></div>
-            `;
-            setupWindowDrag();
-            setupKeyboardShortcuts();
-            setupResizeHandle();
-            renderPage();
-            updateSidebar();
-            setTimeout(() => {
-                const win = document.getElementById('notepad-window');
-                win.classList.remove('hidden'); win.classList.add('flex');
-                centerWindow();
-                document.body.style.overflow = 'hidden';
-            }, 10);
-        }
-
-        function renderPage() {
-            const page = state.pages[state.currentIndex];
-            if (!page) return;
-            const textArea = document.getElementById('notepad-editor');
-            if (textArea) { 
-                textArea.value = page.content; 
-                updateEditorTheme(page.colorValue, page.darkColorValue); 
-            }
-            updatePageCounter(); 
-            updatePageTitle(); 
-            updateColorTheme(page.colorValue); 
-            updateSidebar();
-        }
-
-        function updateEditorTheme(lightColor, darkColor) {
-            const editor = document.getElementById('notepad-editor');
-            if (!editor) return;
-            const isDark = document.documentElement.classList.contains('dark');
-            editor.style.backgroundColor = isDark ? darkColor + '20' : lightColor + '20';
-            editor.style.color = isDark ? '#f0f0f0' : '#1a1a1a';
-        }
-
-        function updateColorTheme(colorValue) { 
-            document.documentElement.style.setProperty('--accent-color', colorValue); 
-        }
-        function updatePageCounter() { 
-            const c = document.getElementById('page-counter'); 
-            if (c) c.textContent = `${state.currentIndex + 1} of ${state.pages.length}`; 
-        }
-        function updatePageTitle() { 
-            const p = state.pages[state.currentIndex]; 
-            if (!p) return; 
-            const d = document.getElementById('page-title-display'); 
-            const i = document.getElementById('page-title-input'); 
-            if (d) d.textContent = p.title; 
-            if (i) i.value = p.title; 
-        }
-
-        function updateSidebar() {
-            const sidebar = document.getElementById('sidebar-content');
-            if (!sidebar) return;
-            let html = '<div class="space-y-1">';
-            state.pages.forEach((page, index) => {
-                const isActive = index === state.currentIndex;
-                html += `<div class="sidebar-page ${isActive ? 'active' : ''}" onclick="window.notepadActions.goToPage(${index})"><div class="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"><div class="w-2 h-2 rounded-full" style="background-color: ${page.colorValue}"></div><div class="flex-1 min-w-0"><div class="font-medium text-sm truncate">${page.title}</div><div class="text-xs text-gray-500 truncate">${formatAppleDate(page.date)}</div></div></div></div>`;
-            });
-            html += '</div>';
-            sidebar.innerHTML = html;
-        }
-
-        window.notepadActions = {
-            updateContent: function(text) { if (state.pages[state.currentIndex]) { state.pages[state.currentIndex].content = text; state.pages[state.currentIndex].date = new Date().toISOString(); saveData(); } },
-            updateTitle: function(newTitle) { 
-                if (newTitle && newTitle.trim()) { 
-                    state.pages[state.currentIndex].title = newTitle.trim(); 
-                    updatePageTitle(); 
-                    updateSidebar(); 
-                    saveData(); 
-                } 
-            },
-            nextPage: function() { if (state.currentIndex < state.pages.length - 1) { state.currentIndex++; renderPage(); } else { this.addPage(); } },
-            prevPage: function() { if (state.currentIndex > 0) { state.currentIndex--; renderPage(); } },
-            goToPage: function(index) { if (index >= 0 && index < state.pages.length) { state.currentIndex = index; renderPage(); } },
-            addPage: function() { if (state.pages.length >= CONFIG.MAX_PAGES) return; createNewPage(state.pages.length); state.currentIndex = state.pages.length - 1; renderPage(); saveData(); },
-            deletePage: function() { if (state.pages.length <= 1) { state.pages[0].content = ''; renderPage(); saveData(); return; } document.getElementById('delete-modal').classList.remove('hidden'); },
-            confirmDelete: function() { state.pages.splice(state.currentIndex, 1); if (state.currentIndex >= state.pages.length) state.currentIndex = state.pages.length - 1; renderPage(); saveData(); },
-            changeColor: function(index) { 
-                const c = CONFIG.DEFAULT_COLORS[index]; 
-                if (c && state.pages[state.currentIndex]) { 
-                    state.pages[state.currentIndex].color = c.name; 
-                    state.pages[state.currentIndex].colorValue = c.value; 
-                    state.pages[state.currentIndex].darkColorValue = c.darkValue; 
-                    renderPage(); 
-                    saveData(); 
-                } 
-            },
-            toggleStar: function() { if (state.pages[state.currentIndex]) { state.pages[state.currentIndex].starred = !state.pages[state.currentIndex].starred; updateSidebar(); saveData(); } },
-            toggleSidebar: function() { 
-                state.sidebarOpen = !state.sidebarOpen; 
-                const s = document.getElementById('notepad-sidebar'); 
-                const c = document.getElementById('notepad-content'); 
-                if (state.sidebarOpen) { 
-                    s.classList.remove('hidden', 'w-0'); 
-                    s.classList.add('flex', 'w-64'); 
-                    c.classList.remove('ml-0'); 
-                    c.classList.add('ml-64'); 
-                } else { 
-                    s.classList.add('hidden', 'w-0'); 
-                    s.classList.remove('flex', 'w-64'); 
-                    c.classList.remove('ml-64'); 
-                    c.classList.add('ml-0'); 
-                } 
-            },
-            exportPage: function() { 
-                const p = state.pages[state.currentIndex]; 
-                if (!p) return; 
-                const blob = new Blob([`# ${p.title}\n\n${p.content}`], { type: 'text/markdown' }); 
-                const url = URL.createObjectURL(blob); 
-                const a = document.createElement('a'); 
-                a.href = url; 
-                a.download = `${p.title}.md`; 
-                a.click(); 
-            },
-            toggleFullscreen: function() { 
-                const win = document.getElementById('notepad-window'); 
-                state.isFullscreen = !state.isFullscreen; 
-                if (state.isFullscreen) { 
-                    win.style.width = '100vw'; 
-                    win.style.height = '100vh'; 
-                    win.style.top = '0'; 
-                    win.style.left = '0'; 
-                } else { 
-                    win.style.width = ''; 
-                    win.style.height = ''; 
-                    centerWindow(); 
-                } 
-            }
-        };
-
-        function setupWindowDrag() {
-            const win = document.getElementById('notepad-window');
-            const header = document.querySelector('.apple-titlebar');
-            if (!win || !header) return;
-            let sx, sy, il, it;
-            const start = (e) => { if (e.target.closest('button') || state.isFullscreen) return; state.isDragging = true; const c = e.type === 'touchstart' ? e.touches[0] : e; sx = c.clientX; sy = c.clientY; const r = win.getBoundingClientRect(); il = r.left; it = r.top; win.style.cursor = 'grabbing'; document.addEventListener(e.type === 'touchstart' ? 'touchmove' : 'mousemove', move, { passive: false }); document.addEventListener(e.type === 'touchstart' ? 'touchend' : 'mouseup', end); };
-            const move = (e) => { if (!state.isDragging) return; e.preventDefault(); const c = e.type === 'touchmove' ? e.touches[0] : e; const dx = c.clientX - sx, dy = c.clientY - sy; win.style.left = `${Math.max(0, Math.min(il + dx, window.innerWidth - win.offsetWidth))}px`; win.style.top = `${Math.max(0, Math.min(it + dy, window.innerHeight - win.offsetHeight))}px`; };
-            const end = () => { state.isDragging = false; win.style.cursor = ''; document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', end); document.removeEventListener('touchmove', move); document.removeEventListener('touchend', end); };
-            header.addEventListener('mousedown', start); header.addEventListener('touchstart', start, { passive: false });
-        }
-
-        function setupResizeHandle() {
-            const win = document.getElementById('notepad-window');
-            if (!win) return;
-            const handle = win.querySelector('.notepad-resize-handle');
-            if (!handle) return;
-            let ir = false, sw, sh, sx, sy;
-            handle.addEventListener('mousedown', (e) => { ir = true; sw = parseInt(getComputedStyle(win).width); sh = parseInt(getComputedStyle(win).height); sx = e.clientX; sy = e.clientY; document.addEventListener('mousemove', res); document.addEventListener('mouseup', stp); e.preventDefault(); });
-            function res(e) { if (!ir) return; win.style.width = `${Math.max(400, sw + e.clientX - sx)}px`; win.style.height = `${Math.max(300, sh + e.clientY - sy)}px`; }
-            function stp() { ir = false; document.removeEventListener('mousemove', res); }
-        }
-
-        function setupKeyboardShortcuts() {
-            document.addEventListener('keydown', (e) => {
-                const win = document.getElementById('notepad-window');
-                if (!win || win.classList.contains('hidden')) return;
-                if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveData(); showSaveIndicator(); }
-                if (e.key === 'Escape') window.closeNotepad();
-            });
-        }
-
-        const darkModeObserver = new MutationObserver((mutations) => {
-            mutations.forEach((m) => {
-                if (m.attributeName === 'class') {
-                    const page = state.pages[state.currentIndex];
-                    if (page) updateEditorTheme(page.colorValue, page.darkColorValue);
-                }
-            });
-        });
-        darkModeObserver.observe(document.documentElement, { attributes: true });
-
-        loadData();
-    })();
-    </script>
     <script src="js/18_leadership_management.js"></script>
     <script src="js/19_prioritization_delegation.js"></script>
     <script src="js/20_renal_genitourinary.js"></script>
@@ -877,247 +381,14 @@
     <script src="js/25_perioperative_care.js"></script>
     <script src="js/26_high_risk_pharm.js"></script>
     <script src="js/27_critical_thinking_ngn.js"></script>
-    <script src="js/28_ethics_legal.js"></script> 
+    <script src="js/28_ethics_legal.js"></script>
     <script src="js/29_negative_rationales.js"></script>
     <script src="js/30_common_student_errors.js"></script>
     <script src="js/31_search_service.js"></script>
     <script src="js/32_analytics_dashboard.js"></script>
 
-    <!-- Biblioteca integrada: botón superior derecho "Library", sin "Premium" -->
-    <script>
-    // Library — Botón superior derecho + modal Apple (sin "Premium")
-    (function() {
-        'use strict';
+    <!-- ✅ SOLO una vez (externo). NO inline. -->
+    <script src="js/premium_books_library.js?v=2.0"></script>
 
-        const GITHUB_RELEASE_URL = 'https://api.github.com/repos/Nclexpass/NCLEX1.2/releases/tags/BOOKS';
-        const state = {
-            books: [],
-            isLoading: false,
-            error: null
-        };
-
-        function t(es, en) {
-            const esEl = document.querySelector('.lang-es');
-            return esEl && esEl.offsetParent !== null ? es : en;
-        }
-
-        function formatFileSize(bytes) {
-            if (!bytes) return '';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        }
-
-        async function fetchBooks() {
-            state.isLoading = true;
-            state.error = null;
-            renderModalContent();
-
-            try {
-                const response = await fetch(GITHUB_RELEASE_URL);
-                if (!response.ok) throw new Error('No se pudo conectar con GitHub');
-                const release = await response.json();
-                state.books = release.assets
-                    .filter(asset => asset.name.toLowerCase().endsWith('.pdf'))
-                    .map(asset => ({
-                        id: asset.id,
-                        name: asset.name.replace('.pdf', '').replace(/-/g, ' '),
-                        size: asset.size,
-                        downloadUrl: asset.browser_download_url,
-                        updatedAt: new Date(asset.updated_at)
-                    }))
-                    .sort((a, b) => a.name.localeCompare(b.name));
-            } catch (error) {
-                console.error('Error fetching GitHub release:', error);
-                state.error = error.message;
-                state.books = [];
-            } finally {
-                state.isLoading = false;
-                renderModalContent();
-            }
-        }
-
-        function createModal() {
-            if (document.getElementById('library-modal')) return;
-
-            const modalHTML = `
-                <div id="library-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div class="w-full max-w-4xl max-h-[85vh] apple-glass rounded-2xl overflow-hidden flex flex-col animate-slide-up">
-                        <div class="apple-titlebar flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-white/10">
-                            <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg">
-                                    <i class="fa-solid fa-book-open text-white text-sm"></i>
-                                </div>
-                                <div>
-                                    <h2 class="font-semibold text-gray-800 dark:text-white text-base">Library</h2>
-                                    <p id="lib-subtitle" class="text-xs text-gray-500 dark:text-gray-400">NCLEX PDF Collection</p>
-                                </div>
-                            </div>
-                            <button onclick="if (window.library && window.library.close) { window.library.close(); }" class="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-600 dark:text-gray-300 transition-colors">
-                                <i class="fa-solid fa-xmark text-lg"></i>
-                            </button>
-                        </div>
-                        <div id="lib-content" class="flex-1 overflow-y-auto p-5 apple-scrollbar" style="max-height: calc(85vh - 70px);">
-                            <div class="flex flex-col items-center justify-center h-40 text-gray-500">
-                                <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3"></i>
-                                <p>Cargando catálogo desde GitHub...</p>
-                            </div>
-                        </div>
-                        <div class="px-5 py-3 border-t border-gray-200 dark:border-white/10 text-xs text-gray-500 flex justify-between items-center bg-white/50 dark:bg-black/20">
-                            <span><i class="fa-regular fa-circle-check mr-1"></i> Fuente: GitHub Releases</span>
-                            <button onclick="window.library.refresh()" class="px-3 py-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors flex items-center gap-1">
-                                <i class="fa-solid fa-rotate"></i> Actualizar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-        }
-
-        function renderModalContent() {
-            const contentEl = document.getElementById('lib-content');
-            const subtitleEl = document.getElementById('lib-subtitle');
-            if (!contentEl) return;
-
-            if (subtitleEl) {
-                subtitleEl.textContent = state.books.length 
-                    ? `${state.books.length} PDFs disponibles` 
-                    : 'NCLEX PDF Collection';
-            }
-
-            if (state.isLoading) {
-                contentEl.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-                        <div class="relative w-16 h-16 mb-4">
-                            <div class="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full"></div>
-                            <div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
-                        </div>
-                        <p class="font-medium">Conectando con GitHub...</p>
-                        <p class="text-xs mt-2 opacity-75">Obteniendo lista de PDFs</p>
-                    </div>
-                `;
-                return;
-            }
-
-            if (state.error) {
-                contentEl.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-64 text-center px-6">
-                        <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
-                            <i class="fa-solid fa-exclamation-triangle text-2xl text-red-600 dark:text-red-400"></i>
-                        </div>
-                        <h3 class="font-semibold text-gray-800 dark:text-white mb-1">Error de conexión</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">${state.error}</p>
-                        <button onclick="window.library.refresh()" class="apple-button flex items-center gap-2">
-                            <i class="fa-solid fa-rotate"></i> Reintentar
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-
-            if (state.books.length === 0) {
-                contentEl.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-64">
-                        <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                            <i class="fa-solid fa-box-open text-2xl text-gray-500"></i>
-                        </div>
-                        <p class="text-gray-600 dark:text-gray-400">No se encontraron PDFs en el release BOOKS</p>
-                    </div>
-                `;
-                return;
-            }
-
-            let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
-            state.books.forEach(book => {
-                const formattedSize = formatFileSize(book.size);
-                const date = book.updatedAt.toLocaleDateString();
-                html += `
-                    <div class="apple-glass rounded-xl p-4 hover:shadow-lg transition-all hover:-translate-y-1 flex flex-col group">
-                        <div class="flex items-start gap-3">
-                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white shadow-md flex-shrink-0">
-                                <i class="fa-solid fa-file-pdf text-xl"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <h3 class="font-bold text-gray-900 dark:text-white text-sm line-clamp-2 mb-1" title="${book.name}">
-                                    ${book.name}
-                                </h3>
-                                <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-2">
-                                    <span><i class="fa-regular fa-file mr-1"></i>PDF</span>
-                                    <span>•</span>
-                                    <span><i class="fa-regular fa-hard-drive mr-1"></i>${formattedSize}</span>
-                                    <span>•</span>
-                                    <span><i class="fa-regular fa-calendar mr-1"></i>${date}</span>
-                                </div>
-                                <a href="${book.downloadUrl}" 
-                                   target="_blank"
-                                   class="inline-flex items-center justify-center w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shadow-md hover:shadow-blue-500/30">
-                                    <i class="fa-solid fa-cloud-arrow-down mr-2"></i>
-                                    ${t('Descargar', 'Download')}
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            html += '</div>';
-            contentEl.innerHTML = html;
-        }
-
-        function createFloatingButton() {
-            if (document.getElementById('library-btn')) return;
-
-            const btn = document.createElement('button');
-            btn.id = 'library-btn';
-            btn.onclick = () => { if (window.library && window.library.open) window.library.open(); };
-            btn.className = 'fixed top-6 right-6 w-12 h-12 apple-glass bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-2xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 z-[9980] flex items-center justify-center transition-all duration-300 hover:-translate-y-0.5 active:scale-95 group border border-white/20';
-            
-            btn.innerHTML = `
-                <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 to-transparent"></div>
-                <i class="fa-solid fa-book-open text-xl relative group-hover:scale-110 transition-transform"></i>
-                <div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></div>
-                <div class="absolute top-full right-0 mt-2 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg">
-                    <span class="lang-es">Biblioteca</span>
-                    <span class="lang-en hidden-lang">Library</span>
-                    <div class="absolute -top-1 right-6 w-2 h-2 bg-gray-900 rotate-45"></div>
-                </div>
-            `;
-
-            document.body.appendChild(btn);
-        }
-
-        window.library = {
-            async open() {
-                createModal();
-                const modal = document.getElementById('library-modal');
-                if (modal) {
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
-                    if (state.books.length === 0 && !state.isLoading) {
-                        await fetchBooks();
-                    }
-                }
-            },
-            close() {
-                const modal = document.getElementById('library-modal');
-                if (modal) modal.classList.add('hidden');
-            },
-            async refresh() {
-                await fetchBooks();
-            }
-        };
-
-        function init() {
-            createFloatingButton();
-            createModal();
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => fetchBooks());
-            } else {
-                fetchBooks();
-            }
-        }
-
-        init();
-    })();
-    </script>
 </body>
 </html>
