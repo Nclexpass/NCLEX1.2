@@ -1,25 +1,21 @@
 // premium_books_library.js — Apple-style PDF Library (GitHub Releases)
-// Uses GitHub release tag: BOOKS
-// IMPORTANT: styles are namespaced to avoid overriding global app styles.
+// FIXED: Removed PDF.js thumbnail generation to fix CORS errors.
+// Uses static icons instead of dynamic covers.
 
 (function () {
   'use strict';
 
   // --- CONFIG ---
   const GITHUB_RELEASE_URL = 'https://api.github.com/repos/Nclexpass/NCLEX1.2/releases/tags/BOOKS';
-  const PDFJS_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-  const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   // --- STATE ---
   const state = {
     books: [],
     isLoading: false,
-    error: null,
-    pdfjsReady: false,
-    thumbnails: new Map()
+    error: null
   };
 
-  // --- i18n helper (matches app language toggle) ---
+  // --- i18n helper ---
   function isSpanishUI() {
     const esEl = document.querySelector('.lang-es');
     return !!(esEl && esEl.offsetParent !== null);
@@ -28,7 +24,7 @@
     return isSpanishUI() ? es : en;
   }
 
-  // --- STYLE (namespaced) ---
+  // --- STYLE ---
   function ensureStyles() {
     if (document.getElementById('nclex-library-styles')) return;
 
@@ -51,8 +47,6 @@
       .nclex-lib-titlebar{
         background: linear-gradient(to bottom, rgba(255,255,255,.9), rgba(242,242,247,.9));
         border-bottom: 1px solid rgba(0,0,0,0.1);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
       }
       .dark .nclex-lib-titlebar{
         background: linear-gradient(to bottom, rgba(44,44,46,.9), rgba(28,28,30,.9));
@@ -78,15 +72,20 @@
       }
 
       .nclex-lib-thumb{
-        width: 90px;
-        height: 120px;
-        border-radius: 12px;
+        width: 80px;
+        height: 110px;
+        border-radius: 8px;
         overflow: hidden;
-        background: rgba(0,0,0,0.05);
-        position: relative;
         flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #475569 0%, #334155 100%);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
       }
-      .dark .nclex-lib-thumb{ background: rgba(255,255,255,0.06); }
+      .dark .nclex-lib-thumb{
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      }
 
       #nclex-library-btn{
         position: fixed;
@@ -123,37 +122,6 @@
       .dark .nclex-lib-badge{ border-color: #111827; }
     `;
     document.head.appendChild(style);
-  }
-
-  // --- PDF.js loader ---
-  async function loadPdfJs() {
-    if (state.pdfjsReady) return true;
-
-    // If already present
-    if (window.pdfjsLib) {
-      try {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-      } catch {}
-      state.pdfjsReady = true;
-      return true;
-    }
-
-    return new Promise((resolve) => {
-      const s = document.createElement('script');
-      s.src = PDFJS_CDN;
-      s.onload = () => {
-        try {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-          state.pdfjsReady = true;
-          resolve(true);
-        } catch (e) {
-          console.error('pdf.js init error', e);
-          resolve(false);
-        }
-      };
-      s.onerror = () => resolve(false);
-      document.head.appendChild(s);
-    });
   }
 
   // --- Data ---
@@ -195,60 +163,6 @@
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
-  // --- Thumbnails ---
-  async function buildThumbnail(book) {
-    if (state.thumbnails.has(book.id)) return state.thumbnails.get(book.id);
-
-    const ok = await loadPdfJs();
-    if (!ok || !window.pdfjsLib) return null;
-
-    try {
-      const loadingTask = window.pdfjsLib.getDocument({ url: book.downloadUrl });
-      const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(1);
-
-      const viewport = page.getViewport({ scale: 0.55 });
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d', { alpha: false });
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-
-      state.thumbnails.set(book.id, dataUrl);
-      return dataUrl;
-    } catch (e) {
-      console.warn('thumbnail error', book.name, e);
-      state.thumbnails.set(book.id, null);
-      return null;
-    }
-  }
-
-  async function buildVisibleThumbnails() {
-    const modal = document.getElementById('nclex-library-modal');
-    if (!modal || modal.classList.contains('hidden')) return;
-
-    const cards = modal.querySelectorAll('[data-book-id]');
-    const toBuild = [];
-    cards.forEach(c => {
-      const id = Number(c.getAttribute('data-book-id'));
-      if (!state.thumbnails.has(id)) toBuild.push(id);
-    });
-
-    // build a few at a time
-    for (const id of toBuild.slice(0, 8)) {
-      const book = state.books.find(b => b.id === id);
-      if (!book) continue;
-      const thumb = await buildThumbnail(book);
-      const img = modal.querySelector(`[data-thumb-for="${id}"]`);
-      const loader = modal.querySelector(`[data-thumb-loader="${id}"]`);
-      if (loader) loader.remove();
-      if (img && thumb) img.src = thumb;
-      if (img && !thumb) img.style.display = 'none';
-    }
-  }
-
   // --- UI ---
   function ensureButton() {
     if (document.getElementById('nclex-library-btn')) return;
@@ -258,7 +172,7 @@
     btn.setAttribute('aria-label', 'Open Library');
     btn.innerHTML = `
       <i class="fa-solid fa-book-open text-white text-xl"></i>
-      <span class="nclex-lib-badge"></span>
+      <span class="nclex-lib-badge" style="display:none"></span>
     `;
     btn.addEventListener('click', open);
     document.body.appendChild(btn);
@@ -305,7 +219,6 @@
     });
 
     document.body.appendChild(modal);
-
     modal.querySelector('#nclex-lib-close')?.addEventListener('click', close);
     modal.querySelector('#nclex-lib-refresh')?.addEventListener('click', refresh);
   }
@@ -326,7 +239,6 @@
             <div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
           </div>
           <p class="font-medium">${t('Conectando con GitHub...', 'Connecting to GitHub...')}</p>
-          <p class="text-xs mt-2 opacity-75">${t('Obteniendo lista de PDFs', 'Fetching PDF list')}</p>
         </div>
       `;
       return;
@@ -355,24 +267,22 @@
           <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
             <i class="fa-solid fa-box-open text-2xl text-gray-500"></i>
           </div>
-          <p class="text-gray-600 dark:text-gray-400">${t('No se encontraron PDFs en el release BOOKS', 'No PDFs found in BOOKS release')}</p>
+          <p class="text-gray-600 dark:text-gray-400">${t('No se encontraron PDFs', 'No PDFs found')}</p>
         </div>
       `;
       return;
     }
 
-    // Cards
+    // Cards (Static Icons to avoid CORS)
     let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
     for (const b of state.books) {
       const size = formatFileSize(b.size);
       const date = b.updatedAt ? b.updatedAt.toLocaleDateString() : '';
+      
       html += `
-        <div class="nclex-lib-card rounded-2xl p-4 flex gap-4" data-book-id="${b.id}">
+        <div class="nclex-lib-card rounded-2xl p-4 flex gap-4">
           <div class="nclex-lib-thumb">
-            <img data-thumb-for="${b.id}" alt="" class="w-full h-full object-cover" />
-            <div data-thumb-loader="${b.id}" class="absolute inset-0 flex items-center justify-center text-gray-400">
-              <i class="fa-solid fa-circle-notch fa-spin"></i>
-            </div>
+             <i class="fa-solid fa-file-pdf text-3xl text-white opacity-80"></i>
           </div>
 
           <div class="flex-1 min-w-0">
@@ -393,9 +303,6 @@
     }
     html += `</div>`;
     content.innerHTML = html;
-
-    // Kick off thumbnail generation after render
-    setTimeout(buildVisibleThumbnails, 50);
   }
 
   function escapeHTML(s) {
@@ -418,10 +325,6 @@
     modal.classList.add('flex');
 
     if (!state.books.length && !state.isLoading) await fetchBooks();
-    else {
-      render();
-      setTimeout(buildVisibleThumbnails, 50);
-    }
   }
 
   function close() {
@@ -433,7 +336,6 @@
 
   async function refresh() {
     await fetchBooks();
-    setTimeout(buildVisibleThumbnails, 50);
   }
 
   // expose
@@ -447,8 +349,6 @@
     ensureStyles();
     ensureButton();
     ensureModal();
-
-    // preload list in background after DOM is ready (keeps UI snappy)
     fetchBooks();
   }
 
