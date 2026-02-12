@@ -1,652 +1,547 @@
-/* logic.js — NCLEX Study App Logic (Routes + Topics + Search + Language) */
+/* eslint-disable */
 (function () {
-  'use strict';
+    'use strict';
+    console.log('NCLEX logic.js v2.1 loaded');
 
-  // ----------------------------
-  // Utilidades DOM
-  // ----------------------------
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+    // ==========================
+    // NCLEX Core Registry
+    // ==========================
+    const NCLEX = window.NCLEX || {};
+    window.NCLEX = NCLEX;
 
-  function safeText(s) {
-    return (s ?? '').toString();
-  }
+    const state = {
+        topics: [],
+        currentRoute: 'home',
+        lang: 'es',
+        theme: 'dark',
+        user: { name: 'Reynier Diaz' }
+    };
 
-  function escapeHtml(s) {
-    return safeText(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+    // Helpers
+    function $(id) { return document.getElementById(id); }
+    function isDark() { return document.documentElement.classList.contains('dark'); }
 
-  function normalizeFaIcon(icon) {
-    // Acepta "fa-baby", "baby", "fa-solid fa-baby"
-    const raw = safeText(icon).trim();
-    if (!raw) return 'book-medical';
-    const match = raw.match(/fa-([a-z0-9-]+)/i);
-    return match ? match[1] : raw.replace(/^fa-/, '');
-  }
-
-  // ----------------------------
-  // Estado global
-  // ----------------------------
-  const app = window.nclexApp = window.nclexApp || {};
-  app.topics = app.topics || [];
-  app.currentRoute = app.currentRoute || 'home';
-  app._lastPayload = app._lastPayload || null;
-
-  const LANG_KEY = 'nclex_lang';
-  const THEME_KEY = 'nclex_theme';
-  const LAST_TOPIC_KEY = 'nclex_last_topic';
-
-  function getLang() {
-    return localStorage.getItem(LANG_KEY) || 'es';
-  }
-
-  function setLang(lang) {
-    localStorage.setItem(LANG_KEY, lang);
-    document.documentElement.lang = lang;
-  }
-
-  function t(es, en) {
-    return getLang() === 'es' ? (es ?? '') : (en ?? es ?? '');
-  }
-
-  // ----------------------------
-  // Render helpers
-  // ----------------------------
-  function setView(html) {
-    const view = $('#app-view');
-    if (!view) return;
-    view.innerHTML = html;
-    applyGlobalLanguage(view);
-  }
-
-  function applyGlobalLanguage(root = document) {
-    const lang = getLang();
-    const isEs = lang === 'es';
-    $$('.lang-es', root).forEach(el => isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-    $$('.lang-en', root).forEach(el => !isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-    document.documentElement.lang = lang;
-  }
-
-  // ----------------------------
-  // Tema (claro/oscuro)
-  // ----------------------------
-  function getTheme() {
-    return localStorage.getItem(THEME_KEY) || 'dark';
-  }
-
-  function applyTheme(theme) {
-    const html = document.documentElement;
-    if (theme === 'dark') html.classList.add('dark');
-    else html.classList.remove('dark');
-    localStorage.setItem(THEME_KEY, theme);
-  }
-
-  function toggleTheme() {
-    applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
-  }
-
-  // ----------------------------
-  // Sidebar topics
-  // ----------------------------
-  function renderSidebarTopics() {
-    const container = $('#topics-nav');
-    if (!container) return;
-
-    const html = (app.topics || []).map(topic => {
-      const icon = normalizeFaIcon(topic.icon);
-      const titleEs = topic.titleEs || '';
-      const titleEn = topic.titleEn || titleEs || '';
-
-      return `
-        <button
-          onclick="window.nclexApp.navigate('topic', {id: '${escapeHtml(topic.id)}'})"
-          data-route="topic"
-          data-topic-id="${escapeHtml(topic.id)}"
-          class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 group">
-          <div class="w-6 flex justify-center">
-            <i class="fa-solid fa-${icon} text-xl text-brand-blue group-hover:scale-110 transition-transform"></i>
-          </div>
-          <span class="hidden lg:block text-base font-bold lang-es">${escapeHtml(titleEs)}</span>
-          <span class="hidden lg:block text-base font-bold lang-en hidden-lang">${escapeHtml(titleEn)}</span>
-        </button>
-      `;
-    }).join('');
-
-    container.innerHTML = html;
-    applyGlobalLanguage(container);
-
-    // refresca active state
-    updateNavActive(app.currentRoute, app._lastPayload);
-  }
-
-  function updateHomeTopicsCount() {
-    const el = $('#topics-count');
-    if (el) el.textContent = String(app.topics.length);
-  }
-
-  // ----------------------------
-  // Registro de temas (compatible con ambos formatos)
-  // ----------------------------
-  function normalizeTopicShape(topic) {
-    // Soporta:
-    // - titleEs/titleEn (antiguo)
-    // - title: {es,en} (nuevo)
-    if (topic.title && typeof topic.title === 'object') {
-      topic.titleEs = topic.titleEs ?? topic.title.es ?? '';
-      topic.titleEn = topic.titleEn ?? topic.title.en ?? topic.title.es ?? '';
-    } else {
-      topic.titleEs = topic.titleEs ?? '';
-      topic.titleEn = topic.titleEn ?? topic.titleEs ?? '';
+    function t(es, en) {
+        return state.lang === 'es' ? es : en;
     }
 
-    if (topic.subtitle && typeof topic.subtitle === 'object') {
-      topic.subtitleEs = topic.subtitleEs ?? topic.subtitle.es ?? '';
-      topic.subtitleEn = topic.subtitleEn ?? topic.subtitle.en ?? topic.subtitle.es ?? '';
-    } else {
-      topic.subtitleEs = topic.subtitleEs ?? '';
-      topic.subtitleEn = topic.subtitleEn ?? topic.subtitleEs ?? '';
+    function setLang(lang) {
+        state.lang = lang;
+        const esEls = document.querySelectorAll('.lang-es');
+        const enEls = document.querySelectorAll('.lang-en');
+        if (lang === 'es') {
+            esEls.forEach(el => el.classList.remove('hidden-lang'));
+            enEls.forEach(el => el.classList.add('hidden-lang'));
+        } else {
+            enEls.forEach(el => el.classList.remove('hidden-lang'));
+            esEls.forEach(el => el.classList.add('hidden-lang'));
+        }
+        render(state.currentRoute);
     }
 
-    topic.tags = Array.isArray(topic.tags) ? topic.tags : (topic.tags ? [topic.tags] : []);
-    topic.icon = topic.icon || 'book-medical';
-    return topic;
-  }
+    function setTheme(theme) {
+        state.theme = theme;
+        if (theme === 'dark') document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+        render(state.currentRoute);
+    }
 
-  function registerTopic(topic) {
-    if (!topic || !topic.id) return;
+    function hideLoading() {
+        const loading = $('loading');
+        if (loading) {
+            loading.classList.add('opacity-0');
+            setTimeout(() => loading.remove(), 400);
+        }
+    }
 
-    normalizeTopicShape(topic);
+    // ==========================
+    // Topic Registry
+    // ==========================
+    NCLEX.registerTopic = function (topic) {
+        // Prevent duplicates
+        if (!topic || !topic.id) return;
+        if (state.topics.find(t => t.id === topic.id)) return;
+        state.topics.push(topic);
 
-    // evita duplicados
-    if (app.topics.some(t => t.id === topic.id)) return;
+        // Keep order by "order" then by name
+        state.topics.sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || (a.name || '').localeCompare(b.name || ''));
+    };
 
-    app.topics.push(topic);
+    NCLEX.getAllTopics = function () {
+        return state.topics;
+    };
 
-    // Mantén un espejo simple para otros módulos
-    window.NCLEX_TOPICS = app.topics;
+    // ==========================
+    // Progress (localStorage)
+    // ==========================
+    function getTopicProgress(topicId) {
+        try {
+            const raw = localStorage.getItem(`nclex_progress_${topicId}`);
+            const val = raw ? JSON.parse(raw) : { done: 0, total: 0 };
+            if (!val || typeof val !== 'object') return { done: 0, total: 0 };
+            return {
+                done: Number(val.done || 0),
+                total: Number(val.total || 0)
+            };
+        } catch (e) {
+            return { done: 0, total: 0 };
+        }
+    }
 
-    // invalida índice inteligente
-    SmartTextIndex.built = false;
+    function getOverallProgress() {
+        const topics = state.topics || [];
+        let done = 0, total = 0;
+        topics.forEach(tpc => {
+            const p = getTopicProgress(tpc.id);
+            done += p.done;
+            total += p.total;
+        });
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        return { done, total, pct, modules: topics.length };
+    }
 
-    // actualiza UI sidebar y contador home (sin re-render pesado)
-    renderSidebarTopics();
-    updateHomeTopicsCount();
-  }
+    // ==========================
+    // Navigation UI
+    // ==========================
+    function renderTopicsNav() {
+        const container = $('topics-nav');
+        if (!container) return;
 
-  // API pública para tus scripts de temas
-  window.NCLEX = window.NCLEX || {};
-  window.NCLEX.registerTopic = registerTopic;
-
-  // ----------------------------
-  // Índice inteligente (para búsqueda home)
-  // ----------------------------
-  function stripHtml(html) {
-    return safeText(html)
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  const SmartTextIndex = {
-    items: [],
-    built: false,
-
-    build() {
-      this.items = [];
-      (app.topics || []).forEach(topic => {
-        const titleEs = topic.titleEs || '';
-        const titleEn = topic.titleEn || titleEs || '';
-        const tags = (topic.tags || []).join(' ');
-
-        let blocksText = '';
-        if (Array.isArray(topic.content)) {
-          blocksText = topic.content.map(b =>
-            `${b.titleEs || ''} ${b.titleEn || ''} ${b.contentEs || ''} ${b.contentEn || ''}`
-          ).join(' ');
-        } else if (typeof topic.render === 'function') {
-          // Indexa el contenido HTML renderizado (para temas tipo 01_newborn.js)
-          try {
-            const html = topic.render();
-            blocksText = stripHtml(html);
-          } catch (e) {
-            blocksText = '';
-          }
+        if (!state.topics.length) {
+            container.innerHTML = `<div class="text-xs text-gray-400 px-4 py-2">${t('Cargando temas...', 'Loading topics...')}</div>`;
+            return;
         }
 
-        const haystack = `${titleEs} ${titleEn} ${tags} ${blocksText}`.toLowerCase();
-        this.items.push({ type: 'topic', topic, haystack });
-      });
-
-      this.built = true;
-    },
-
-    search(term, limit = 12) {
-      if (!this.built) this.build();
-      const q = (term || '').toLowerCase().trim();
-      if (!q) return [];
-
-      const tokens = q.split(/\s+/).filter(Boolean);
-      const scored = [];
-
-      for (const item of this.items) {
-        let score = 0;
-        for (const tk of tokens) {
-          const idx = item.haystack.indexOf(tk);
-          if (idx !== -1) score += (idx < 40 ? 12 : idx < 140 ? 7 : 3);
-        }
-        if (score > 0) scored.push({ ...item, score });
-      }
-
-      scored.sort((a, b) => b.score - a.score);
-      return scored.slice(0, limit);
-    }
-  };
-
-  // ----------------------------
-  // Rutas / Navegación
-  // ----------------------------
-  function renderHome() {
-    const totalTopics = app.topics.length;
-
-    setView(`
-      <div class="max-w-6xl mx-auto p-4 sm:p-6">
-        <div class="rounded-3xl overflow-hidden border border-gray-200 dark:border-white/10 bg-white dark:bg-brand-card shadow-xl">
-          <div class="p-6 bg-gradient-to-r from-brand-blue/10 via-purple-500/10 to-emerald-500/10 dark:from-blue-500/10 dark:via-purple-500/10 dark:to-emerald-500/10">
-            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-              <div>
-                <h1 class="text-3xl md:text-4xl font-black text-gray-900 dark:text-white">
-                  <span class="lang-es">Dashboard</span><span class="lang-en hidden-lang">Dashboard</span>
-                </h1>
-                <p class="text-gray-600 dark:text-gray-300 mt-1">
-                  <span class="lang-es">Busca un tema o una pregunta del simulador.</span>
-                  <span class="lang-en hidden-lang">Search a topic or a simulator question.</span>
-                </p>
-              </div>
-
-              <div class="flex flex-wrap gap-2">
-                <button onclick="window.nclexApp.navigate('simulator')" class="px-5 py-2.5 rounded-2xl bg-brand-blue text-white font-black shadow hover:shadow-lg transition">
-                  <span class="lang-es">Ir al Simulador</span><span class="lang-en hidden-lang">Go to Simulator</span>
+        container.innerHTML = state.topics.map(topic => {
+            const icon = topic.icon || 'fa-solid fa-book';
+            const label = state.lang === 'es' ? (topic.label_es || topic.name || topic.id) : (topic.label_en || topic.name || topic.id);
+            return `
+                <button
+                    class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 group"
+                    data-topic-id="${topic.id}"
+                    onclick="window.nclexApp.navigate('topic/${topic.id}')"
+                >
+                    <div class="w-6 flex justify-center">
+                        <i class="${icon} text-xl ${topic.iconColor || 'text-brand-blue'} group-hover:scale-110 transition-transform"></i>
+                    </div>
+                    <span class="hidden lg:block text-base font-bold truncate">${label}</span>
                 </button>
-              </div>
-            </div>
-
-            <div class="mt-4 flex items-center justify-between">
-              <div class="text-xs font-bold text-gray-600 dark:text-gray-300">
-                <span class="lang-es">Temas cargados:</span><span class="lang-en hidden-lang">Topics loaded:</span>
-                <span id="topics-count" class="font-black">${totalTopics}</span>
-              </div>
-            </div>
-
-            <div class="mt-5">
-              <input id="dashboard-search" type="text" placeholder="${escapeHtml(t('Buscar… (tema o pregunta)', 'Search… (topic or question)'))}"
-                class="w-full px-5 py-3 rounded-2xl bg-white/80 dark:bg-black/20 border border-white/60 dark:border-white/10 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-blue" />
-              <div id="dashboard-search-results" class="mt-3 hidden"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `);
-
-    initHomeSearch();
-  }
-
-  function renderTopics() {
-    renderHome();
-  }
-
-  function renderTopicDetail(topicId) {
-    const topic = app.topics.find(t => t.id === topicId);
-    if (!topic) {
-      setView(`<div class="p-6 text-red-600 dark:text-red-300 font-bold">Topic not found: ${escapeHtml(topicId)}</div>`);
-      return;
+            `;
+        }).join('');
     }
 
-    localStorage.setItem(LAST_TOPIC_KEY, topicId);
+    function updateNavActive(route) {
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        const homeBtn = document.querySelector('[data-route="home"]');
+        const simBtn = document.querySelector('[data-route="simulator"]');
 
-    // ✅ NUEVO: si el tema trae render() (como 01_newborn.js) lo usamos
-    if (typeof topic.render === 'function') {
-      setView(`
-        <div class="max-w-7xl mx-auto p-4 sm:p-6">
-          <div class="flex items-center justify-between gap-2 mb-6">
-            <button onclick="window.nclexApp.navigate('home')" class="px-4 py-2 rounded-2xl bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white font-black hover:opacity-90 transition">
-              <span class="lang-es">← Volver</span><span class="lang-en hidden-lang">← Back</span>
-            </button>
-
-            <button onclick="window.nclexApp.navigate('simulator')" class="px-4 py-2 rounded-2xl bg-brand-blue text-white font-black shadow hover:shadow-lg transition">
-              <span class="lang-es">Simulador</span><span class="lang-en hidden-lang">Simulator</span>
-            </button>
-          </div>
-
-          ${topic.render()}
-        </div>
-      `);
-      return;
-    }
-
-    // ✅ fallback: formato antiguo por bloques
-    const blocks = (topic.content || []).map(block => `
-      <div class="p-5 rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-brand-card shadow-sm">
-        <div class="font-black text-gray-900 dark:text-white text-lg mb-2">
-          <span class="lang-es">${escapeHtml(block.titleEs || '')}</span>
-          <span class="lang-en hidden-lang">${escapeHtml(block.titleEn || block.titleEs || '')}</span>
-        </div>
-        <div class="text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
-          <div class="lang-es">${block.contentEs || ''}</div>
-          <div class="lang-en hidden-lang">${block.contentEn || block.contentEs || ''}</div>
-        </div>
-      </div>
-    `).join('');
-
-    setView(`
-      <div class="max-w-5xl mx-auto p-4 sm:p-6">
-        <div class="flex items-center justify-between gap-2 mb-4">
-          <button onclick="window.nclexApp.navigate('home')" class="px-4 py-2 rounded-2xl bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white font-black hover:opacity-90 transition">
-            <span class="lang-es">← Volver</span><span class="lang-en hidden-lang">← Back</span>
-          </button>
-
-          <button onclick="window.nclexApp.navigate('simulator')" class="px-4 py-2 rounded-2xl bg-brand-blue text-white font-black shadow hover:shadow-lg transition">
-            <span class="lang-es">Simulador</span><span class="lang-en hidden-lang">Simulator</span>
-          </button>
-        </div>
-
-        <div class="rounded-3xl overflow-hidden border border-gray-200 dark:border-white/10 bg-white dark:bg-brand-card shadow-xl">
-          <div class="p-6 bg-gradient-to-r from-brand-blue/10 to-purple-500/10 dark:from-blue-500/10 dark:to-purple-500/10 border-b border-gray-200 dark:border-white/10">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-gray-100 dark:bg-white/10 flex items-center justify-center">
-                <i class="fa-solid fa-${normalizeFaIcon(topic.icon) || 'book-medical'} text-brand-blue"></i>
-              </div>
-              <div>
-                <div class="text-2xl font-black text-gray-900 dark:text-white">
-                  <span class="lang-es">${escapeHtml(topic.titleEs || '')}</span>
-                  <span class="lang-en hidden-lang">${escapeHtml(topic.titleEn || topic.titleEs || '')}</span>
-                </div>
-                <div class="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                  ${(topic.tags || []).map(tag => `<span class="inline-flex px-3 py-1 rounded-full bg-white/70 dark:bg-black/20 border border-white/60 dark:border-white/10 font-bold mr-2">${escapeHtml(tag)}</span>`).join('')}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="p-6 space-y-4">
-            ${blocks}
-          </div>
-        </div>
-      </div>
-    `);
-  }
-
-  function renderSimulator() {
-    if (window.renderSimulatorPage) {
-      setView(window.renderSimulatorPage());
-    } else {
-      setView(`<div class="p-6">Simulator not loaded.</div>`);
-    }
-  }
-
-  function updateNavActive(route, payload) {
-    const navButtons = $$('[data-route]');
-    navButtons.forEach(btn => {
-      const r = btn.getAttribute('data-route');
-      if (r !== route) {
-        btn.classList.remove('active');
-        return;
-      }
-
-      // ruta topic: activa solo el topic correcto
-      if (route === 'topic') {
-        const tid = btn.getAttribute('data-topic-id');
-        if (tid && payload?.id === tid) btn.classList.add('active');
-        else btn.classList.remove('active');
-        return;
-      }
-
-      btn.classList.add('active');
-    });
-  }
-
-  app.navigate = function (route, payload) {
-    app.currentRoute = route;
-    app._lastPayload = payload || null;
-    updateNavActive(route, payload);
-
-    if (route === 'home') renderHome();
-    else if (route === 'topics') renderTopics();
-    else if (route === 'topic') renderTopicDetail(payload?.id);
-    else if (route === 'simulator') renderSimulator();
-    else renderHome();
-  };
-
-  // ✅ NUEVO: botones del sidebar ahora sí funcionan
-  app.toggleLanguage = function () {
-    const newLang = getLang() === 'es' ? 'en' : 'es';
-    setLang(newLang);
-    applyGlobalLanguage();
-    renderSidebarTopics();
-    // re-render de la ruta actual para placeholders/textos
-    app.navigate(app.currentRoute, app._lastPayload);
-  };
-
-  app.toggleTheme = function () {
-    toggleTheme();
-  };
-
-  // Atajo: navegar a una pregunta del simulador desde la búsqueda
-  app.navigateToQuestion = function (index) {
-    app.navigate('simulator');
-    setTimeout(() => {
-      if (typeof window.showSimulatorQuestion === 'function') {
-        window.showSimulatorQuestion(index);
-      }
-    }, 50);
-  };
-
-  app.getTopics = function () {
-    return app.topics || [];
-  };
-
-  // ----------------------------
-  // Sidebar Search (desactivado aquí)
-  // ----------------------------
-  function initSearch() {
-    // Sidebar search is handled by 31_search_service.js (SearchService). Avoid double-binding.
-    return;
-  }
-
-  // --- BUSCADOR DE PÁGINA PRINCIPAL (INTELIGENTE) ---
-  function initHomeSearch() {
-    const input = $('#dashboard-search');
-    const resultsContainer = $('#dashboard-search-results');
-    if (!input || !resultsContainer) return;
-
-    const handle = () => {
-      const term = input.value.trim();
-      if (!term) {
-        resultsContainer.classList.add('hidden');
-        resultsContainer.innerHTML = '';
-        return;
-      }
-      performHomeSearch(term, resultsContainer);
-    };
-
-    input.addEventListener('input', debounce(handle, 160));
-  }
-
-  function performHomeSearch(term, resultsContainer) {
-    const qTerm = (term || '').toLowerCase().trim();
-    const searchResults = [];
-
-    // 1) Preguntas del simulador (Google Sheet)
-    if (window.SIMULATOR_QUESTIONS && Array.isArray(window.SIMULATOR_QUESTIONS)) {
-      window.SIMULATOR_QUESTIONS.forEach((q, idx) => {
-        let score = 0;
-        const matches = [];
-
-        const textCore = (q.textEs || q.textEn || q.text || '').toString().toLowerCase();
-        const rationaleCore = (q.rationaleEs || q.rationaleEn || q.explanation || '').toString().toLowerCase();
-        const catCore = (q.category || '').toString().toLowerCase();
-
-        const optionsCore = Array.isArray(q.options)
-          ? q.options.map(o => (o.textEs || o.textEn || o.text || '')).join(' ').toString().toLowerCase()
-          : '';
-
-        const tags = (q.tags || []).map(tg => (tg || '').toString().toLowerCase());
-
-        if (textCore.includes(qTerm)) { score += 10; matches.push('question'); }
-        if (optionsCore.includes(qTerm)) { score += 6; matches.push('options'); }
-        if (rationaleCore.includes(qTerm)) { score += 4; matches.push('rationale'); }
-        if (catCore.includes(qTerm)) { score += 2; matches.push('category'); }
-
-        const tagMatches = tags.filter(tag => tag.includes(qTerm));
-        if (tagMatches.length > 0) { score += tagMatches.length * 2; matches.push(`tags (${tagMatches.length} matches)`); }
-
-        if (score > 0) {
-          const titleEsRaw = (q.textEs || q.text || q.textEn || '').toString();
-          const titleEnRaw = (q.textEn || q.text || q.textEs || '').toString();
-          const cut = (s) => {
-            const tt = (s || '').toString().trim();
-            return tt.length > 90 ? (tt.slice(0, 90) + '...') : tt;
-          };
-
-          const cat = (q.category || '').toString().trim();
-          searchResults.push({
-            type: 'question',
-            question: q,
-            index: idx,
-            score,
-            matches,
-            title: { es: cut(titleEsRaw), en: cut(titleEnRaw) },
-            subtitle: {
-              es: cat ? `Simulador • ${cat}` : 'Pregunta del Simulador',
-              en: cat ? `Simulator • ${cat}` : 'Simulator Question'
-            },
-            color: 'purple'
-          });
+        if (route === 'home' && homeBtn) homeBtn.classList.add('active');
+        else if (route === 'simulator' && simBtn) simBtn.classList.add('active');
+        else if (route.startsWith('topic/')) {
+            const topicId = route.split('/')[1];
+            const topicBtn = document.querySelector(`[data-topic-id="${topicId}"]`);
+            if (topicBtn) topicBtn.classList.add('active');
         }
-      });
     }
 
-    // 2) Temas (texto completo)
-    const textMatches = SmartTextIndex.search(qTerm);
-    textMatches.forEach(m => {
-      const topic = m.topic;
-      const titleEs = topic.titleEs || '';
-      const titleEn = topic.titleEn || titleEs || '';
-      const subtitleEs = (topic.tags || []).slice(0, 3).join(' • ');
-      const subtitleEn = subtitleEs;
+    // ==========================
+    // Global Search (sidebar)
+    // ==========================
+    function initGlobalSearch() {
+        const input = $('global-search');
+        const results = $('home-search-results');
+        if (!input || !results) return;
 
-      searchResults.push({
-        type: 'topic',
-        topic,
-        score: m.score,
-        matches: ['topic-text'],
-        title: { es: titleEs, en: titleEn },
-        subtitle: { es: subtitleEs, en: subtitleEn },
-        color: 'blue'
-      });
-    });
+        const renderResults = (items) => {
+            if (!items.length) {
+                results.innerHTML = `<div class="p-4 text-sm text-gray-500">${t('No se encontraron resultados.', 'No results found.')}</div>`;
+                results.classList.add('active');
+                return;
+            }
+            results.innerHTML = items.slice(0, 12).map(item => `
+                <button class="w-full text-left p-4 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors border-b border-gray-200/60 dark:border-white/10"
+                    onclick="window.nclexApp.navigate('topic/${item.topicId}')">
+                    <div class="font-bold text-sm text-gray-800 dark:text-gray-100">${item.title}</div>
+                    <div class="text-xs text-gray-500 mt-1">${item.topicLabel}</div>
+                </button>
+            `).join('');
+            results.classList.add('active');
+        };
 
-    // Ordenar por score
-    searchResults.sort((a, b) => b.score - a.score);
+        const buildIndex = () => {
+            const idx = [];
+            state.topics.forEach(topic => {
+                const label = state.lang === 'es' ? (topic.label_es || topic.name) : (topic.label_en || topic.name);
+                (topic.cards || []).forEach(card => {
+                    idx.push({
+                        topicId: topic.id,
+                        topicLabel: label,
+                        title: card.title || card.q || card.question || 'Item'
+                    });
+                });
+            });
+            return idx;
+        };
 
-    // Render cards
-    const cards = searchResults.slice(0, 12).map(result => {
-      const isTopic = result.type === 'topic';
-      const icon = isTopic ? normalizeFaIcon(result.topic.icon) : 'brain';
-      const badge = isTopic
-        ? `<span class="inline-flex px-3 py-1 rounded-full text-[11px] font-black bg-blue-500/15 text-blue-700 dark:text-blue-200 dark:bg-blue-500/15">${t('Tema', 'Topic')}</span>`
-        : `<span class="inline-flex px-3 py-1 rounded-full text-[11px] font-black bg-purple-500/15 text-purple-700 dark:text-purple-200 dark:bg-purple-500/15">${t('Pregunta', 'Question')}</span>`;
+        let searchIndex = buildIndex();
 
-      const onClick = isTopic
-        ? `window.nclexApp.navigate('topic', {id: '${escapeHtml(result.topic.id)}'})`
-        : `window.nclexApp.navigateToQuestion(${result.index})`;
+        input.addEventListener('focus', () => {
+            searchIndex = buildIndex();
+        });
 
-      return `
-        <button onclick="${onClick}"
-          class="w-full text-left p-4 rounded-3xl border border-gray-200 dark:border-white/10 bg-white dark:bg-brand-card hover:shadow-lg transition">
-          <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-gray-100 dark:bg-white/10 flex items-center justify-center">
-              <i class="fa-solid fa-${icon} text-${result.color === 'purple' ? 'purple-500' : 'brand-blue'}"></i>
+        input.addEventListener('input', () => {
+            const q = (input.value || '').trim().toLowerCase();
+            if (!q) {
+                results.classList.remove('active');
+                results.innerHTML = '';
+                return;
+            }
+            const matches = searchIndex.filter(x => (x.title || '').toLowerCase().includes(q));
+            renderResults(matches);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!results.contains(e.target) && e.target !== input) {
+                results.classList.remove('active');
+            }
+        });
+    }
+
+    // ==========================
+    // Renderers
+    // ==========================
+    function render(route) {
+        state.currentRoute = route;
+        updateNavActive(route);
+
+        const view = $('app-view');
+        if (!view) return;
+
+        if (route === 'home') {
+            view.innerHTML = renderHome();
+            initHomeSearch();
+            initBackToTop();
+            return;
+        }
+
+        if (route === 'simulator') {
+            view.innerHTML = renderSimulator();
+            initBackToTop();
+            return;
+        }
+
+        if (route.startsWith('topic/')) {
+            const topicId = route.split('/')[1];
+            const topic = state.topics.find(t => t.id === topicId);
+            if (!topic) {
+                view.innerHTML = `<div class="text-center text-gray-500 py-20">${t('Tema no encontrado.', 'Topic not found.')}</div>`;
+                return;
+            }
+            view.innerHTML = renderTopic(topic);
+            initBackToTop();
+            return;
+        }
+
+        // fallback
+        view.innerHTML = renderHome();
+        initHomeSearch();
+        initBackToTop();
+    }
+
+    function renderHome() {
+        const overall = getOverallProgress();
+        const topics = state.topics || [];
+
+        const moduleCards = topics.map(topic => {
+            const label = state.lang === 'es' ? (topic.label_es || topic.name) : (topic.label_en || topic.name);
+            const sub = state.lang === 'es' ? (topic.subtitle_es || topic.subtitle || '') : (topic.subtitle_en || topic.subtitle || '');
+            const icon = topic.icon || 'fa-solid fa-book';
+            const icoBg = topic.cardColor || 'bg-white/5';
+
+            return `
+                <button onclick="window.nclexApp.navigate('topic/${topic.id}')"
+                    class="group relative rounded-2xl bg-white/5 dark:bg-white/5 border border-white/10 hover:border-white/20 transition-all overflow-hidden text-left">
+                    <div class="p-6">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-2xl ${icoBg} flex items-center justify-center">
+                                <i class="${icon} text-xl ${topic.iconColor || 'text-brand-blue'}"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-white font-black text-lg truncate">${label}</div>
+                                <div class="text-gray-400 text-sm truncate">${sub}</div>
+                            </div>
+                        </div>
+                        <div class="mt-4 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div class="h-full bg-brand-blue rounded-full" style="width:${Math.min(100, Math.max(0, getTopicProgress(topic.id).total ? Math.round((getTopicProgress(topic.id).done/getTopicProgress(topic.id).total)*100) : 0))}%"></div>
+                        </div>
+                    </div>
+                    <div class="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="absolute -top-24 -right-24 w-64 h-64 bg-brand-blue/10 blur-3xl"></div>
+                    </div>
+                </button>
+            `;
+        }).join('');
+
+        return `
+            <div class="min-h-screen text-white">
+                <div class="max-w-6xl mx-auto">
+                    <div class="mb-8">
+                        <div class="text-4xl font-black tracking-tight">NCLEX Masterclass OS</div>
+                        <div class="text-gray-400 mt-1">${t('Tu éxito comienza hoy.', 'Your success starts today.')}</div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div class="lg:col-span-12 rounded-3xl bg-white/5 border border-white/10 p-6">
+                            <div class="flex items-start justify-between gap-6">
+                                <div>
+                                    <div class="font-extrabold text-lg">${t('Progreso General', 'Overall Progress')}</div>
+                                    <div class="text-sm text-gray-400">${overall.done} / ${overall.total || 0} ${t('preguntas', 'items')} • ${overall.modules} ${t('módulos', 'modules')}</div>
+                                </div>
+                                <div class="text-3xl font-black text-brand-blue">${overall.pct}%</div>
+                            </div>
+                            <div class="mt-4 h-2 bg-white/10 rounded-full overflow-hidden">
+                                <div class="h-full bg-brand-blue rounded-full" style="width:${overall.pct}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-12 rounded-3xl bg-white/5 border border-white/10 p-6">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <i class="fa-solid fa-magnifying-glass text-brand-blue"></i>
+                                    <div>
+                                        <div class="font-extrabold text-lg">${t('Búsqueda Inteligente', 'Smart Search')}</div>
+                                        <div class="text-sm text-gray-400">${t('Encuentra información en todos los módulos', 'Find information across all modules')}</div>
+                                    </div>
+                                </div>
+                                <div class="text-xs px-3 py-1 rounded-full bg-brand-blue/20 text-brand-blue font-bold">
+                                    ${topics.length} ${t('temas', 'topics')}
+                                </div>
+                            </div>
+                            <input id="home-smart-search" type="text"
+                                class="w-full mt-2 bg-black/30 border border-white/10 focus:border-brand-blue/40 rounded-2xl px-4 py-3 outline-none"
+                                placeholder="${t('Buscar términos médicos, diagnósticos, fármacos...', 'Search medical terms, diagnoses, drugs...')}" />
+                            <div id="home-smart-results" class="mt-3 hidden"></div>
+                            <div class="mt-3 text-xs text-gray-400">
+                                ${t('Ejemplos:', 'Examples:')}
+                                <span class="inline-flex gap-2 ml-2">
+                                    <span class="px-2 py-1 rounded-full bg-blue-500/20 text-blue-200">diabetes</span>
+                                    <span class="px-2 py-1 rounded-full bg-red-500/20 text-red-200">cardiovascular</span>
+                                    <span class="px-2 py-1 rounded-full bg-green-500/20 text-green-200">pediatrics</span>
+                                    <span class="px-2 py-1 rounded-full bg-purple-500/20 text-purple-200">SATA</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-4 rounded-3xl bg-gradient-to-br from-purple-600/60 to-purple-500/20 border border-white/10 p-6">
+                            <div class="flex items-center gap-3 mb-2">
+                                <i class="fa-solid fa-gamepad text-white"></i>
+                                <div class="font-black text-lg">${t('Simulador', 'Simulator')}</div>
+                            </div>
+                            <div class="text-sm text-white/80">${t('Práctica adaptativa (SATA + Opciones)', 'Adaptive practice (SATA + Options)')}</div>
+                            <button onclick="window.nclexApp.navigate('simulator')"
+                                class="mt-4 w-full py-3 rounded-2xl bg-white/15 hover:bg-white/20 transition font-bold">
+                                ${t('Abrir', 'Open')}
+                            </button>
+                        </div>
+
+                        <div class="lg:col-span-4 rounded-3xl bg-gradient-to-br from-orange-500/70 to-red-500/20 border border-white/10 p-6">
+                            <div class="flex items-center gap-3 mb-2">
+                                <i class="fa-solid fa-notes-medical text-white"></i>
+                                <div class="font-black text-lg">NGN Case: Sepsis</div>
+                            </div>
+                            <div class="text-sm text-white/80">${t('Demo de caso clínico Next Gen', 'Next Gen Case Study Demo')}</div>
+                            <button onclick="window.nclexApp.navigate('topic/27_critical_thinking_ngn')"
+                                class="mt-4 w-full py-3 rounded-2xl bg-white/15 hover:bg-white/20 transition font-bold">
+                                ${t('Abrir', 'Open')}
+                            </button>
+                        </div>
+
+                        <div class="lg:col-span-4 rounded-3xl bg-white/5 border border-white/10 p-6">
+                            <div class="flex items-center gap-3 mb-2">
+                                <i class="fa-solid fa-layer-group text-brand-blue"></i>
+                                <div class="font-black text-lg">${t('Library', 'Library')}</div>
+                            </div>
+                            <div class="text-4xl font-black">${topics.length} <span class="text-base text-gray-400 font-bold">${t('temas', 'Topics')}</span></div>
+                            <div class="text-sm text-gray-400 mt-2">${t('Acceso rápido desde el botón superior derecho.', 'Quick access from the top-right button.')}</div>
+                        </div>
+
+                        <div class="lg:col-span-12">
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                                ${moduleCards || ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="flex-1">
-              <div class="flex items-center gap-2">
-                ${badge}
-                <div class="text-xs text-gray-500 dark:text-gray-300 font-bold">${Math.round(result.score)}</div>
-              </div>
-              <div class="mt-1 font-black text-gray-900 dark:text-white leading-tight">
-                <span class="lang-es">${escapeHtml(result.title.es || '')}</span>
-                <span class="lang-en hidden-lang">${escapeHtml(result.title.en || result.title.es || '')}</span>
-              </div>
-              <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                <span class="lang-es">${escapeHtml(result.subtitle.es || '')}</span>
-                <span class="lang-en hidden-lang">${escapeHtml(result.subtitle.en || result.subtitle.es || '')}</span>
-              </div>
+        `;
+    }
+
+    function initHomeSearch() {
+        const input = document.getElementById('home-smart-search');
+        const results = document.getElementById('home-smart-results');
+        if (!input || !results) return;
+
+        const index = [];
+        state.topics.forEach(topic => {
+            const topicLabel = state.lang === 'es' ? (topic.label_es || topic.name) : (topic.label_en || topic.name);
+            (topic.cards || []).forEach(card => {
+                const title = card.title || card.q || card.question || '';
+                const text = (card.answer || card.a || card.explanation || '') + ' ' + (card.rationale || '');
+                index.push({ topicId: topic.id, topicLabel, title, text });
+            });
+        });
+
+        function show(items) {
+            if (!items.length) {
+                results.innerHTML = `<div class="text-sm text-gray-400 p-4">${t('Sin resultados.', 'No results.')}</div>`;
+                results.classList.remove('hidden');
+                return;
+            }
+
+            results.innerHTML = `
+                <div class="rounded-2xl border border-white/10 overflow-hidden">
+                    ${items.slice(0, 8).map(it => `
+                        <button class="w-full text-left p-4 bg-white/5 hover:bg-white/10 transition border-b border-white/10"
+                            onclick="window.nclexApp.navigate('topic/${it.topicId}')">
+                            <div class="font-extrabold">${it.title || t('Resultado', 'Result')}</div>
+                            <div class="text-xs text-gray-400 mt-1">${it.topicLabel}</div>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+            results.classList.remove('hidden');
+        }
+
+        input.addEventListener('input', () => {
+            const q = (input.value || '').trim().toLowerCase();
+            if (!q) {
+                results.classList.add('hidden');
+                results.innerHTML = '';
+                return;
+            }
+            const found = index.filter(it =>
+                (it.title || '').toLowerCase().includes(q) ||
+                (it.text || '').toLowerCase().includes(q) ||
+                (it.topicLabel || '').toLowerCase().includes(q)
+            );
+            show(found);
+        });
+    }
+
+    function renderSimulator() {
+        return `
+            <div class="text-white">
+                <div class="text-3xl font-black mb-2">${t('Simulador', 'Simulator')}</div>
+                <div class="text-gray-400 mb-6">${t('Aquí va tu simulador (ngn_engine.js / simulator.js).', 'Your simulator lives here (ngn_engine.js / simulator.js).')}</div>
+                <div class="rounded-3xl bg-white/5 border border-white/10 p-6">
+                    <div class="text-sm text-gray-300">
+                        ${t('Si tu simulador ya existe, este view solo debe llamar tu UI del simulador.', 'If your simulator already exists, this view should call your simulator UI.')}
+                    </div>
+                </div>
             </div>
-          </div>
-        </button>
-      `;
-    }).join('');
+        `;
+    }
 
-    resultsContainer.innerHTML = `
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-        ${cards || `<div class="text-sm text-gray-600 dark:text-gray-300">${t('Sin resultados.', 'No results.')}</div>`}
-      </div>
-    `;
-    resultsContainer.classList.remove('hidden');
-    applyGlobalLanguage(resultsContainer);
-  }
+    function renderTopic(topic) {
+        const label = state.lang === 'es' ? (topic.label_es || topic.name) : (topic.label_en || topic.name);
+        const subtitle = state.lang === 'es' ? (topic.subtitle_es || topic.subtitle || '') : (topic.subtitle_en || topic.subtitle || '');
+        const cards = topic.cards || [];
+        return `
+            <div class="text-white">
+                <div class="mb-6">
+                    <div class="text-3xl font-black">${label}</div>
+                    <div class="text-gray-400">${subtitle}</div>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    ${cards.slice(0, 50).map((c, i) => `
+                        <div class="rounded-3xl bg-white/5 border border-white/10 p-6">
+                            <div class="font-extrabold mb-2">${c.title || c.q || c.question || (t('Tarjeta', 'Card') + ' ' + (i + 1))}</div>
+                            <div class="text-gray-300 text-sm whitespace-pre-line">${c.answer || c.a || c.explanation || ''}</div>
+                        </div>
+                    `).join('')}
+                    ${!cards.length ? `<div class="text-gray-400">${t('Este tema no tiene contenido registrado.', 'This topic has no registered content.')}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
 
-  // ----------------------------
-  // Helpers
-  // ----------------------------
-  function debounce(fn, wait = 200) {
-    let tId;
-    return function (...args) {
-      clearTimeout(tId);
-      tId = setTimeout(() => fn.apply(this, args), wait);
+    // Back to top button
+    function initBackToTop() {
+        const btn = document.getElementById('back-to-top');
+        const main = document.getElementById('main-content');
+        if (!btn || !main) return;
+
+        const onScroll = () => {
+            const y = main.scrollTop;
+            if (y > 500) {
+                btn.classList.remove('hidden');
+                btn.classList.remove('opacity-0', 'translate-y-10');
+            } else {
+                btn.classList.add('opacity-0', 'translate-y-10');
+                setTimeout(() => btn.classList.add('hidden'), 200);
+            }
+        };
+
+        main.removeEventListener('scroll', onScroll);
+        main.addEventListener('scroll', onScroll);
+        onScroll();
+    }
+
+    // ==========================
+    // Public API (nclexApp)
+    // ==========================
+    window.nclexApp = {
+        navigate(route) {
+            // Always allow re-render on Home for refresh
+            if (state.currentRoute === route && route !== 'home') return;
+            render(route);
+        },
+        toggleLanguage() {
+            setLang(state.lang === 'es' ? 'en' : 'es');
+        },
+        toggleTheme() {
+            setTheme(isDark() ? 'light' : 'dark');
+        }
     };
-  }
 
-  // ----------------------------
-  // Bootstrap
-  // ----------------------------
-  function init() {
-    applyTheme(getTheme());
-    setLang(getLang());
-    initSearch();
-    applyGlobalLanguage();
+    // ==========================
+    // Init
+    // ==========================
+    function init() {
+        // Load persisted prefs
+        const savedLang = localStorage.getItem('nclex_lang');
+        const savedTheme = localStorage.getItem('nclex_theme');
 
-    // Render sidebar topics (ya deberían estar registrados cuando dispare DOMContentLoaded)
-    renderSidebarTopics();
-    updateHomeTopicsCount();
+        if (savedLang === 'en' || savedLang === 'es') state.lang = savedLang;
+        if (savedTheme === 'dark' || savedTheme === 'light') state.theme = savedTheme;
 
-    // Ruta inicial
-    const initial = app.currentRoute || 'home';
-    app.navigate(initial, app._lastPayload);
+        setLang(state.lang);
+        setTheme(state.theme);
 
-    // Botones UI globales (si existen)
-    const langBtn = $('#lang-toggle');
-    if (langBtn) {
-      langBtn.addEventListener('click', () => {
-        app.toggleLanguage();
-      });
+        renderTopicsNav();
+        initGlobalSearch();
+
+        // Default Home
+        render('home');
+        hideLoading();
     }
 
-    const themeBtn = $('#theme-toggle');
-    if (themeBtn) {
-      themeBtn.addEventListener('click', () => app.toggleTheme());
-    }
-  }
+    // Persist on changes
+    const originalSetLang = setLang;
+    setLang = function (lang) {
+        localStorage.setItem('nclex_lang', lang);
+        originalSetLang(lang);
+        renderTopicsNav();
+        initGlobalSearch();
+    };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+    const originalSetTheme = setTheme;
+    setTheme = function (theme) {
+        localStorage.setItem('nclex_theme', theme);
+        originalSetTheme(theme);
+    };
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+
 })();
