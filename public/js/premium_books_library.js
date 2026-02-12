@@ -1,711 +1,332 @@
-// premium_books_library.js — Apple-style PDF Library (VERSIÓN CORREGIDA 3.2)
-// FIXED: Conflictos de variables, dependencia segura de Utils y Caché Inteligente
+// premium_books_library.js — Visual Library v4.0 (Apple Books Style)
+// FEATURES: Portadas generadas automáticamente, Efecto 3D, Caché, Fechas arregladas
 
 (function () {
   'use strict';
 
-  // ===== DEPENDENCIAS SEGURAS =====
-  // Intentamos obtener NCLEXUtils, si no existe, creamos un fallback local robusto
+  // ===== DEPENDENCIAS =====
   const U = window.NCLEXUtils || {
     $: (s) => document.querySelector(s),
     $$: (s) => Array.from(document.querySelectorAll(s)),
-    storageGet: (k, d) => {
-      try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; }
-    },
-    storageSet: (k, v) => {
-      try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; }
-    },
-    debounce: (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; },
+    storageGet: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } },
+    storageSet: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
     escapeHtml: (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
     format: {} 
   };
+  const { storageGet, storageSet, escapeHtml } = U;
 
-  // Destructuración segura para uso interno
-  const { $, storageGet, storageSet, escapeHtml } = U;
-
-  // Definición segura de helpers de formato (evitando doble declaración)
-  const formatFileSize = (U.format && U.format.formatFileSize) 
-    ? U.format.formatFileSize 
-    : function(bytes) {
-        if (!bytes || bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-      };
-
-  const truncateText = (U.format && U.format.truncate)
-    ? U.format.truncate
-    : function(t, m) { 
-        return (t && t.length > m) ? t.slice(0, m) + '...' : t; 
-      };
+  const formatFileSize = (U.format && U.format.formatFileSize) ? U.format.formatFileSize : (bytes) => {
+    if (!bytes) return '0 B';
+    const k = 1024, sizes = ['B', 'KB', 'MB', 'GB'], i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   // ===== CONFIGURACIÓN =====
   const CONFIG = {
     GITHUB_RELEASE_URL: 'https://api.github.com/repos/Nclexpass/NCLEX1.2/releases/tags/BOOKS',
-    CACHE_DURATION: 5 * 60 * 1000, // 5 minutos
+    CACHE_DURATION: 5 * 60 * 1000, 
     STORAGE_KEY: 'books_cache',
     CACHE_TIME_KEY: 'books_cache_time',
     MAX_RETRIES: 2,
-    RETRY_DELAY: 1500
+    RETRY_DELAY: 1500,
+    // Paleta de colores para las portadas (Estilo Medicina/Moderno)
+    COVERS: [
+      ['#3b82f6', '#1d4ed8'], // Azul
+      ['#8b5cf6', '#6d28d9'], // Púrpura
+      ['#10b981', '#047857'], // Esmeralda
+      ['#f59e0b', '#b45309'], // Ámbar
+      ['#ec4899', '#be185d'], // Rosa
+      ['#6366f1', '#4338ca'], // Índigo
+      ['#0ea5e9', '#0369a1'], // Celeste
+      ['#64748b', '#334155']  // Slate
+    ]
   };
 
   // ===== ESTADO =====
-  const state = {
-    books: [],
-    isLoading: false,
-    error: null,
-    lastFetch: 0,
-    retryCount: 0,
-    isOpen: false
-  };
+  const state = { books: [], isLoading: false, error: null, isOpen: false };
 
-  // ===== ESTILOS =====
+  // ===== GENERADOR DE PORTADAS =====
+  // Asigna un color consistente basado en el nombre del libro
+  function getCoverColor(title) {
+    let hash = 0;
+    for (let i = 0; i < title.length; i++) {
+      hash = title.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % CONFIG.COVERS.length;
+    return CONFIG.COVERS[index];
+  }
+
+  // ===== ESTILOS (CSS ART 3D) =====
   function injectStyles() {
-    if (document.getElementById('nclex-library-styles-v3')) return;
-
+    if (document.getElementById('nclex-library-styles-v4')) return;
     const style = document.createElement('style');
-    style.id = 'nclex-library-styles-v3';
+    style.id = 'nclex-library-styles-v4';
     style.textContent = `
       /* Botón flotante */
-      #nclex-library-btn {
-        position: fixed;
-        top: 24px;
-        right: 24px;
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, rgb(var(--brand-blue-rgb)), rgba(var(--brand-blue-rgb), 0.8));
-        border: none;
-        box-shadow: 0 8px 25px rgba(var(--brand-blue-rgb), 0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        z-index: 9980;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        color: white;
-      }
+      #nclex-library-btn { position: fixed; top: 24px; right: 24px; width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, rgb(var(--brand-blue-rgb)), rgba(var(--brand-blue-rgb), 0.8)); border: none; box-shadow: 0 8px 25px rgba(var(--brand-blue-rgb), 0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 9980; transition: all 0.2s; color: white; }
+      #nclex-library-btn:hover { transform: translateY(-2px) scale(1.05); }
       
-      #nclex-library-btn:hover {
-        transform: translateY(-2px) scale(1.05);
-        box-shadow: 0 12px 35px rgba(var(--brand-blue-rgb), 0.4);
-      }
-      
-      #nclex-library-btn:active {
-        transform: scale(0.95);
-      }
-
-      /* Badge de notificación */
-      .nclex-lib-badge {
-        position: absolute;
-        top: -4px;
-        right: -4px;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        background: #ef4444;
-        border: 2px solid var(--brand-card, white);
-        display: none;
-      }
-      
-      .dark .nclex-lib-badge {
-        border-color: var(--brand-card, #1c1c1e);
-      }
-      
-      .nclex-lib-badge.visible {
-        display: block;
-      }
-
       /* Modal */
-      #nclex-library-modal {
-        position: fixed;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(8px);
-        z-index: 9999;
-        opacity: 0;
-        transition: opacity 0.3s ease;
+      #nclex-library-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); z-index: 9999; opacity: 0; transition: opacity 0.3s ease; }
+      #nclex-library-modal.visible { display: flex; opacity: 1; }
+      
+      .nclex-lib-container { width: 100%; max-width: 1000px; height: 85vh; background: var(--brand-bg); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.3s ease; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+      #nclex-library-modal.visible .nclex-lib-container { transform: scale(1); }
+
+      /* Grid de Libros (Estantería) */
+      .nclex-lib-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
+        gap: 32px 24px; 
+        padding: 40px; 
+        overflow-y: auto;
       }
       
-      #nclex-library-modal.visible {
-        display: flex;
-        opacity: 1;
-      }
-
-      /* Contenedor principal */
-      .nclex-lib-container {
-        width: 100%;
-        max-width: 900px;
-        max-height: 85vh;
-        background: var(--brand-card, rgba(255, 255, 255, 0.95));
-        border: 1px solid var(--brand-border, rgba(0, 0, 0, 0.1));
-        border-radius: 20px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      /* DISEÑO DE LIBRO 3D */
+      .book-item {
         display: flex;
         flex-direction: column;
-        overflow: hidden;
-        transform: scale(0.95);
-        transition: transform 0.3s ease;
-      }
-      
-      #nclex-library-modal.visible .nclex-lib-container {
-        transform: scale(1);
-      }
-      
-      .dark .nclex-lib-container {
-        background: var(--brand-card, rgba(28, 28, 30, 0.95));
-        border-color: var(--brand-border, rgba(255, 255, 255, 0.1));
+        align-items: center;
+        perspective: 1000px;
+        cursor: pointer;
+        group: hover;
       }
 
-      /* Header */
-      .nclex-lib-header {
-        padding: 20px 24px;
-        background: linear-gradient(to bottom, var(--brand-bg, #f5f5f7), var(--brand-card, white));
-        border-bottom: 1px solid var(--brand-border, rgba(0, 0, 0, 0.1));
+      .book-cover {
+        width: 100%;
+        aspect-ratio: 2/3;
+        border-radius: 4px 12px 12px 4px;
+        position: relative;
+        box-shadow: 
+          inset 4px 0 10px rgba(0,0,0,0.1), /* Sombra interior lomo */
+          inset -1px 0 2px rgba(255,255,255,0.3), /* Brillo borde */
+          5px 5px 15px rgba(0,0,0,0.15); /* Sombra 3D */
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        overflow: hidden;
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        padding: 12px;
+      }
+
+      .book-item:hover .book-cover {
+        transform: translateY(-8px) rotateY(-5deg);
+        box-shadow: 
+          inset 4px 0 10px rgba(0,0,0,0.1),
+          15px 20px 30px rgba(0,0,0,0.25);
+      }
+
+      /* Decoración del libro */
+      .book-spine {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 12px;
+        background: rgba(0,0,0,0.2);
+        z-index: 10;
+        border-right: 1px solid rgba(255,255,255,0.1);
+      }
+      
+      .book-content {
+        z-index: 20;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
         justify-content: space-between;
       }
-      
-      .dark .nclex-lib-header {
-        background: linear-gradient(to bottom, rgba(255,255,255,0.05), var(--brand-card, #1c1c1e));
-      }
 
-      /* Grid de libros */
-      .nclex-lib-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 16px;
-        padding: 24px;
-        overflow-y: auto;
-        max-height: calc(85vh - 140px);
-      }
-
-      @media (max-width: 640px) {
-        .nclex-lib-grid {
-          grid-template-columns: 1fr;
-          padding: 16px;
-        }
-      }
-
-      /* Tarjeta de libro */
-      .nclex-lib-book {
-        background: var(--brand-bg, #f5f5f7);
-        border: 1px solid var(--brand-border, rgba(0, 0, 0, 0.05));
-        border-radius: 16px;
-        padding: 20px;
-        display: flex;
-        gap: 16px;
-        transition: all 0.2s ease;
-        cursor: pointer;
-      }
-      
-      .nclex-lib-book:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        border-color: rgba(var(--brand-blue-rgb), 0.3);
-      }
-      
-      .dark .nclex-lib-book {
-        background: rgba(255, 255, 255, 0.05);
-      }
-
-      /* Thumbnail */
-      .nclex-lib-thumb {
-        width: 70px;
-        height: 95px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #475569 0%, #1e293b 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      }
-      
-      .nclex-lib-thumb i {
-        color: white;
-        font-size: 28px;
-        opacity: 0.9;
-      }
-
-      /* Info del libro */
-      .nclex-lib-info {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-      }
-      
-      .nclex-lib-title {
-        font-weight: 700;
-        font-size: 15px;
-        color: var(--brand-text, #1c1c1e);
-        line-height: 1.3;
-        margin-bottom: 8px;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
-      
-      .nclex-lib-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        font-size: 12px;
-        color: var(--brand-text-muted, #6b7280);
-        margin-bottom: 12px;
-      }
-      
-      .nclex-lib-meta span {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-
-      /* Botón de descarga */
-      .nclex-lib-download {
-        margin-top: auto;
-        padding: 10px 16px;
-        border-radius: 10px;
-        background: rgb(var(--brand-blue-rgb));
+      .book-title {
+        font-family: 'Inter', sans-serif;
+        font-weight: 800;
         color: white;
         font-size: 13px;
+        line-height: 1.3;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        letter-spacing: -0.02em;
+      }
+
+      .book-icon {
+        color: rgba(255,255,255,0.8);
+        font-size: 20px;
+        align-self: flex-end;
+      }
+
+      .book-details {
+        margin-top: 12px;
+        text-align: center;
+        width: 100%;
+      }
+      
+      .book-meta-title {
+        font-size: 12px;
         font-weight: 600;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
+        color: var(--brand-text);
+        margin-bottom: 4px;
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+      }
+      
+      .book-meta-info {
+        font-size: 10px;
+        color: var(--brand-text-muted);
+        display: flex;
         justify-content: center;
         gap: 8px;
-        transition: all 0.15s ease;
-        border: none;
-        cursor: pointer;
-      }
-      
-      .nclex-lib-download:hover {
-        opacity: 0.9;
-        transform: scale(1.02);
-      }
-      
-      .nclex-lib-download:active {
-        transform: scale(0.98);
       }
 
-      /* Estados */
-      .nclex-lib-loading,
-      .nclex-lib-error,
-      .nclex-lib-empty {
-        padding: 60px 24px;
-        text-align: center;
-        color: var(--brand-text-muted, #6b7280);
-      }
-      
-      .nclex-lib-loading-spinner {
-        width: 48px;
-        height: 48px;
-        border: 4px solid var(--brand-bg, #e5e7eb);
-        border-top-color: rgb(var(--brand-blue-rgb));
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 16px;
-      }
-      
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
-
-      .nclex-lib-error-icon {
-        width: 64px;
-        height: 64px;
-        border-radius: 50%;
-        background: #fee2e2;
-        color: #dc2626;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        margin: 0 auto 16px;
-      }
-      
-      .dark .nclex-lib-error-icon {
-        background: rgba(220, 38, 38, 0.2);
-      }
-
-      /* Footer */
-      .nclex-lib-footer {
-        padding: 16px 24px;
-        background: var(--brand-bg, #f5f5f7);
-        border-top: 1px solid var(--brand-border, rgba(0, 0, 0, 0.05));
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 12px;
-        color: var(--brand-text-muted, #6b7280);
-      }
-      
-      .nclex-lib-refresh {
-        padding: 8px 16px;
-        border-radius: 8px;
-        background: transparent;
-        border: 1px solid var(--brand-border, rgba(0, 0, 0, 0.1));
-        color: var(--brand-text, #1c1c1e);
-        font-size: 12px;
-        cursor: pointer;
-        transition: all 0.15s;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      
-      .nclex-lib-refresh:hover {
-        background: var(--brand-card, white);
-      }
+      /* Header & Footer */
+      .nclex-lib-header { padding: 20px; border-bottom: 1px solid var(--brand-border); display: flex; justify-content: space-between; align-items: center; }
+      .nclex-lib-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--brand-text-muted); }
     `;
     document.head.appendChild(style);
   }
 
   // ===== UTILIDADES =====
-
   function isSpanishUI() {
     const esEl = document.querySelector('.lang-es');
-    // Si no hay indicadores de idioma, asumir español por defecto
     return esEl ? !esEl.classList.contains('hidden-lang') : true;
   }
+  function t(es, en) { return isSpanishUI() ? es : en; }
 
-  function t(es, en) {
-    return isSpanishUI() ? es : en;
-  }
-
-  function getCachedData() {
+  // ===== FETCH DATOS =====
+  async function fetchBooks() {
     const cached = storageGet(CONFIG.STORAGE_KEY, null);
     const cachedTime = storageGet(CONFIG.CACHE_TIME_KEY, 0);
-    const now = Date.now();
     
-    if (cached && (now - cachedTime) < CONFIG.CACHE_DURATION) {
-      console.log('📚 Using cached books data');
-      return cached;
-    }
-    return null;
-  }
-
-  function setCachedData(data) {
-    storageSet(CONFIG.STORAGE_KEY, data);
-    storageSet(CONFIG.CACHE_TIME_KEY, Date.now());
-  }
-
-  // ===== FETCH DE DATOS =====
-
-  async function fetchBooks() {
-    // Intentar usar caché primero
-    const cached = getCachedData();
-    if (cached) {
+    if (cached && (Date.now() - cachedTime) < CONFIG.CACHE_DURATION) {
       state.books = cached;
-      state.isLoading = false;
       render();
-      // Fetch en background para actualizar si es necesario
       fetchFromAPI(true);
       return;
     }
-
     await fetchFromAPI(false);
   }
 
-  async function fetchFromAPI(silent = false) {
-    if (!silent) {
-      state.isLoading = true;
-      state.error = null;
-      render();
-    }
-
+  async function fetchFromAPI(silent) {
+    if (!silent) { state.isLoading = true; render(); }
     try {
-      const response = await fetch(CONFIG.GITHUB_RELEASE_URL, {
-        cache: 'no-store',
-        headers: { 'Accept': 'application/vnd.github.v3+json' }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const release = await response.json();
-
-      state.books = (release.assets || [])
-        .filter(a => (a.name || '').toLowerCase().endsWith('.pdf'))
+      const res = await fetch(CONFIG.GITHUB_RELEASE_URL);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      state.books = (data.assets || [])
+        .filter(a => a.name.toLowerCase().endsWith('.pdf'))
         .map(a => ({
           id: a.id,
-          name: cleanFileName(a.name),
-          rawName: a.name,
-          size: a.size || 0,
-          downloadUrl: a.browser_download_url,
-          updatedAt: a.updated_at ? new Date(a.updated_at) : null,
-          downloadCount: a.download_count || 0
+          name: a.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          size: a.size,
+          url: a.browser_download_url,
+          date: a.updated_at
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
-
-      state.lastFetch = Date.now();
-      state.retryCount = 0;
-      setCachedData(state.books);
-
-    } catch (error) {
-      console.error('Error fetching books:', error);
       
-      // Reintentar si no es silent y no hemos agotado reintentos
-      if (!silent && state.retryCount < CONFIG.MAX_RETRIES) {
-        state.retryCount++;
-        console.log(`Retrying... (${state.retryCount}/${CONFIG.MAX_RETRIES})`);
-        setTimeout(() => fetchFromAPI(false), CONFIG.RETRY_DELAY * state.retryCount);
-        return;
-      }
-
-      state.error = error.message;
-      
-      // Usar caché vieja si existe como fallback aunque esté vencida
-      const oldCache = storageGet(CONFIG.STORAGE_KEY, null);
-      if (oldCache) {
-        state.books = oldCache;
-        state.error = t('Conexión débil. Mostrando datos guardados.', 'Weak connection. Showing cached data.');
-      }
+      storageSet(CONFIG.STORAGE_KEY, state.books);
+      storageSet(CONFIG.CACHE_TIME_KEY, Date.now());
+    } catch (e) {
+      if (!silent) state.error = "Error loading books";
     } finally {
       state.isLoading = false;
       render();
     }
   }
 
-  function cleanFileName(filename) {
-    return filename
-      .replace(/\.pdf$/i, '')
-      .replace(/[-_]/g, ' ')
-      .replace(/\b\w/g, l => l.toUpperCase())
-      .trim();
-  }
-
-  // ===== RENDERIZADO =====
-
+  // ===== RENDERIZADO VISUAL =====
   function render() {
     const modal = document.getElementById('nclex-library-modal');
     if (!modal) return;
+    const content = modal.querySelector('.nclex-lib-content');
 
-    const content = modal.querySelector('.nclex-lib-content') || modal;
-
-    if (state.isLoading && state.books.length === 0) {
-      content.innerHTML = `
-        <div class="nclex-lib-loading">
-          <div class="nclex-lib-loading-spinner"></div>
-          <p class="font-medium">${t('Cargando biblioteca...', 'Loading library...')}</p>
-          <p class="text-sm opacity-70 mt-2">${t('Conectando con GitHub', 'Connecting to GitHub')}</p>
-        </div>
-      `;
+    if (state.isLoading && !state.books.length) {
+      content.innerHTML = `<div class="nclex-lib-loading"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4"></i><p>${t('Cargando biblioteca...', 'Loading Library...')}</p></div>`;
       return;
     }
 
-    if (state.error && state.books.length === 0) {
-      content.innerHTML = `
-        <div class="nclex-lib-error">
-          <div class="nclex-lib-error-icon">
-            <i class="fa-solid fa-exclamation-triangle"></i>
-          </div>
-          <h3 class="font-bold text-lg text-[var(--brand-text)] mb-2">
-            ${t('Error de conexión', 'Connection error')}
-          </h3>
-          <p class="text-sm mb-4">${escapeHtml(state.error)}</p>
-          <button onclick="window.Library.refresh()" 
-            class="px-4 py-2 rounded-xl bg-[rgb(var(--brand-blue-rgb))] text-white font-bold">
-            ${t('Reintentar', 'Retry')}
-          </button>
-        </div>
-      `;
+    if (!state.books.length) {
+      content.innerHTML = `<div class="nclex-lib-loading"><p>${t('No se encontraron libros', 'No books found')}</p></div>`;
       return;
     }
 
-    if (state.books.length === 0) {
-      content.innerHTML = `
-        <div class="nclex-lib-empty">
-          <div class="text-5xl mb-4">📚</div>
-          <p class="font-medium">${t('No se encontraron libros', 'No books found')}</p>
-        </div>
-      `;
-      return;
-    }
+    content.innerHTML = `<div class="nclex-lib-grid">
+      ${state.books.map(book => {
+        const [bgFrom, bgTo] = getCoverColor(book.name);
+        // Manejo seguro de fecha
+        let dateStr = '';
+        try {
+           const d = new Date(book.date);
+           if(!isNaN(d)) dateStr = d.toLocaleDateString(isSpanishUI() ? 'es-ES' : 'en-US', {month:'short', year:'numeric'});
+        } catch(e) {}
 
-    const booksHtml = state.books.map(book => {
-      const size = formatFileSize(book.size);
-      const date = book.updatedAt 
-        ? book.updatedAt.toLocaleDateString(isSpanishUI() ? 'es-ES' : 'en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-          })
-        : '';
-
-      return `
-        <div class="nclex-lib-book">
-          <div class="nclex-lib-thumb">
-            <i class="fa-solid fa-file-pdf"></i>
-          </div>
-          <div class="nclex-lib-info">
-            <div class="nclex-lib-title" title="${escapeHtml(book.name)}">
-              ${escapeHtml(book.name)}
+        return `
+        <a href="${book.url}" target="_blank" class="book-item group">
+          <div class="book-cover" style="background: linear-gradient(135deg, ${bgFrom}, ${bgTo});">
+            <div class="book-spine"></div>
+            <div class="book-content">
+              <div class="book-title">${escapeHtml(book.name)}</div>
+              <div class="book-icon"><i class="fa-solid fa-book-medical"></i></div>
             </div>
-            <div class="nclex-lib-meta">
-              ${size ? `<span><i class="fa-solid fa-hard-drive"></i> ${size}</span>` : ''}
-              ${date ? `<span><i class="fa-regular fa-calendar"></i> ${date}</span>` : ''}
-              ${book.downloadCount ? `<span><i class="fa-solid fa-download"></i> ${book.downloadCount}</span>` : ''}
-            </div>
-            <a href="${book.downloadUrl}" target="_blank" rel="noopener noreferrer"
-               class="nclex-lib-download"
-               onclick="window.Library.trackDownload('${book.id}')">
-              <i class="fa-solid fa-cloud-arrow-down"></i>
-              ${t('Descargar PDF', 'Download PDF')}
-            </a>
+            <div style="position:absolute; inset:0; background: linear-gradient(to right, rgba(255,255,255,0.1) 0%, transparent 100%); pointer-events:none;"></div>
           </div>
-        </div>
-      `;
-    }).join('');
-
-    content.innerHTML = `<div class="nclex-lib-grid">${booksHtml}</div>`;
+          <div class="book-details">
+            <div class="book-meta-title">${escapeHtml(book.name)}</div>
+            <div class="book-meta-info">
+              <span>${formatFileSize(book.size)}</span>
+              ${dateStr ? `<span>• ${dateStr}</span>` : ''}
+            </div>
+            <div class="mt-2 text-xs font-bold text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
+               ${t('Descargar', 'Download')} <i class="fa-solid fa-arrow-down"></i>
+            </div>
+          </div>
+        </a>
+        `;
+      }).join('')}
+    </div>`;
   }
 
-  // ===== DOM ELEMENTS =====
-
-  function ensureElements() {
+  // ===== INICIALIZACIÓN =====
+  function init() {
     if (document.getElementById('nclex-library-btn')) return;
-
     injectStyles();
 
     // Botón flotante
     const btn = document.createElement('button');
     btn.id = 'nclex-library-btn';
-    btn.setAttribute('aria-label', t('Abrir biblioteca', 'Open library'));
-    btn.innerHTML = `
-      <i class="fa-solid fa-book-open text-xl"></i>
-      <span class="nclex-lib-badge" id="nclex-lib-badge"></span>
-    `;
-    btn.addEventListener('click', open);
+    btn.innerHTML = `<i class="fa-solid fa-book-open text-xl"></i>`;
+    btn.onclick = () => {
+      state.isOpen = true;
+      document.getElementById('nclex-library-modal').classList.add('visible');
+      if(!state.books.length) fetchBooks();
+    };
     document.body.appendChild(btn);
 
-    // Modal
+    // Modal Estructura
     const modal = document.createElement('div');
     modal.id = 'nclex-library-modal';
     modal.innerHTML = `
       <div class="nclex-lib-container">
         <div class="nclex-lib-header">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white">
-              <i class="fa-solid fa-book-open"></i>
-            </div>
-            <div>
-              <h2 class="font-bold text-[var(--brand-text)]">Library</h2>
-              <p class="text-xs text-[var(--brand-text-muted)]">
-                ${state.books.length} ${t('PDFs disponibles', 'PDFs available')}
-              </p>
-            </div>
-          </div>
-          <button onclick="window.Library.close()" 
-            class="w-10 h-10 rounded-full hover:bg-[var(--brand-bg)] flex items-center justify-center text-[var(--brand-text)] transition">
+          <h2 class="font-bold text-xl text-[var(--brand-text)] flex items-center gap-2">
+            <i class="fa-solid fa-graduation-cap text-blue-500"></i> Premium Library
+          </h2>
+          <button class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition"
+            onclick="document.getElementById('nclex-library-modal').classList.remove('visible');">
             <i class="fa-solid fa-xmark text-lg"></i>
           </button>
         </div>
-        
-        <div class="nclex-lib-content flex-1 overflow-hidden"></div>
-        
-        <div class="nclex-lib-footer">
-          <span>
-            <i class="fa-brands fa-github mr-1"></i>
-            ${t('Fuente: GitHub Releases', 'Source: GitHub Releases')}
-          </span>
-          <button onclick="window.Library.refresh()" class="nclex-lib-refresh">
-            <i class="fa-solid fa-rotate"></i>
-            ${t('Actualizar', 'Refresh')}
-          </button>
-        </div>
+        <div class="nclex-lib-content flex-1 overflow-y-auto bg-[var(--brand-bg)]"></div>
       </div>
     `;
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) close();
-    });
-
-    // Cerrar con Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && state.isOpen) close();
-    });
-
+    modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('visible'); };
     document.body.appendChild(modal);
+
+    // Precargar
+    setTimeout(fetchBooks, 2500);
   }
 
-  // ===== API PÚBLICA =====
-
-  function open() {
-    ensureElements();
-    const modal = document.getElementById('nclex-library-modal');
-    if (!modal) return;
-
-    state.isOpen = true;
-    modal.classList.add('visible');
-    document.body.style.overflow = 'hidden';
-
-    if (state.books.length === 0 && !state.isLoading) {
-      fetchBooks();
-    } else {
-      render();
-    }
-  }
-
-  function close() {
-    const modal = document.getElementById('nclex-library-modal');
-    if (!modal) return;
-
-    state.isOpen = false;
-    modal.classList.remove('visible');
-    document.body.style.overflow = '';
-  }
-
-  async function refresh() {
-    state.retryCount = 0;
-    storageSet(CONFIG.CACHE_TIME_KEY, 0); // Invalidar caché
-    await fetchBooks();
-  }
-
-  function trackDownload(bookId) {
-    // Analytics opcional
-    console.log('📥 Download tracked:', bookId);
-  }
-
-  function showNotification() {
-    const badge = document.getElementById('nclex-lib-badge');
-    if (badge) badge.classList.add('visible');
-  }
-
-  // Exponer API
-  window.Library = {
-    open,
-    close,
-    refresh,
-    trackDownload,
-    showNotification,
-    getBooks: () => state.books,
-    isOpen: () => state.isOpen
-  };
-
-  // Inicialización segura
-  function init() {
-    ensureElements();
-    // Precargar en background
-    setTimeout(() => {
-      if (!state.isOpen) fetchBooks();
-    }, 2000);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 
 })();
