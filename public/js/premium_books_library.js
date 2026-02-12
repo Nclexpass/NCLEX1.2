@@ -1,5 +1,5 @@
-// premium_books_library.js — Visual Library v5.0 (Luxury Edition)
-// FEATURES: Portadas "Editorial", Cinta Roja, Títulos Grandes, Visor Online
+// premium_books_library.js — Visual Library v6.0 (Spectacular Edition)
+// FEATURES: Diseño Tapa Dura, Borde Dorado, Cinta Roja Corregida, Visor Online
 
 (function () {
   'use strict';
@@ -29,23 +29,21 @@
     CACHE_TIME_KEY: 'books_cache_time',
     MAX_RETRIES: 2,
     RETRY_DELAY: 1500,
-    // Paleta de colores "Editorial" (Más oscuros y elegantes)
+    // Paleta de colores PROFUNDOS (Estilo Académico)
     COVERS: [
-      ['#1e3a8a', '#172554'], // Azul Marino Profundo
-      ['#581c87', '#3b0764'], // Púrpura Real
-      ['#065f46', '#064e3b'], // Verde Bosque
-      ['#9a3412', '#7c2d12'], // Terracota
-      ['#831843', '#500724'], // Vino
-      ['#3730a3', '#312e81'], // Índigo Oscuro
-      ['#0c4a6e', '#082f49'], // Azul Petróleo
-      ['#334155', '#0f172a']  // Pizarra
+      ['#0f172a', '#1e293b'], // Midnight Blue
+      ['#450a0a', '#7f1d1d'], // Deep Red
+      ['#064e3b', '#065f46'], // British Green
+      ['#312e81', '#3730a3'], // Royal Indigo
+      ['#4c1d95', '#5b21b6'], // Deep Purple
+      ['#78350f', '#92400e'], // Leather Brown
+      ['#111827', '#374151']  // Charcoal
     ]
   };
 
   // ===== ESTADO =====
   const state = { books: [], isLoading: false, error: null, isOpen: false };
 
-  // ===== GENERADOR DE COLOR =====
   function getCoverColor(title) {
     let hash = 0;
     for (let i = 0; i < title.length; i++) { hash = title.charCodeAt(i) + ((hash << 5) - hash); }
@@ -53,116 +51,131 @@
     return CONFIG.COVERS[index];
   }
 
-  // ===== ESTILOS (DISEÑO DE LUJO) =====
+  // ===== ESTILOS (CSS ART - NIVEL PRO) =====
   function injectStyles() {
-    if (document.getElementById('nclex-library-styles-v5')) return;
+    if (document.getElementById('nclex-library-styles-v6')) return;
     const style = document.createElement('style');
-    style.id = 'nclex-library-styles-v5';
+    style.id = 'nclex-library-styles-v6';
     style.textContent = `
       /* Botón flotante */
       #nclex-library-btn { position: fixed; top: 24px; right: 24px; width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, rgb(var(--brand-blue-rgb)), rgba(var(--brand-blue-rgb), 0.8)); border: none; box-shadow: 0 8px 25px rgba(var(--brand-blue-rgb), 0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 9980; transition: all 0.2s; color: white; }
       #nclex-library-btn:hover { transform: translateY(-2px) scale(1.05); }
       
-      /* Modal */
-      #nclex-library-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); z-index: 9999; opacity: 0; transition: opacity 0.3s ease; }
+      /* Modal Container */
+      #nclex-library-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.75); backdrop-filter: blur(12px); z-index: 9999; opacity: 0; transition: opacity 0.3s ease; }
       #nclex-library-modal.visible { display: flex; opacity: 1; }
-      .nclex-lib-container { width: 100%; max-width: 1100px; height: 90vh; background: var(--brand-bg); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.3s ease; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+      
+      .nclex-lib-container { width: 100%; max-width: 1200px; height: 90vh; background: var(--brand-bg); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); transition: transform 0.3s ease; box-shadow: 0 40px 80px rgba(0,0,0,0.6); border: 1px solid var(--brand-border); }
       #nclex-library-modal.visible .nclex-lib-container { transform: scale(1); }
       
-      /* Grid de Libros */
+      /* Grid (Estantería de Madera) */
       .nclex-lib-grid { 
         display: grid; 
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
-        gap: 48px 32px; 
-        padding: 40px; 
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+        gap: 50px 30px; 
+        padding: 50px; 
         overflow-y: auto; 
       }
       
-      /* DISEÑO LIBRO 3D MEJORADO */
-      .book-item { display: flex; flex-direction: column; align-items: center; perspective: 1000px; group: hover; }
+      /* === LIBRO 3D ESPECTACULAR === */
+      .book-item { display: flex; flex-direction: column; align-items: center; perspective: 1200px; group: hover; }
       
       .book-cover {
-        width: 100%; aspect-ratio: 2/3.1; /* Un poco más alto */
-        border-radius: 2px 6px 6px 2px;
+        width: 100%; aspect-ratio: 1/1.55; /* Proporción áurea de libro */
+        border-radius: 4px 8px 8px 4px;
         position: relative;
         box-shadow: 
-          inset 10px 0 20px rgba(0,0,0,0.2), /* Sombra lomo fuerte */
-          5px 5px 15px rgba(0,0,0,0.25);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+          inset 6px 0 15px rgba(0,0,0,0.3), /* Sombra Lomo */
+          0 10px 20px rgba(0,0,0,0.3), /* Sombra Suelo */
+          0 2px 4px rgba(255,255,255,0.1); /* Brillo borde */
+        transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease;
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        padding: 16px;
+        padding: 20px;
         cursor: pointer;
-        border-left: 4px solid rgba(255,255,255,0.1); /* Efecto encuadernación */
+        border: 1px solid rgba(255,255,255,0.1);
       }
 
+      /* Efecto Hover (Levitación) */
       .book-item:hover .book-cover { 
-        transform: translateY(-10px) rotateY(-5deg); 
-        box-shadow: 15px 25px 40px rgba(0,0,0,0.35); 
+        transform: translateY(-15px) rotateY(-8deg) scale(1.02); 
+        box-shadow: 20px 30px 50px rgba(0,0,0,0.5); 
+        z-index: 10;
       }
 
-      /* La Cinta Roja (Bookmark) */
-      .book-bookmark {
-        position: absolute;
-        top: -5px;
-        right: 20px;
-        width: 24px;
-        height: 45px;
-        background: #dc2626; /* Rojo intenso */
-        box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        z-index: 30;
-      }
-      .book-bookmark::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 10px;
-        background: inherit;
-        clip-path: polygon(0 0, 50% 100%, 100% 0);
-        transform: translateY(9px);
+      /* Marco Dorado (Luxury Touch) */
+      .book-frame {
+        position: absolute; inset: 12px; 
+        border: 1px solid rgba(255, 215, 0, 0.3); /* Dorado sutil */
+        border-radius: 2px;
+        pointer-events: none;
       }
 
-      /* Título Grande */
-      .book-content { z-index: 20; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; padding-top: 10px; }
-      .book-title { 
-        font-family: 'Inter', sans-serif; 
-        font-weight: 900; 
-        text-transform: uppercase;
-        color: white; 
-        font-size: 16px; /* Más grande */
-        line-height: 1.2; 
-        text-shadow: 0 2px 10px rgba(0,0,0,0.5); 
-        display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; 
-        letter-spacing: 0.02em;
+      /* CINTA ROJA (CORREGIDA - NO TAPA TEXTO) */
+      .book-ribbon {
+        position: absolute;
+        top: -6px;
+        right: 15px; /* Más a la derecha */
+        width: 20px;
+        height: 40px;
+        background: linear-gradient(to bottom, #ef4444, #b91c1c);
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+        z-index: 5;
+      }
+      .book-ribbon::after {
+        content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 10px;
+        background: inherit; clip-path: polygon(0 0, 50% 100%, 100% 0); transform: translateY(9px);
+      }
+
+      /* TÍTULO (SEGURO Y ELEGANTE) */
+      .book-content { 
+        z-index: 20; height: 100%; display: flex; flex-direction: column; 
+        justify-content: center; /* Centrado vertical */
         text-align: center;
+        margin-top: 15px; /* Espacio para que la cinta no estorbe */
       }
       
-      /* Decoración inferior */
-      .book-bottom-deco {
-        position: absolute; bottom: 20px; left: 0; right: 0; height: 2px; background: rgba(255,215,0, 0.4); /* Dorado sutil */
+      .book-title { 
+        font-family: 'Times New Roman', serif; /* Toque académico */
+        font-weight: 700; 
+        color: #f8fafc; 
+        font-size: 18px; 
+        line-height: 1.2; 
+        text-shadow: 0 2px 4px rgba(0,0,0,0.8); 
+        letter-spacing: 0.5px;
+        display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+        border-top: 1px solid rgba(255,255,255,0.2);
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+        padding: 10px 0;
       }
-      .book-icon { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; color: rgba(255,255,255,0.3); font-size: 24px; }
 
-      /* Info y Botones */
-      .book-details { margin-top: 16px; text-align: center; width: 100%; }
-      .book-meta-info { font-size: 11px; color: var(--brand-text-muted); font-weight: 500; margin-bottom: 10px; }
+      /* Logo Médico Abajo */
+      .book-logo { margin-top: auto; color: rgba(255,215,0,0.4); font-size: 24px; margin-bottom: 5px; }
+
+      /* Info y Botones Fuera del Libro */
+      .book-details { margin-top: 18px; text-align: center; width: 100%; }
+      .book-meta-info { font-size: 11px; color: var(--brand-text-muted); font-weight: 600; letter-spacing: 0.5px; margin-bottom: 8px; text-transform: uppercase; }
       
-      .book-actions { display: flex; gap: 8px; justify-content: center; opacity: 0; transform: translateY(10px); transition: all 0.2s; }
-      .book-item:hover .book-actions { opacity: 1; transform: translateY(0); }
+      .book-actions { display: flex; gap: 8px; justify-content: center; }
       
       .action-btn { 
-        padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        height: 32px; padding: 0 16px; border-radius: 16px; font-size: 12px; font-weight: 700; 
+        text-decoration: none; display: flex; align-items: center; gap: 6px; 
+        transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
       }
-      .btn-read { background: #2563eb; color: white; border: 1px solid #1d4ed8; }
-      .btn-read:hover { background: #1d4ed8; transform: scale(1.05); }
-      .btn-down { background: white; color: #475569; border: 1px solid #e2e8f0; }
-      .btn-down:hover { background: #f8fafc; color: #0f172a; }
-      .dark .btn-down { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+      
+      .btn-read { 
+        background: linear-gradient(to bottom, #3b82f6, #2563eb); 
+        color: white; border: 1px solid #1d4ed8; 
+      }
+      .btn-read:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37,99,235,0.4); }
+      
+      .btn-down { background: var(--brand-card); color: var(--brand-text); border: 1px solid var(--brand-border); }
+      .btn-down:hover { background: var(--brand-bg); transform: translateY(-2px); }
 
-      .nclex-lib-header { padding: 24px; border-bottom: 1px solid var(--brand-border); display: flex; justify-content: space-between; align-items: center; }
+      /* Header */
+      .nclex-lib-header { padding: 24px 32px; border-bottom: 1px solid var(--brand-border); display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to bottom, var(--brand-card), var(--brand-bg)); }
       .nclex-lib-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--brand-text-muted); }
     `;
     document.head.appendChild(style);
@@ -220,7 +233,7 @@
     const content = modal.querySelector('.nclex-lib-content');
 
     if (state.isLoading && !state.books.length) {
-      content.innerHTML = `<div class="nclex-lib-loading"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4 text-blue-500"></i><p class="font-bold">${t('Preparando estantería...', 'Preparing shelves...')}</p></div>`;
+      content.innerHTML = `<div class="nclex-lib-loading"><i class="fa-solid fa-circle-notch fa-spin text-4xl mb-4 text-blue-600"></i><p class="font-bold tracking-wide">${t('PREPARANDO BIBLIOTECA...', 'PREPARING LIBRARY...')}</p></div>`;
       return;
     }
 
@@ -236,29 +249,32 @@
 
         return `
         <div class="book-item group">
+          
           <div class="book-cover" onclick="window.open('${googleViewerUrl}', '_blank')" 
-               style="background: radial-gradient(circle at top right, ${bgFrom}, ${bgTo});">
+               style="background: radial-gradient(circle at center, ${bgFrom}, ${bgTo});">
             
-            <div class="book-bookmark"></div>
+            <div class="book-ribbon"></div>
+            
+            <div class="book-frame"></div>
             
             <div class="book-content">
               <div class="book-title">${escapeHtml(book.name)}</div>
+              <div class="book-logo"><i class="fa-solid fa-staff-snake"></i></div>
             </div>
+
+            <div style="position:absolute; inset:0; background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+'); pointer-events:none; opacity:0.3;"></div>
             
-            <div class="book-icon"><i class="fa-solid fa-staff-snake"></i></div>
-            <div class="book-bottom-deco"></div>
-            
-            <div style="position:absolute; inset:0; background: linear-gradient(to right, rgba(255,255,255,0.15) 0%, transparent 5%, transparent 95%, rgba(0,0,0,0.3) 100%); pointer-events:none;"></div>
+            <div style="position:absolute; left:0; top:0; bottom:0; width:10px; background: linear-gradient(to right, rgba(255,255,255,0.2), transparent); pointer-events:none;"></div>
           </div>
           
           <div class="book-details">
             <div class="book-meta-info">
-              <span>${formatFileSize(book.size)} • PDF</span>
+              <i class="fa-solid fa-file-pdf text-red-500 mr-1"></i> ${formatFileSize(book.size)}
             </div>
             
             <div class="book-actions">
                 <a href="${googleViewerUrl}" target="_blank" class="action-btn btn-read">
-                    <i class="fa-solid fa-book-open"></i> ${t('Leer', 'Read')}
+                    <i class="fa-solid fa-book-open"></i> ${t('LEER', 'READ')}
                 </a>
                 <a href="${book.url}" target="_blank" class="action-btn btn-down" title="${t('Descargar', 'Download')}">
                     <i class="fa-solid fa-download"></i>
@@ -294,13 +310,13 @@
         <div class="nclex-lib-header">
           <div>
             <h2 class="font-black text-2xl text-[var(--brand-text)] flex items-center gap-3">
-              <span class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-700 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
                 <i class="fa-solid fa-book-medical"></i>
               </span>
               NCLEX LIBRARY
             </h2>
-            <p class="text-xs text-[var(--brand-text-muted)] mt-1 ml-1 font-medium tracking-wide uppercase">
-              ${t('Recursos Premium & Guías de Estudio', 'Premium Resources & Study Guides')}
+            <p class="text-xs text-[var(--brand-text-muted)] mt-1 ml-1 font-bold tracking-widest uppercase opacity-70">
+              ${t('COLECCIÓN OFICIAL', 'OFFICIAL COLLECTION')}
             </p>
           </div>
           <button class="w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition"
