@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION (FIXED & CONNECTED) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION */
 
 (function () {
     'use strict';
@@ -6,7 +6,6 @@
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   
-    // --- COLORES ---
     const colorMap = {
         blue:   { bg: 'bg-blue-500',   text: 'text-blue-500',   grad: 'from-blue-500 to-blue-600',   light: 'bg-blue-100',   dark: 'dark:bg-blue-900/30' },
         purple: { bg: 'bg-purple-500', text: 'text-purple-500', grad: 'from-purple-500 to-purple-600', light: 'bg-purple-100', dark: 'dark:bg-purple-900/30' },
@@ -21,7 +20,6 @@
 
     const getColor = (colorName) => colorMap[colorName] || colorMap['blue'];
   
-    // --- STORAGE ---
     let savedProgress = [];
     try {
         const stored = localStorage.getItem('nclex_progress');
@@ -44,7 +42,6 @@
       scrollPositions: {} 
     };
   
-    // --- HELPERS ---
     function normalizeFaIcon(icon) {
         if (!icon || typeof icon !== 'string') return 'book';
         return icon.replace('fa-solid ', '').replace('fa-', '').trim();
@@ -72,7 +69,6 @@
         return badges;
     }
 
-    // --- REGISTRO ---
     window.NCLEX = {
       registerTopic(topic) {
         if (!topic || !topic.id) return;
@@ -127,7 +123,6 @@
       getTopics() { return state.topics; }
     };
   
-    // --- SMART SEARCH (Placeholder) ---
     const SmartTextIndex = (() => {
       const index = [];
       function build(topics) {}
@@ -135,7 +130,6 @@
       return { build, search };
     })();
 
-    // --- HOME RENDER ---
     function renderHome() {
       const total = state.topics.length;
       const completed = state.completedTopics.length;
@@ -177,9 +171,9 @@
                 <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-notes-medical mr-2"></i> NGN Case: Sepsis</h2>
                 <p class="text-sm opacity-90">Next Gen Case Study Demo</p>
            </div>
-           <div onclick="window.nclexApp.navigate('notepad')" class="bg-gradient-to-br from-amber-400 to-yellow-600 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
-                <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-book-bookmark mr-2"></i> Notebook</h2>
-                <p class="text-sm opacity-90">Your personal study notes</p>
+           <div class="bg-white dark:bg-brand-card p-6 rounded-3xl border border-gray-200 dark:border-brand-border shadow-lg flex flex-col justify-center">
+             <h2 class="text-xl font-bold mb-1"><i class="fa-solid fa-layer-group text-brand-blue mr-2"></i> Library</h2>
+             <span class="text-4xl font-black">${total} <span class="text-gray-500 text-sm">Topics</span></span>
            </div>
         </div>
 
@@ -206,7 +200,6 @@
       `;
     }
   
-    // --- MAIN RENDER ---
     function render(route) {
       const view = $('#app-view');
       if (!view) return;
@@ -218,10 +211,8 @@
               const topic = state.topics.find(t => t.id === route.split('/')[1]);
               if (topic) view.innerHTML = `<div class="animate-fade-in">${typeof topic.render === 'function' ? topic.render() : topic.content}</div>`;
               else view.innerHTML = "<div class='p-10 text-center'>Module not found</div>";
-          } 
-          else if (route === 'simulator' && window.renderSimulatorPage) view.innerHTML = window.renderSimulatorPage();
+          } else if (route === 'simulator' && window.renderSimulatorPage) view.innerHTML = window.renderSimulatorPage();
           else if (route === 'ngn-sepsis' && window.renderNGNCase) view.innerHTML = window.renderNGNCase('sepsis');
-          else if (route === 'notepad' && window.renderNotepadPage) view.innerHTML = window.renderNotepadPage();
 
           applyLanguageGlobal();
           view.style.opacity = '1';
