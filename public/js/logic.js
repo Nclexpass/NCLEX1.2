@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS + SIDEBAR RE-RENDER */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS + SIDEBAR FIXED */
 
 (function () {
     'use strict';
@@ -173,19 +173,16 @@
           <div id="home-search-results" class="mt-3 w-full bg-white dark:bg-brand-card border border-gray-200 dark:border-brand-border rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
         </div>
 
-        <!-- GRID DE ACCESO RÁPIDO (CON TARJETA DE APARIENCIA BILINGÜE) -->
+        <!-- GRID DE ACCESO RÁPIDO -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-           <!-- Simulator -->
            <div onclick="window.nclexApp.navigate('simulator')" class="bg-gradient-to-br from-indigo-600 to-violet-600 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
                 <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-brain mr-2"></i> Simulator</h2>
                 <p class="text-sm opacity-90">Adaptive practice (SATA + Options)</p>
            </div>
-           <!-- NGN Case: Sepsis -->
            <div onclick="window.nclexApp.navigate('ngn-sepsis')" class="bg-gradient-to-br from-rose-500 to-orange-600 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
                 <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-notes-medical mr-2"></i> NGN Case: Sepsis</h2>
                 <p class="text-sm opacity-90">Next Gen Case Study Demo</p>
            </div>
-           <!-- 🎨 APARIENCIA (SKINS) - VERSIÓN BILINGÜE -->
            <div onclick="window.nclexApp.navigate('skins')" class="bg-gradient-to-br from-purple-500 to-pink-500 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
                 <h2 class="text-xl font-black mb-1">
                     <i class="fa-solid fa-palette mr-2"></i>
@@ -197,7 +194,6 @@
                     <span class="lang-en hidden-lang">5 skins • Custom colors</span>
                 </p>
            </div>
-           <!-- Library -->
            <div class="bg-white dark:bg-brand-card p-6 rounded-3xl border border-gray-200 dark:border-brand-border shadow-lg flex flex-col justify-center">
              <h2 class="text-xl font-bold mb-1"><i class="fa-solid fa-layer-group text-brand-blue mr-2"></i> Library</h2>
              <span class="text-4xl font-black">${total} <span class="text-gray-500 text-sm">Topics</span></span>
@@ -258,12 +254,15 @@
       }, 100);
     }
   
+    // ========== UPDATE NAV (CON LA CORRECCIÓN: todos los íconos usan text-brand-blue) ==========
     function updateNav() {
       const nav = $('#topics-nav');
       if (!nav) return;
       nav.innerHTML = state.topics.map(t => `
         <button onclick="window.nclexApp.navigate('topic/${t.id}')" data-route="topic/${t.id}" class="nav-btn w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-500 dark:text-gray-400">
-          <div class="w-6 flex justify-center"><i class="fa-solid fa-${normalizeFaIcon(t.icon)} ${getColor(t.color).text}"></i></div>
+          <div class="w-6 flex justify-center">
+            <i class="fa-solid fa-${normalizeFaIcon(t.icon)} text-brand-blue"></i> <!-- 🟢 CORREGIDO: siempre usa el color primario de la skin -->
+          </div>
           <span class="hidden lg:block text-sm font-bold truncate">${getBilingualTitle(t)}</span>
         </button>
       `).join('');
@@ -297,7 +296,7 @@
       if(loader) setTimeout(() => loader.classList.add('hidden'), 500);
     }
   
-    // 🆕 ACTUALIZAR EL SIDEBAR CUANDO CAMBIA LA SKIN
+    // 🟢 ACTUALIZAR EL SIDEBAR CUANDO CAMBIA LA SKIN
     window.addEventListener('skinchange', function() {
         if (state.isAppLoaded) {
             updateNav();
