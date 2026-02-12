@@ -174,7 +174,7 @@
           <div id="home-search-results" class="mt-3 w-full bg-white dark:bg-brand-card border border-gray-200 dark:border-brand-border rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
         </div>
 
-        <!-- 🆕 GRID DE ACCESO RÁPIDO (AHORA CON APARIENCIA) -->
+        <!-- 🆕 GRID DE ACCESO RÁPIDO (CON TARJETA DE APARIENCIA BILINGÜE) -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
            <!-- Simulator -->
            <div onclick="window.nclexApp.navigate('simulator')" class="bg-gradient-to-br from-indigo-600 to-violet-600 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
@@ -186,10 +186,17 @@
                 <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-notes-medical mr-2"></i> NGN Case: Sepsis</h2>
                 <p class="text-sm opacity-90">Next Gen Case Study Demo</p>
            </div>
-           <!-- 🎨 APARIENCIA (SKINS) - NUEVA TARJETA -->
+           <!-- 🎨 APARIENCIA (SKINS) - VERSIÓN BILINGÜE -->
            <div onclick="window.nclexApp.navigate('skins')" class="bg-gradient-to-br from-purple-500 to-pink-500 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
-                <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-palette mr-2"></i> Apariencia</h2>
-                <p class="text-sm opacity-90">5 skins • Colores personalizados</p>
+                <h2 class="text-xl font-black mb-1">
+                    <i class="fa-solid fa-palette mr-2"></i>
+                    <span class="lang-es">Apariencia</span>
+                    <span class="lang-en hidden-lang">Appearance</span>
+                </h2>
+                <p class="text-sm opacity-90">
+                    <span class="lang-es">5 skins • Colores personalizados</span>
+                    <span class="lang-en hidden-lang">5 skins • Custom colors</span>
+                </p>
            </div>
            <!-- Library -->
            <div class="bg-white dark:bg-brand-card p-6 rounded-3xl border border-gray-200 dark:border-brand-border shadow-lg flex flex-col justify-center">
