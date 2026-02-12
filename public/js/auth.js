@@ -1,11 +1,10 @@
-// auth.js — VERSIÓN CLOUD FINAL (Firebase Conectado & Bilingüe) - CORREGIDO
+// auth.js — VERSIÓN CLOUD FINAL (Firebase Conectado & Bilingüe) - CORREGIDO v2
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 (function() {
   'use strict';
 
-  // --- 1. CONEXIÓN A LA NUBE ---
   const firebaseConfig = {
     apiKey: "AIzaSyC07GVdRw3IkVp230DTT1GyYS_gFFtPeHU",
     authDomain: "nclex-masterclass.firebaseapp.com",
@@ -19,154 +18,65 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   try {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
-      console.log("🔥 Firebase conectado correctamente / Firebase connected.");
+      console.log("🔥 Firebase conectado");
   } catch (e) {
-      console.error("Error crítico iniciando Firebase:", e);
+      console.error("Error Firebase:", e);
   }
 
-  // --- 2. CONFIGURACIÓN ---
   const ADMIN_PASSWORD = "Guitarra89#"; 
   const SECRET_SALT = "NCLEX-MASTER-KEY-2026"; 
   const STORAGE_KEY = 'nclex_user_session_v2'; 
 
-  // --- HELPER BILINGÜE ---
   const bilingual = (es, en) => `<span class="lang-es">${es}</span><span class="lang-en hidden-lang">${en}</span>`;
 
-  // --- 3. INICIALIZACIÓN ---
-  function initAuth() {
+  function checkAuth() {
     const activeUser = localStorage.getItem(STORAGE_KEY);
-    
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => checkSession(activeUser));
-    } else {
-        checkSession(activeUser);
-    }
-  }
-
-  function checkSession(activeUser) {
     if (activeUser) {
       forceRemoveLoading();
       updateUserUI(activeUser);
-    } else {
-      renderAuthScreen('login');
+      return true;
+    }
+    return false;
+  }
+
+  function forceRemoveLoading() {
+    const loading = document.getElementById('loading');
+    if (loading) { 
+      loading.style.opacity = '0'; 
+      setTimeout(() => {
+        loading.classList.add('hidden');
+        loading.style.display = 'none';
+      }, 500); 
     }
   }
 
-  // --- 4. LÓGICA DE NUBE (FIRESTORE) ---
-  
-  async function registerUserInCloud(name, pass, overlay) {
-    if (!db) {
-        alert("Error: No hay conexión con la base de datos.");
-        return false;
-    }
-
-    const userId = name.trim().toLowerCase(); 
-    const userRef = doc(db, "students", userId);
-    
-    try {
-        const docSnap = await getDoc(userRef);
-        
-        if (docSnap.exists()) {
-            alert("⚠️ ESTE USUARIO YA EXISTE / USER ALREADY EXISTS.\n\nPor favor, intenta iniciar sesión o usa una variación.");
-            return false;
-        }
-
-        await setDoc(userRef, {
-            name: name.trim(), 
-            pass: pass, 
-            createdAt: new Date().toISOString(),
-            role: 'student',
-            lastLogin: new Date().toISOString(),
-            platform: 'web_v5'
-        });
-        
-        loginSuccess(overlay, name.trim());
-        return true;
-
-    } catch (error) {
-        console.error("Error al registrar: ", error);
-        let msg = "Error de conexión con la nube / Cloud connection error.";
-        if (error.code === 'unavailable') msg = "Sin conexión a internet / No internet connection.";
-        alert(msg);
-        return false;
-    }
-  }
-
-  async function loginUserFromCloud(name, pass, overlay) {
-    if (!db) {
-        alert("Error: No hay conexión con la base de datos.");
-        return false;
-    }
-
-    const userId = name.trim().toLowerCase();
-    const userRef = doc(db, "students", userId);
-
-    try {
-      const docSnap = await getDoc(userRef);
-      
-      if (docSnap.exists()) {
-        const userData = docSnap.data();
-        if (userData.pass === pass) {
-          await setDoc(userRef, { lastLogin: new Date().toISOString() }, { merge: true });
-          loginSuccess(overlay, userData.name);
-          return true;
-        } else {
-          alert("❌ CONTRASEÑA INCORRECTA / WRONG PASSWORD.");
-          return false;
-        }
-      } else {
-        alert("❌ USUARIO NO ENCONTRADO / USER NOT FOUND.\n\nVerifica el nombre o REGÍSTRATE.");
-        return false;
-      }
-    } catch (error) {
-      console.error("Error de login: ", error);
-      alert("Error de conexión / Connection error.");
-      return false;
-    }
-  }
-
-  // --- 5. ALGORITMO TOKEN ---
-  function generateHash(name) {
-    const cleanName = name.trim().toLowerCase().replace(/\s+/g, '');
-    const stringToHash = cleanName + SECRET_SALT;
-    let hash = 0;
-    for (let i = 0; i < stringToHash.length; i++) {
-      hash = ((hash << 5) - hash) + stringToHash.charCodeAt(i);
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16).toUpperCase().slice(0, 6).padStart(6, 'X');
-  }
-
-  // --- 6. GESTIÓN DE PANTALLAS ---
   function renderAuthScreen(mode) {
-    let overlay = document.getElementById('auth-overlay');
+    // Forzar mostrar overlay sobre todo
+    forceRemoveLoading();
     
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = 'auth-overlay';
-      overlay.className = 'fixed inset-0 z-[200] bg-[#0f172a] flex items-center justify-center p-4 transition-all duration-500 opacity-0';
-      document.body.appendChild(overlay);
-      requestAnimationFrame(() => overlay.classList.remove('opacity-0'));
-    }
-
-    overlay.innerHTML = ''; 
+    let overlay = document.getElementById('auth-overlay');
+    if (overlay) overlay.remove();
+    
+    overlay = document.createElement('div');
+    overlay.id = 'auth-overlay';
+    overlay.className = 'fixed inset-0 z-[9999] bg-[#0f172a] flex items-center justify-center p-4';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#0f172a;display:flex;align-items:center;justify-content:center;padding:16px;';
+    document.body.appendChild(overlay);
 
     if (mode === 'admin') renderAdminPanel(overlay);
     else if (mode === 'register') renderRegisterPanel(overlay);
     else renderLoginPanel(overlay);
     
     // Sincronizar idioma
-    setTimeout(() => {
-        const lang = localStorage.getItem('nclex_lang') || 'es';
-        const isEs = lang === 'es';
-        overlay.querySelectorAll('.lang-es').forEach(el => isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-        overlay.querySelectorAll('.lang-en').forEach(el => !isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-    }, 0);
+    const lang = localStorage.getItem('nclex_lang') || 'es';
+    const isEs = lang === 'es';
+    overlay.querySelectorAll('.lang-es').forEach(el => el.classList.toggle('hidden-lang', !isEs));
+    overlay.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden-lang', isEs));
   }
 
   function renderLoginPanel(overlay) {
     overlay.innerHTML = `
-      <div class="w-full max-w-md bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl p-6 border border-gray-200 dark:border-white/10 animate-fade-in relative">
+      <div class="w-full max-w-md bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl p-6 border border-gray-200 dark:border-white/10 animate-fade-in">
         <div class="text-center mb-6">
             <h2 class="text-3xl font-black text-slate-900 dark:text-white mb-1">${bilingual("Iniciar Sesión", "Login")}</h2>
             <p class="text-green-500 text-xs font-bold uppercase flex items-center justify-center gap-2">
@@ -198,16 +108,13 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
       const pass = document.getElementById('login-pass').value.trim();
       const btn = document.getElementById('btn-login');
       
-      const originalText = btn.innerHTML;
       btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> ${bilingual("Verificando...", "Verifying...")}`;
-      btn.classList.add('opacity-70', 'cursor-not-allowed');
       btn.disabled = true;
 
       await loginUserFromCloud(name, pass, overlay);
       
       if (document.body.contains(btn)) {
-          btn.innerHTML = originalText;
-          btn.classList.remove('opacity-70', 'cursor-not-allowed');
+          btn.innerHTML = bilingual("ENTRAR", "ENTER");
           btn.disabled = false;
       }
     });
@@ -215,7 +122,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
 
   function renderRegisterPanel(overlay) {
     overlay.innerHTML = `
-      <div class="w-full max-w-md bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl p-6 border border-gray-200 dark:border-white/10 animate-fade-in relative">
+      <div class="w-full max-w-md bg-white dark:bg-[#1C1C1E] rounded-3xl shadow-2xl p-6 border border-gray-200 dark:border-white/10 animate-fade-in">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-black text-slate-900 dark:text-white">${bilingual("Crear Cuenta", "Create Account")}</h2>
             <button onclick="window.nclexAuth.showAdminLogin()" class="text-xs bg-gray-100 dark:bg-white/10 px-3 py-1 rounded-full text-gray-500 hover:text-brand-blue font-bold transition-colors">⚙ Admin</button>
@@ -244,20 +151,17 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
       const btn = document.getElementById('btn-reg');
 
       if (token === generateHash(name)) {
-        const originalText = btn.innerHTML;
         btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> ${bilingual("Creando...", "Creating...")}`;
-        btn.classList.add('opacity-70', 'cursor-not-allowed');
         btn.disabled = true;
         
         await registerUserInCloud(name, pass, overlay);
         
         if (document.body.contains(btn)) {
-            btn.innerHTML = originalText;
-            btn.classList.remove('opacity-70', 'cursor-not-allowed');
+            btn.innerHTML = bilingual("REGISTRARME", "REGISTER");
             btn.disabled = false;
         }
       } else {
-        alert(`⛔ CÓDIGO INVÁLIDO / INVALID CODE\n\n${name} != ${token}`);
+        alert(`⛔ CÓDIGO INVÁLIDO / INVALID CODE`);
       }
     });
   }
@@ -279,78 +183,80 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
                 <div class="text-3xl font-mono font-black text-yellow-400 tracking-widest mb-3 select-all cursor-pointer" id="generated-code" onclick="window.nclexAuth.copyInvitation()">------</div>
                 <button onclick="window.nclexAuth.copyInvitation()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"><i class="fa-brands fa-whatsapp"></i> ${bilingual("Copiar Invitación", "Copy Invite")}</button>
             </div>
-            <p class="text-[10px] text-gray-500 mt-4 text-center">
-                Firestore Connected.<br>
-                Project ID: ${firebaseConfig.projectId}
-            </p>
         </div>
       </div>
     `;
   }
 
-  // --- 7. NAMESPACE GLOBAL ---
-  window.nclexAuth = {
-      switchView: (viewName) => renderAuthScreen(viewName),
-      
-      showAdminLogin: () => { 
-          const attempt = prompt("Contraseña de Instructor / Instructor Password:");
-          if (attempt === ADMIN_PASSWORD) {
-              renderAuthScreen('admin'); 
-          } else if (attempt !== null) {
-              alert("Acceso Denegado / Access Denied");
-          }
-      },
-      
-      generateForStudent: () => {
-        const name = document.getElementById('admin-student-name').value;
-        if (!name) return alert("Por favor escribe un nombre / Please write a name.");
-        document.getElementById('result-area').classList.remove('hidden');
-        document.getElementById('generated-code').innerText = generateHash(name);
-      },
-
-      copyInvitation: () => {
-        const name = document.getElementById('admin-student-name').value;
-        const code = document.getElementById('generated-code').innerText;
-        const url = window.location.href.split('#')[0];
-        
-        const text = `🎓 *NCLEX MASTERCLASS*\n\nHola ${name}, aquí están tus credenciales / here are your credentials:\n\n👤 *User:* ${name}\n🔑 *Code:* ${code}\n\nLink: ${url}`;
-        
-        navigator.clipboard.writeText(text).then(() => {
-            const btn = document.querySelector('#result-area button');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
-            setTimeout(() => btn.innerHTML = originalText, 2000);
-        }).catch(err => {
-            console.warn("Clipboard access failed:", err);
-            prompt("Copia el texto manualmente / Copy manually:", text);
-        });
-      },
-
-      resetAuth: () => {
-        if(confirm("¿Cerrar sesión / Log out?")) {
-          localStorage.removeItem(STORAGE_KEY);
-          location.reload();
+  async function registerUserInCloud(name, pass, overlay) {
+    if (!db) { alert("Error: No hay conexión."); return false; }
+    const userId = name.trim().toLowerCase(); 
+    const userRef = doc(db, "students", userId);
+    
+    try {
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+            alert("⚠️ USUARIO YA EXISTE / USER ALREADY EXISTS");
+            return false;
         }
-      }
-  };
-
-  function forceRemoveLoading() {
-    const loading = document.getElementById('loading');
-    if (loading) { 
-        loading.style.opacity = '0'; 
-        setTimeout(() => loading.style.display = 'none', 500); 
+        await setDoc(userRef, {
+            name: name.trim(), 
+            pass: pass, 
+            createdAt: new Date().toISOString(),
+            role: 'student',
+            lastLogin: new Date().toISOString(),
+            platform: 'web_v5'
+        });
+        loginSuccess(overlay, name.trim());
+        return true;
+    } catch (error) {
+        alert("Error de conexión / Connection error.");
+        return false;
     }
+  }
+
+  async function loginUserFromCloud(name, pass, overlay) {
+    if (!db) { alert("Error: No hay conexión."); return false; }
+    const userId = name.trim().toLowerCase();
+    const userRef = doc(db, "students", userId);
+
+    try {
+      const docSnap = await getDoc(userRef);
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        if (userData.pass === pass) {
+          await setDoc(userRef, { lastLogin: new Date().toISOString() }, { merge: true });
+          loginSuccess(overlay, userData.name);
+          return true;
+        } else {
+          alert("❌ CONTRASEÑA INCORRECTA / WRONG PASSWORD");
+          return false;
+        }
+      } else {
+        alert("❌ USUARIO NO ENCONTRADO / USER NOT FOUND");
+        return false;
+      }
+    } catch (error) {
+      alert("Error de conexión / Connection error.");
+      return false;
+    }
+  }
+
+  function generateHash(name) {
+    const cleanName = name.trim().toLowerCase().replace(/\s+/g, '');
+    const stringToHash = cleanName + SECRET_SALT;
+    let hash = 0;
+    for (let i = 0; i < stringToHash.length; i++) {
+      hash = ((hash << 5) - hash) + stringToHash.charCodeAt(i);
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16).toUpperCase().slice(0, 6).padStart(6, 'X');
   }
 
   function loginSuccess(overlay, userName) {
     localStorage.setItem(STORAGE_KEY, userName); 
-    forceRemoveLoading(); 
-    
-    overlay.classList.add('opacity-0');
-    setTimeout(() => { 
-        overlay.remove(); 
-        updateUserUI(userName); 
-    }, 500);
+    overlay.remove();
+    updateUserUI(userName);
   }
 
   function updateUserUI(userName) {
@@ -371,17 +277,65 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
         btn.id = 'logout-btn';
         btn.className = "auth-action-btn w-full flex items-center gap-4 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 mt-4 border border-transparent hover:border-red-200 transition-all group";
         btn.innerHTML = `
-            <div class="w-6 flex justify-center">
-                <i class="fa-solid fa-power-off group-hover:scale-110 transition-transform"></i>
-            </div>
-            <span class="hidden lg:block text-sm font-bold">${bilingual("Cerrar Sesión", "Log Out")}</span>
-        `;
+            <div class="w-6 flex justify-center"><i class="fa-solid fa-power-off group-hover:scale-110 transition-transform"></i></div>
+            <span class="hidden lg:block text-sm font-bold">${bilingual("Cerrar Sesión", "Log Out")}</span>`;
         btn.onclick = () => window.nclexAuth.resetAuth();
         nav.appendChild(btn);
     }
   }
 
-  // Iniciar
-  initAuth();
+  window.nclexAuth = {
+      switchView: (viewName) => renderAuthScreen(viewName),
+      showAdminLogin: () => { 
+          const attempt = prompt("Contraseña de Instructor:");
+          if (attempt === ADMIN_PASSWORD) renderAuthScreen('admin'); 
+          else if (attempt !== null) alert("Acceso Denegado");
+      },
+      generateForStudent: () => {
+        const name = document.getElementById('admin-student-name').value;
+        if (!name) return alert("Escribe un nombre");
+        document.getElementById('result-area').classList.remove('hidden');
+        document.getElementById('generated-code').innerText = generateHash(name);
+      },
+      copyInvitation: () => {
+        const name = document.getElementById('admin-student-name').value;
+        const code = document.getElementById('generated-code').innerText;
+        const text = `🎓 NCLEX MASTERCLASS\n\nUser: ${name}\nCode: ${code}\nLink: ${window.location.href.split('#')[0]}`;
+        navigator.clipboard.writeText(text).then(() => alert("Copiado!")).catch(() => prompt("Copia manual:", text));
+      },
+      resetAuth: () => {
+        if(confirm("¿Cerrar sesión?")) {
+          localStorage.removeItem(STORAGE_KEY);
+          location.reload();
+        }
+      }
+  };
+
+  // ===== INICIALIZACIÓN INMEDIATA =====
+  function init() {
+    // Si no hay usuario logueado, mostrar auth inmediatamente
+    if (!checkAuth()) {
+      // Esperar un momento por si el loader está visible
+      setTimeout(() => {
+        if (!localStorage.getItem(STORAGE_KEY)) {
+          renderAuthScreen('login');
+        }
+      }, 100);
+    }
+  }
+
+  // Ejecutar inmediatamente o cuando DOM esté listo
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // Backup: si algo falla, forzar auth en 2 segundos
+  setTimeout(() => {
+    if (!localStorage.getItem(STORAGE_KEY) && !document.getElementById('auth-overlay')) {
+      renderAuthScreen('login');
+    }
+  }, 2000);
 
 })();

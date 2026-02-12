@@ -243,7 +243,7 @@
 <body class="text-[var(--brand-text)] min-h-screen overflow-hidden flex flex-col md:flex-row font-sans antialiased">
     
     <!-- Loading Screen -->
-    <div id="loading" class="fixed inset-0 flex items-center justify-center z-[100] transition-opacity duration-500">
+    <div id="loading" class="fixed inset-0 flex items-center justify-center z-[50] transition-opacity duration-500">
         <div class="text-center">
             <div class="relative w-20 h-20 mx-auto mb-6">
                 <div class="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full"></div>
@@ -257,7 +257,7 @@
     </div>
     
     <!-- Sidebar -->
-    <aside id="main-sidebar" class="w-20 lg:w-80 flex flex-col border-r flex-shrink-0 h-screen sticky top-0 z-50 shadow-xl transition-colors duration-300">
+    <aside id="main-sidebar" class="w-20 lg:w-80 flex flex-col border-r flex-shrink-0 h-screen sticky top-0 z-40 shadow-xl transition-colors duration-300">
         <!-- Header del Sidebar -->
         <div class="p-5 lg:p-6 flex items-center gap-4 border-b border-[var(--brand-sidebar-border)]">
             <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0" 
@@ -329,7 +329,7 @@
 
     <!-- Botón Back to Top -->
     <button id="back-to-top" onclick="window.scrollToTop()" 
-        class="hidden fixed bottom-8 right-7 w-12 h-12 rounded-full shadow-lg z-[50] items-center justify-center text-white transition-all hover:scale-110 active:scale-95"
+        class="hidden fixed bottom-8 right-7 w-12 h-12 rounded-full shadow-lg z-[40] items-center justify-center text-white transition-all hover:scale-110 active:scale-95"
         style="background-color: rgb(var(--brand-blue-rgb));">
         <i class="fa-solid fa-arrow-up text-lg"></i>
     </button>
@@ -384,6 +384,9 @@
     <script defer src="js/28_ethics_legal.js?v=3.0"></script>
     <script defer src="js/29_negative_rationales.js?v=3.0"></script>
     <script defer src="js/30_common_student_errors.js?v=3.0"></script>
+
+    <!-- 7. Auth: SIEMPRE al final para que aparezca sobre todo -->
+    <script type="module" src="js/auth.js?v=3.0"></script>
 
     <!-- Inicialización segura -->
     <script>
