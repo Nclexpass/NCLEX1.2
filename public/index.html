@@ -51,7 +51,6 @@
             --brand-text-muted: #64748B;
         }
 
-        /* Modo oscuro base - SIEMPRE después de :root */
         .dark {
             --brand-bg: #0F0F11;
             --brand-dark: #FFFFFF;
@@ -63,20 +62,15 @@
             --brand-text-muted: #94A3B8;
         }
 
-        /* ===== SKINS ===== */
         .skin-ocean { --brand-blue-rgb: 10, 132, 255; --brand-bg: #E9F2FA; --brand-dark: #001B36; --brand-border: #B8D4E3; }
         .dark.skin-ocean { --brand-bg: #001B36; --brand-card: #0A2E4A; --brand-border: #2C5F7A; --brand-sidebar: #0A1929; }
-
         .skin-forest { --brand-blue-rgb: 44, 110, 73; --brand-bg: #F4F9F4; --brand-dark: #1A2E1A; --brand-border: #D0DFD0; }
         .dark.skin-forest { --brand-bg: #1A2E1A; --brand-card: #253725; --brand-border: #3A543A; --brand-sidebar: #1F2F1F; }
-
         .skin-lavender { --brand-blue-rgb: 155, 135, 248; --brand-bg: #F8F7FF; --brand-dark: #2D2B55; --brand-border: #D6D0F0; }
         .dark.skin-lavender { --brand-bg: #2D2B55; --brand-card: #3A3866; --brand-border: #524F7A; --brand-sidebar: #2A2850; }
-
         .skin-midnight { --brand-blue-rgb: 255, 179, 71; --brand-bg: #F5F3F0; --brand-dark: #121212; --brand-border: #E0DCD0; }
         .dark.skin-midnight { --brand-bg: #0A0A0A; --brand-card: #141414; --brand-border: #2A2A2A; --brand-sidebar: #0F0F0F; --brand-blue-rgb: 255, 149, 0; }
 
-        /* ===== UTILIDADES ===== */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden-lang { display: none !important; }
@@ -132,6 +126,7 @@
 
 <body class="text-[var(--brand-text)] min-h-screen overflow-hidden flex flex-col md:flex-row font-sans antialiased">
     
+    <!-- LOADER (sin cambios) -->
     <div id="loading" class="fixed inset-0 flex items-center justify-center z-[50] transition-opacity duration-500">
         <div class="text-center">
             <div class="relative w-20 h-20 mx-auto mb-6">
@@ -145,7 +140,9 @@
         </div>
     </div>
     
+    <!-- SIDEBAR PRINCIPAL -->
     <aside id="main-sidebar" class="w-20 lg:w-80 flex flex-col border-r flex-shrink-0 h-screen sticky top-0 z-40 shadow-xl transition-colors duration-300">
+        <!-- Encabezado con logo y título -->
         <div class="p-5 lg:p-6 flex items-center gap-4 border-b border-[var(--brand-sidebar-border)]">
             <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0" 
                  style="background: linear-gradient(135deg, rgb(var(--brand-blue-rgb)), rgb(var(--brand-blue-rgb)) 60%, rgba(var(--brand-blue-rgb), 0.8));">
@@ -161,6 +158,7 @@
             </div>
         </div>
 
+        <!-- Buscador global (escritorio) -->
         <div class="px-5 pt-6 hidden lg:block relative">
             <div class="relative group">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-[var(--brand-text-muted)] text-base group-focus-within:text-brand-blue transition-colors"></i>
@@ -170,6 +168,7 @@
             </div>
         </div>
 
+        <!-- Navegación principal (temas, simulador) -->
         <nav class="flex-1 px-3 lg:px-5 py-6 space-y-2 overflow-y-auto no-scrollbar" id="sidebar-nav">
             <button onclick="window.nclexApp.navigate('home')" data-route="home" class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl transition-all text-[var(--brand-text-muted)] group">
                 <div class="w-6 flex justify-center">
@@ -193,6 +192,7 @@
             </button>
         </nav>
 
+        <!-- Botones inferiores: idioma, tema, logout -->
         <div class="p-5 lg:p-6 border-t border-[var(--brand-sidebar-border)] space-y-4" style="background-color: rgba(var(--brand-blue-rgb), 0.03);">
             <button onclick="window.nclexApp.toggleLanguage()" 
                 class="w-full flex items-center justify-center gap-3 p-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform text-white"
@@ -216,12 +216,7 @@
             </button>
         </div>
 
-        <!-- ===== NUEVO: Contenedor para el botón de notas (bnotepad) junto a Library ===== -->
-        <div id="bnotepad-sidebar-trigger-container" class="px-5 lg:px-6 pb-4">
-            <!-- El botón será insertado aquí por 17_bnotepad.js -->
-        </div>
-
-        <!-- ===== NUEVO: Crédito del creador bilingüe ===== -->
+        <!-- ===== CRÉDITO DEL CREADOR (bilingüe) ===== -->
         <div class="px-5 lg:px-6 pb-6 pt-2 text-center border-t border-[var(--brand-sidebar-border)]">
             <p class="text-[11px] text-[var(--brand-text-muted)] leading-tight">
                 <span class="lang-es">Creado por Reynier Diaz Gerones para los estudiantes</span>
@@ -230,25 +225,28 @@
         </div>
     </aside>
 
+    <!-- CONTENIDO PRINCIPAL -->
     <main id="main-content" role="main" class="flex-1 relative overflow-y-auto h-screen scroll-smooth transition-colors duration-300">
         <div id="app-view" class="p-6 lg:p-12 max-w-7xl mx-auto pb-32 min-h-screen"></div>
     </main>
 
+    <!-- Botón volver arriba -->
     <button id="back-to-top" onclick="window.scrollToTop()" 
         class="hidden fixed bottom-8 right-7 w-12 h-12 rounded-full shadow-lg z-[40] items-center justify-center text-white transition-all hover:scale-110 active:scale-95"
         style="background-color: rgb(var(--brand-blue-rgb));">
         <i class="fa-solid fa-arrow-up text-lg"></i>
     </button>
 
+    <!-- SCRIPTS (mismo orden, solo se actualiza 17_bnotepad.js) -->
     <script src="js/utils.js?v=3.0"></script>
-    
     <script src="js/logic.js?v=3.0"></script>
     <script src="js/skins.js?v=3.0"></script>
-    
     <script src="js/31_search_service.js?v=3.0"></script>
     <script src="js/32_analytics_dashboard.js?v=3.0"></script>
     
-    <script src="js/17_bnotepad.js?v=3.0"></script>
+    <!-- 17_bnotepad.js VERSIÓN 3.2 - BOTÓN JUNTO A LIBRARY -->
+    <script src="js/17_bnotepad.js?v=3.2"></script>
+    
     <script src="js/premium_books_library.js?v=3.1"></script>
     <script src="js/simulator.js?v=3.0"></script>
     <script src="js/ngn_engine.js?v=3.0"></script>
@@ -303,10 +301,7 @@
                 }
             };
             
-            // Fallback
             setTimeout(window.hideLoader, 5000);
-            
-            // Event listener principal
             document.addEventListener('nclex:ready', window.hideLoader);
         })();
     </script>
