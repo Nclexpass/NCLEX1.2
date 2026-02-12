@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION (CORREGIDO) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS */
 
 (function () {
     'use strict';
@@ -82,7 +82,6 @@
         state.updateTimer = setTimeout(() => {
             if (state.isAppLoaded) {
                 updateNav();
-                // 🔁 Construir índice de búsqueda cada vez que se registren temas
                 if (window.SmartSearchEngine) {
                     window.SmartSearchEngine.buildIndex(state.topics);
                 }
@@ -101,7 +100,7 @@
         updateNavActive(route);
         if(main) main.scrollTop = (route === 'home' ? (state.scrollPositions['home'] || 0) : 0);
         
-        // 🧹 Limpiar resultados de búsqueda al navegar (opcional pero buena práctica)
+        // 🧹 Limpiar resultados de búsqueda al navegar
         setTimeout(() => {
             const homeResults = $('#home-search-results');
             if (homeResults) {
@@ -140,8 +139,7 @@
       getTopics() { return state.topics; }
     };
   
-    // ❌ ELIMINADO: SmartTextIndex (stub inútil) - ahora usamos SmartSearchEngine directamente
-
+    // ========== RENDER HOME ==========
     function renderHome() {
       const total = state.topics.length;
       const completed = state.completedTopics.length;
@@ -166,32 +164,41 @@
            </div>
         </div>
 
-        <!-- === TARJETA SMART SEARCH (HOME) === -->
+        <!-- SMART SEARCH (HOME) -->
         <div class="bg-white dark:bg-brand-card p-6 rounded-3xl border border-gray-200 dark:border-brand-border shadow-lg mb-10">
           <h2 class="text-xl font-bold mb-4"><i class="fa-solid fa-search mr-2 text-brand-blue"></i> Smart Search</h2>
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
             <input type="text" id="home-search" class="w-full bg-gray-50 dark:bg-black/30 border-2 border-gray-100 dark:border-brand-border rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-brand-blue text-slate-900 dark:text-white" placeholder="Search medical terms, diagnoses, drugs...">
           </div>
-          <!-- 🆕 CONTENEDOR DE RESULTADOS PARA EL HOME SEARCH -->
           <div id="home-search-results" class="mt-3 w-full bg-white dark:bg-brand-card border border-gray-200 dark:border-brand-border rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
         </div>
 
+        <!-- 🆕 GRID DE ACCESO RÁPIDO (AHORA CON APARIENCIA) -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+           <!-- Simulator -->
            <div onclick="window.nclexApp.navigate('simulator')" class="bg-gradient-to-br from-indigo-600 to-violet-600 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
                 <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-brain mr-2"></i> Simulator</h2>
                 <p class="text-sm opacity-90">Adaptive practice (SATA + Options)</p>
            </div>
+           <!-- NGN Case: Sepsis -->
            <div onclick="window.nclexApp.navigate('ngn-sepsis')" class="bg-gradient-to-br from-rose-500 to-orange-600 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
                 <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-notes-medical mr-2"></i> NGN Case: Sepsis</h2>
                 <p class="text-sm opacity-90">Next Gen Case Study Demo</p>
            </div>
+           <!-- 🎨 APARIENCIA (SKINS) - NUEVA TARJETA -->
+           <div onclick="window.nclexApp.navigate('skins')" class="bg-gradient-to-br from-purple-500 to-pink-500 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
+                <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-palette mr-2"></i> Apariencia</h2>
+                <p class="text-sm opacity-90">5 skins • Colores personalizados</p>
+           </div>
+           <!-- Library -->
            <div class="bg-white dark:bg-brand-card p-6 rounded-3xl border border-gray-200 dark:border-brand-border shadow-lg flex flex-col justify-center">
              <h2 class="text-xl font-bold mb-1"><i class="fa-solid fa-layer-group text-brand-blue mr-2"></i> Library</h2>
              <span class="text-4xl font-black">${total} <span class="text-gray-500 text-sm">Topics</span></span>
            </div>
         </div>
 
+        <!-- MÓDULOS (temas) -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           ${state.topics.map(t => {
             const isComplete = state.completedTopics.includes(t.id);
@@ -215,19 +222,31 @@
       `;
     }
   
+    // ========== RENDER ==========
     function render(route) {
       const view = $('#app-view');
       if (!view) return;
       view.style.opacity = '0';
       
       setTimeout(() => {
-          if (route === 'home') view.innerHTML = renderHome();
+          if (route === 'home') {
+              view.innerHTML = renderHome();
+          }
           else if (route.startsWith('topic/')) {
               const topic = state.topics.find(t => t.id === route.split('/')[1]);
               if (topic) view.innerHTML = `<div class="animate-fade-in">${typeof topic.render === 'function' ? topic.render() : topic.content}</div>`;
               else view.innerHTML = "<div class='p-10 text-center'>Module not found</div>";
-          } else if (route === 'simulator' && window.renderSimulatorPage) view.innerHTML = window.renderSimulatorPage();
-          else if (route === 'ngn-sepsis' && window.renderNGNCase) view.innerHTML = window.renderNGNCase('sepsis');
+          }
+          else if (route === 'simulator' && window.renderSimulatorPage) {
+              view.innerHTML = window.renderSimulatorPage();
+          }
+          else if (route === 'ngn-sepsis' && window.renderNGNCase) {
+              view.innerHTML = window.renderNGNCase('sepsis');
+          }
+          /* 🆕 NUEVA RUTA: SKINS */
+          else if (route === 'skins' && window.SkinSystem) {
+              view.innerHTML = window.SkinSystem.renderSkinSelector();
+          }
 
           applyLanguageGlobal();
           view.style.opacity = '1';
