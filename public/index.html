@@ -203,7 +203,14 @@
                 <span class="hidden lg:inline lang-es">Tema</span>
                 <span class="hidden lg:inline lang-en hidden-lang">Theme</span>
             </button>
-        </div>
+
+            <button onclick="window.NCLEX_AUTH.logout()" 
+                class="w-full flex items-center justify-center gap-3 p-3 rounded-xl border text-sm font-bold transition-colors bg-red-50 border-red-100 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-900 dark:text-red-400">
+                <i class="fa-solid fa-right-from-bracket text-lg"></i> 
+                <span class="hidden lg:inline lang-es">Salir</span>
+                <span class="hidden lg:inline lang-en hidden-lang">Logout</span>
+            </button>
+            </div>
     </aside>
 
     <main id="main-content" role="main" class="flex-1 relative overflow-y-auto h-screen scroll-smooth transition-colors duration-300">
