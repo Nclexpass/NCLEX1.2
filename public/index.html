@@ -8,11 +8,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NCLEX MASTERCLASS | By Reynier Diaz Gerones</title>
-
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-
+    
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -66,12 +66,12 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden-lang { display: none !important; }
-
+        
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.3); border-radius: 999px; }
         .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); }
         ::-webkit-scrollbar-track { background: transparent; }
-
+        
         .nav-btn.active {
             background-color: rgba(0, 122, 255, 0.1);
             color: #007AFF;
@@ -81,14 +81,14 @@
             background-color: rgba(0, 122, 255, 0.2);
             color: #60a5fa;
         }
-
+        
         .line-clamp-2 {
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
-
+        
         #home-search-results {
             max-height: 500px;
             overflow-y: auto;
@@ -103,7 +103,7 @@
             animation: slideIn 0.2s ease-out;
             display: none;
         }
-
+        
         .dark #home-search-results {
             background-color: #1C1C1E;
             box-shadow: 0 20px 60px rgba(0,0,0,0.4);
@@ -126,7 +126,7 @@
                 0 2px 4px -1px rgba(0, 0, 0, 0.06),
                 inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
         }
-
+        
         .dark .apple-glass {
             background: rgba(28, 28, 30, 0.8);
             border: 1px solid rgba(44, 44, 46, 0.8);
@@ -135,7 +135,7 @@
                 0 2px 4px -1px rgba(0, 0, 0, 0.2),
                 inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
         }
-
+        
         .apple-titlebar {
             background: linear-gradient(to bottom, 
                 rgba(255, 255, 255, 0.9), 
@@ -145,7 +145,7 @@
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
-
+        
         .dark .apple-titlebar {
             background: linear-gradient(to bottom, 
                 rgba(44, 44, 46, 0.9), 
@@ -153,7 +153,7 @@
             );
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-
+        
         .apple-button {
             background: linear-gradient(180deg, 
                 rgba(255, 255, 255, 0.9) 0%, 
@@ -167,7 +167,22 @@
             color: #007AFF;
             transition: all 0.2s ease;
         }
-
+        
+        .apple-button:hover {
+            background: linear-gradient(180deg, 
+                rgba(255, 255, 255, 1) 0%, 
+                rgba(242, 242, 247, 1) 100%
+            );
+            border-color: rgba(0, 0, 0, 0.15);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .apple-button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        
         .apple-control {
             width: 12px;
             height: 12px;
@@ -176,41 +191,155 @@
             margin-right: 8px;
             transition: transform 0.2s ease;
         }
-
+        
+        .apple-control:hover {
+            transform: scale(1.1);
+        }
+        
         .apple-control-close { background: #FF5F57; }
         .apple-control-minimize { background: #FFBD2E; }
         .apple-control-maximize { background: #28CA42; }
-
-        .apple-scrollbar::-webkit-scrollbar { width: 8px; }
-        .apple-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
-        .apple-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 4px; }
-        .dark .apple-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
-
+        
+        .apple-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .apple-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 4px;
+        }
+        
+        .apple-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+        
+        .apple-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        
+        .dark .apple-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .dark .apple-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
         .apple-editor {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
             font-size: 15px;
             line-height: 1.6;
             letter-spacing: -0.01em;
         }
-
+        
         .apple-sidebar {
             background: rgba(242, 242, 247, 0.6);
             border-right: 1px solid rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
         }
-
+        
         .dark .apple-sidebar {
             background: rgba(28, 28, 30, 0.6);
             border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
-
+        
         .sidebar-page.active {
             background: rgba(0, 122, 255, 0.1);
             border: 1px solid rgba(0, 122, 255, 0.2);
         }
+        
+        .apple-modal {
+            background: rgba(242, 242, 247, 0.95);
+            backdrop-filter: blur(30px) saturate(200%);
+            -webkit-backdrop-filter: blur(30px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 
+                0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .dark .apple-modal {
+            background: rgba(28, 28, 30, 0.95);
+            border: 1px solid rgba(44, 44, 46, 0.8);
+        }
+        
+        .apple-input {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .apple-input:focus {
+            outline: none;
+            border-color: #007AFF;
+            box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+        }
+        
+        .dark .apple-input {
+            background: rgba(44, 44, 46, 0.8);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .accent-button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 6.5px;
+            padding: 4px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .accent-button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+        }
 
-        /* Pestaña lateral semioculta para la libreta */
+        /* Notepad specific */
+        #notepad-container {
+            animation: glassIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .notepad-resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 15px;
+            height: 15px;
+            cursor: se-resize;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        
+        .notepad-resize-handle:hover {
+            opacity: 1;
+        }
+        
+        .notepad-resize-handle::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 8px;
+            height: 8px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+        }
+
+        /* Pulse slow animation */
+        .animate-pulse-slow {
+            animation: pulseSlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Pestaña lateral semioculta para la libreta (único bloc de notas) */
         .notebook-tab {
             position: fixed;
             right: 0;
@@ -222,19 +351,20 @@
             padding: 12px 16px 12px 20px;
             box-shadow: -4px 0 20px rgba(0,0,0,0.1);
         }
-        .notebook-tab:hover { transform: translateY(-50%) translateX(0); }
-        @media (max-width: 768px) {
-            .notebook-tab { transform: translateY(-50%) translateX(60%); padding: 10px 12px 10px 16px; }
+        .notebook-tab:hover {
+            transform: translateY(-50%) translateX(0);
         }
-
-        .animate-pulse-slow {
-            animation: pulseSlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        @media (max-width: 768px) {
+            .notebook-tab {
+                transform: translateY(-50%) translateX(60%);
+                padding: 10px 12px 10px 16px;
+            }
         }
     </style>
 </head>
 
 <body class="bg-brand-bg text-slate-900 dark:bg-brand-dark dark:text-slate-100 min-h-screen overflow-hidden flex flex-col md:flex-row font-sans transition-colors duration-300">
-
+    
     <noscript>
         <div class="fixed inset-0 bg-white z-[999] flex items-center justify-center text-center p-4">
             <h1 class="text-2xl font-bold text-red-600">JavaScript Required / JavaScript Requerido</h1>
@@ -254,7 +384,7 @@
             </p>
         </div>
     </div>
-
+    
     <aside aria-label="Navegación principal" class="w-20 lg:w-80 flex flex-col border-r border-gray-200 dark:border-brand-border bg-white/95 dark:bg-brand-card/95 backdrop-blur-md z-50 shadow-xl flex-shrink-0 h-screen sticky top-0 transition-all duration-300">
         <div class="p-5 lg:p-6 flex items-center gap-4 border-b border-gray-100 dark:border-brand-border/50">
             <div class="w-12 h-12 bg-gradient-to-br from-brand-blue to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg flex-shrink-0">
@@ -281,11 +411,8 @@
                 <div class="w-6 flex justify-center"><i class="fa-solid fa-house text-xl text-brand-blue group-hover:scale-110 transition-transform"></i></div>
                 <span class="hidden lg:block text-base font-bold lang-es">Inicio</span><span class="hidden lg:block text-base font-bold lang-en hidden-lang">Home</span>
             </button>
-
             <div class="my-4 border-t border-gray-200 dark:border-white/10 mx-2" role="separator"></div>
-
             <div id="topics-nav" class="space-y-2 pb-4"></div>
-
             <button onclick="window.nclexApp?.navigate ? window.nclexApp.navigate('simulator') : console.warn('nclexApp no disponible')" data-route="simulator" class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-600 dark:text-gray-300 group mt-4 border border-dashed border-gray-300 dark:border-gray-600 hover:border-brand-blue dark:hover:border-brand-blue">
                 <div class="w-6 flex justify-center"><i class="fa-solid fa-brain text-xl text-purple-500 group-hover:rotate-12 transition-transform"></i></div>
                 <span class="hidden lg:block text-base font-bold lang-es">Simulador</span><span class="hidden lg:block text-base font-bold lang-en hidden-lang">Simulator</span>
@@ -297,12 +424,10 @@
                 <i class="fa-solid fa-language text-lg"></i>
                 <span class="hidden lg:inline font-bold text-sm lang-es">Switch to English</span><span class="hidden lg:inline font-bold text-sm lang-en hidden-lang">Cambiar a Español</span>
             </button>
-
             <button onclick="window.nclexApp?.toggleTheme ? window.nclexApp.toggleTheme() : console.warn('toggleTheme no disponible')" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-brand-border text-sm font-bold text-gray-600 hover:text-brand-blue dark:hover:text-white transition-colors shadow-sm hover:shadow-md">
                 <i class="fa-solid fa-circle-half-stroke text-lg"></i>
                 <span class="hidden lg:inline lang-es">Tema</span><span class="hidden lg:inline lang-en hidden-lang">Theme</span>
             </button>
-
             <div class="pt-4 mt-2 border-t border-gray-200 dark:border-white/5 text-center">
                 <p class="text-xs leading-tight text-gray-500 font-medium mb-2">Created by <span class="text-gray-700 dark:text-gray-200 font-bold">Reynier Diaz Gerones</span></p>
             </div>
@@ -314,19 +439,6 @@
     </main>
 
     <div id="notepad-container" class="fixed z-[9999]"></div>
-
-    <!-- Pestaña lateral de la libreta -->
-    <button onclick="window.toggleNotepad()" aria-label="Abrir Notas / Open Notes"
-        class="notebook-tab apple-glass bg-gradient-to-br from-blue-500/90 to-purple-600/90 dark:from-blue-600/90 dark:to-purple-700/90 text-white shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 flex items-center justify-center transition-all duration-300 hover:-translate-y-1/2 hover:scale-105 active:scale-95 group">
-        <div class="absolute inset-0 rounded-l-full bg-gradient-to-br from-white/20 to-transparent"></div>
-        <i class="fa-solid fa-pen-to-square text-xl relative group-hover:rotate-12 transition-transform" aria-hidden="true"></i>
-        <div class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900 animate-pulse-slow"></div>
-        <div class="absolute bottom-full right-0 mb-3 px-3 py-1.5 bg-gray-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg translate-y-2 group-hover:translate-y-0 whitespace-nowrap">
-            <span class="lang-es">Libreta</span><span class="lang-en hidden-lang">Notebook</span>
-            <div class="absolute -bottom-1 right-6 w-2 h-2 bg-gray-900 rotate-45"></div>
-        </div>
-    </button>
-
     <button id="back-to-top" onclick="window.scrollToTop()" aria-label="Volver arriba / Back to top"
         class="hidden fixed bottom-24 right-8 w-12 h-12 bg-brand-blue text-white rounded-full shadow-lg shadow-blue-500/30 hover:bg-blue-600 z-[50] transition-all hover:-translate-y-1 flex items-center justify-center opacity-0 translate-y-10 duration-300">
         <i class="fa-solid fa-arrow-up text-lg" aria-hidden="true"></i>
@@ -347,48 +459,42 @@
     </script>
 
     <script type="module" src="js/auth.js?v=2.0"></script>
-    <script src="js/ngn_engine.js?v=2.0"></script>
-    <script src="js/simulator.js?v=2.0"></script>
-    <script src="js/logic.js?v=2.0"></script>
+    <script defer src="js/ngn_engine.js?v=2.0"></script>
+    <script defer src="js/simulator.js?v=2.0"></script>
+    <script defer src="js/logic.js?v=2.0"></script>
 
-    <script src="js/01_newborn.js"></script>
-    <script src="js/02_maternity.js"></script>
-    <script src="js/03_pediatrics_growth_development.js"></script>
-    <script src="js/04_med_surg_adult.js"></script>
-    <script src="js/05_cardiovascular.js"></script>
-    <script src="js/06_respiratory.js"></script>
-    <script src="js/07_pharmacology.js"></script>
-    <script src="js/08_endocrine.js"></script>
-    <script src="js/09_mental_health.js"></script>
-    <script src="js/10_neurological.js"></script>
-    <script src="js/11_musculoskeletal.js"></script>
-    <script src="js/12_fundamentals.js"></script>
-    <script src="js/13_hematology_oncology.js"></script>
-    <script src="js/14_gastrointestinal.js"></script>
-    <script src="js/15_integumentary_burns.js"></script>
-    <script src="js/16_labs_values.js"></script>
-
-    <!-- ✅ SOLO una vez (externo). NO inline. -->
-    <script src="js/17_bnotepad.js?v=2.0"></script>
-
-    <script src="js/18_leadership_management.js"></script>
-    <script src="js/19_prioritization_delegation.js"></script>
-    <script src="js/20_renal_genitourinary.js"></script>
-    <script src="js/21_infectious_immune.js"></script>
-    <script src="js/22_emergency_critical.js"></script>
-    <script src="js/23_fluids_electrolytes.js"></script>
-    <script src="js/24_clinical_nutrition.js"></script>
-    <script src="js/25_perioperative_care.js"></script>
-    <script src="js/26_high_risk_pharm.js"></script>
-    <script src="js/27_critical_thinking_ngn.js"></script>
-    <script src="js/28_ethics_legal.js"></script>
-    <script src="js/29_negative_rationales.js"></script>
-    <script src="js/30_common_student_errors.js"></script>
-    <script src="js/31_search_service.js"></script>
-    <script src="js/32_analytics_dashboard.js"></script>
-
-    <!-- ✅ SOLO una vez (externo). NO inline. -->
-    <script src="js/premium_books_library.js?v=2.0"></script>
-
+    <script defer src="js/01_newborn.js?v=2.0"></script>
+    <script defer src="js/02_maternity.js?v=2.0"></script>
+    <script defer src="js/03_pediatrics_growth_development.js?v=2.0"></script>
+    <script defer src="js/04_med_surg_adult.js?v=2.0"></script>
+    <script defer src="js/05_cardiovascular.js?v=2.0"></script>
+    <script defer src="js/06_respiratory.js?v=2.0"></script>
+    <script defer src="js/07_pharmacology.js?v=2.0"></script>
+    <script defer src="js/08_endocrine.js?v=2.0"></script>
+    <script defer src="js/09_mental_health.js?v=2.0"></script>
+    <script defer src="js/10_neurological.js?v=2.0"></script>
+    <script defer src="js/11_musculoskeletal.js?v=2.0"></script>
+    <script defer src="js/12_fundamentals.js?v=2.0"></script>
+    <script defer src="js/13_hematology_oncology.js?v=2.0"></script>
+    <script defer src="js/14_gastrointestinal.js?v=2.0"></script>
+    <script defer src="js/15_integumentary_burns.js?v=2.0"></script>
+    <script defer src="js/16_labs_values.js?v=2.0"></script>
+    <script defer src="js/17_bnotepad.js?v=2.0"></script>
+    <script defer src="js/18_leadership_management.js?v=2.0"></script>
+    <script defer src="js/19_prioritization_delegation.js?v=2.0"></script>
+    <script defer src="js/20_renal_genitourinary.js?v=2.0"></script>
+    <script defer src="js/21_infectious_immune.js?v=2.0"></script>
+    <script defer src="js/22_emergency_critical.js?v=2.0"></script>
+    <script defer src="js/23_fluids_electrolytes.js?v=2.0"></script>
+    <script defer src="js/24_clinical_nutrition.js?v=2.0"></script>
+    <script defer src="js/25_perioperative_care.js?v=2.0"></script>
+    <script defer src="js/26_high_risk_pharm.js?v=2.0"></script>
+    <script defer src="js/27_critical_thinking_ngn.js?v=2.0"></script>
+    <script defer src="js/28_ethics_legal.js?v=2.0"></script> 
+    <script defer src="js/29_negative_rationales.js?v=2.0"></script>
+    <script defer src="js/30_common_student_errors.js?v=2.0"></script>
+    <script defer src="js/31_search_service.js?v=2.0"></script>
+    <script defer src="js/32_analytics_dashboard.js?v=2.0"></script>
+    <script defer src="js/premium_books_library.js?v=2.0"></script>
 </body>
 </html>
