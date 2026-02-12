@@ -1,5 +1,5 @@
-// premium_books_library.js — Apple-style PDF Library (VERSIÓN CORREGIDA 3.0)
-// FIXED: Mejor manejo de errores, integración con tema, caché de resultados
+// premium_books_library.js — Apple-style PDF Library (VERSIÓN CORREGIDA 3.1)
+// FIXED: Destructuración correcta de NCLEXUtils, manejo de errores mejorado
 
 (function () {
   'use strict';
@@ -12,10 +12,33 @@
     storageSet: () => false,
     debounce: (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; },
     escapeHtml: (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-    format: { truncate: (t, m) => t.length > m ? t.slice(0, m) + '...' : t, formatFileSize: (b) => b < 1024 * 1024 ? (b / 1024).toFixed(0) + ' KB' : (b / (1024 * 1024)).toFixed(1) + ' MB' }
+    format: { 
+      truncate: (t, m) => t.length > m ? t.slice(0, m) + '...' : t, 
+      formatFileSize: (b) => {
+        if (b === 0 || !b) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(b) / Math.log(k));
+        return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+      }
+    }
   };
 
-  const { $, $$, storageGet, storageSet, debounce, escapeHtml, format: { truncate, formatFileSize } } = U;
+  // ✅ CORREGIDO: Destructuración segura de utilidades
+  const { $, $$, storageGet, storageSet, debounce, escapeHtml } = U;
+  
+  // ✅ CORREGIDO: Acceder a formatFileSize desde U.format (no destructurado directamente)
+  const formatFileSize = U.format?.formatFileSize || function(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+  
+  const truncate = U.format?.truncate || function(t, m) { 
+    return t.length > m ? t.slice(0, m) + '...' : t; 
+  };
 
   // ===== CONFIGURACIÓN =====
   const CONFIG = {
