@@ -465,13 +465,12 @@
 
         window.NCLEX.registerTopic({
             id: 'dashboard',
-            order: 0, // Primero en la lista
-            name: 'Performance Dashboard',
-            label_es: 'Panel de Rendimiento',
-            label_en: 'Performance Dashboard',
-            subtitle_es: 'Métricas, avance y recomendaciones.',
-            subtitle_en: 'Metrics, progress, and recommendations.',
-            icon: 'fa-solid fa-chart-line',
+            order: 0,
+            title: {
+                es: 'Panel de Rendimiento',
+                en: 'Performance Dashboard'
+            },
+            icon: 'chart-line',
             color: 'indigo',
             render: renderDashboard
         });
