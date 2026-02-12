@@ -21,7 +21,7 @@
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
                         brand: {
-                            blue: 'var(--brand-blue, #007AFF)',
+                            blue: 'rgb(var(--brand-blue-rgb, 0 122 255))',
                             bg: 'var(--brand-bg, #F5F5F7)',
                             dark: 'var(--brand-dark, #000000)',
                             card: 'var(--brand-card, #FFFFFF)',
@@ -38,7 +38,7 @@
     <style>
         /* ===== VARIABLES CSS GLOBALES (skin por defecto) ===== */
         :root {
-            --brand-blue: #007AFF;
+            --brand-blue-rgb: 0, 122, 255;
             --brand-bg: #F5F5F7;
             --brand-dark: #000000;
             --brand-card: #FFFFFF;
@@ -53,7 +53,7 @@
 
         /* ===== SKIN OCEAN ===== */
         .skin-ocean {
-            --brand-blue: #0A84FF;
+            --brand-blue-rgb: 10, 132, 255;
             --brand-bg: #E9F2FA;
             --brand-dark: #001B36;
             --brand-card: #FFFFFF;
@@ -67,7 +67,7 @@
 
         /* ===== SKIN FOREST ===== */
         .skin-forest {
-            --brand-blue: #2C6E49;
+            --brand-blue-rgb: 44, 110, 73;
             --brand-bg: #F4F9F4;
             --brand-dark: #1A2E1A;
             --brand-card: #FFFFFF;
@@ -81,7 +81,7 @@
 
         /* ===== SKIN LAVENDER ===== */
         .skin-lavender {
-            --brand-blue: #9B87F8;
+            --brand-blue-rgb: 155, 135, 248;
             --brand-bg: #F8F7FF;
             --brand-dark: #2D2B55;
             --brand-card: #FFFFFF;
@@ -95,7 +95,7 @@
 
         /* ===== SKIN MIDNIGHT ===== */
         .skin-midnight {
-            --brand-blue: #FFB347;
+            --brand-blue-rgb: 255, 179, 71;
             --brand-bg: #F5F3F0;
             --brand-dark: #121212;
             --brand-card: #FFFFFF;
@@ -107,12 +107,12 @@
             --brand-border: #FFB34730;
         }
 
-        /* ===== UTILIDADES EXISTENTES ===== */
+        /* ===== UTILIDADES ===== */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden-lang { display: none !important; }
-        .nav-btn.active { background-color: rgba(0, 122, 255, 0.1); color: #007AFF; font-weight: 700; }
-        .dark .nav-btn.active { background-color: rgba(0, 122, 255, 0.2); color: #60a5fa; }
+        .nav-btn.active { background-color: rgba(var(--brand-blue-rgb), 0.1); color: rgb(var(--brand-blue-rgb)); font-weight: 700; }
+        .dark .nav-btn.active { background-color: rgba(var(--brand-blue-rgb), 0.2); color: rgb(var(--brand-blue-rgb)); }
 
         /* ===== RESULTADOS DE BÚSQUEDA ===== */
         #sidebar-search-results {
@@ -256,7 +256,7 @@
     <script defer src="js/32_analytics_dashboard.js?v=2.1"></script>
     <script defer src="js/premium_books_library.js?v=2.1"></script>
     
-    <!-- 🆕 SISTEMA DE SKINS -->
+    <!-- SISTEMA DE SKINS -->
     <script defer src="js/skins.js?v=2.1"></script>
 
 </body>

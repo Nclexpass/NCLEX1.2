@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS + SIDEBAR RE-RENDER */
 
 (function () {
     'use strict';
@@ -100,7 +100,6 @@
         updateNavActive(route);
         if(main) main.scrollTop = (route === 'home' ? (state.scrollPositions['home'] || 0) : 0);
         
-        // 🧹 Limpiar resultados de búsqueda al navegar
         setTimeout(() => {
             const homeResults = $('#home-search-results');
             if (homeResults) {
@@ -174,7 +173,7 @@
           <div id="home-search-results" class="mt-3 w-full bg-white dark:bg-brand-card border border-gray-200 dark:border-brand-border rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
         </div>
 
-        <!-- 🆕 GRID DE ACCESO RÁPIDO (CON TARJETA DE APARIENCIA BILINGÜE) -->
+        <!-- GRID DE ACCESO RÁPIDO (CON TARJETA DE APARIENCIA BILINGÜE) -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
            <!-- Simulator -->
            <div onclick="window.nclexApp.navigate('simulator')" class="bg-gradient-to-br from-indigo-600 to-violet-600 p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform">
@@ -250,7 +249,6 @@
           else if (route === 'ngn-sepsis' && window.renderNGNCase) {
               view.innerHTML = window.renderNGNCase('sepsis');
           }
-          /* 🆕 NUEVA RUTA: SKINS */
           else if (route === 'skins' && window.SkinSystem) {
               view.innerHTML = window.SkinSystem.renderSkinSelector();
           }
@@ -299,6 +297,14 @@
       if(loader) setTimeout(() => loader.classList.add('hidden'), 500);
     }
   
+    // 🆕 ACTUALIZAR EL SIDEBAR CUANDO CAMBIA LA SKIN
+    window.addEventListener('skinchange', function() {
+        if (state.isAppLoaded) {
+            updateNav();
+            updateNavActive(state.currentRoute);
+        }
+    });
+
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 })();
