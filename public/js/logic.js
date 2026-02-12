@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS + SIDEBAR FIXED */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS + ICONOS ORIGINALES */
 
 (function () {
     'use strict';
@@ -254,18 +254,21 @@
       }, 100);
     }
   
-    // ========== UPDATE NAV (CON LA CORRECCIÓN: todos los íconos usan text-brand-blue) ==========
+    // ========== UPDATE NAV (CON COLORES ORIGINALES RESTAURADOS) ==========
     function updateNav() {
       const nav = $('#topics-nav');
       if (!nav) return;
-      nav.innerHTML = state.topics.map(t => `
-        <button onclick="window.nclexApp.navigate('topic/${t.id}')" data-route="topic/${t.id}" class="nav-btn w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-500 dark:text-gray-400">
-          <div class="w-6 flex justify-center">
-            <i class="fa-solid fa-${normalizeFaIcon(t.icon)} text-brand-blue"></i> <!-- 🟢 CORREGIDO: siempre usa el color primario de la skin -->
-          </div>
-          <span class="hidden lg:block text-sm font-bold truncate">${getBilingualTitle(t)}</span>
-        </button>
-      `).join('');
+      nav.innerHTML = state.topics.map(t => {
+        const colors = getColor(t.color);
+        return `
+          <button onclick="window.nclexApp.navigate('topic/${t.id}')" data-route="topic/${t.id}" class="nav-btn w-full flex items-center gap-4 p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-gray-500 dark:text-gray-400">
+            <div class="w-6 flex justify-center">
+              <i class="fa-solid fa-${normalizeFaIcon(t.icon)} ${colors.text}"></i> <!-- 🟢 COLOR ORIGINAL DEL TEMA -->
+            </div>
+            <span class="hidden lg:block text-sm font-bold truncate">${getBilingualTitle(t)}</span>
+          </button>
+        `;
+      }).join('');
     }
   
     function updateNavActive(route) {
@@ -296,10 +299,9 @@
       if(loader) setTimeout(() => loader.classList.add('hidden'), 500);
     }
   
-    // 🟢 ACTUALIZAR EL SIDEBAR CUANDO CAMBIA LA SKIN
+    // 🟢 ACTUALIZAR EL SIDEBAR CUANDO CAMBIA LA SKIN (solo fondos, no colores de iconos)
     window.addEventListener('skinchange', function() {
         if (state.isAppLoaded) {
-            updateNav();
             updateNavActive(state.currentRoute);
         }
     });

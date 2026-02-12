@@ -111,8 +111,17 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden-lang { display: none !important; }
-        .nav-btn.active { background-color: rgba(var(--brand-blue-rgb), 0.1); color: rgb(var(--brand-blue-rgb)); font-weight: 700; }
-        .dark .nav-btn.active { background-color: rgba(var(--brand-blue-rgb), 0.2); color: rgb(var(--brand-blue-rgb)); }
+        
+        /* 🟢 BOTONES ACTIVOS: fondo con transparencia del color primario de la skin */
+        .nav-btn.active { 
+            background-color: rgba(var(--brand-blue-rgb), 0.1); 
+            color: rgb(var(--brand-blue-rgb)); 
+            font-weight: 700; 
+        }
+        .dark .nav-btn.active { 
+            background-color: rgba(var(--brand-blue-rgb), 0.2); 
+            color: rgb(var(--brand-blue-rgb)); 
+        }
 
         /* ===== RESULTADOS DE BÚSQUEDA ===== */
         #sidebar-search-results {
@@ -256,7 +265,6 @@
     <script defer src="js/32_analytics_dashboard.js?v=2.1"></script>
     <script defer src="js/premium_books_library.js?v=2.1"></script>
     
-    <!-- SISTEMA DE SKINS -->
     <script defer src="js/skins.js?v=2.1"></script>
 
 </body>
