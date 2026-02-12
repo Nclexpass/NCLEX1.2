@@ -1,4 +1,4 @@
-// 31_search_service.js — Deep Search Engine (FULL UI INTEGRATION)
+// 31_search_service.js — Deep Search Engine (FULL UI INTEGRATION + HIGHLIGHT)
 (function() {
   'use strict';
 
@@ -65,7 +65,7 @@
       });
     },
 
-    // ========== NUEVAS FUNCIONES DE UI ==========
+    // ========== UI INTEGRATION ==========
 
     bindUI() {
       // 1. Sidebar search (estático)
@@ -91,7 +91,7 @@
         }
       });
 
-      // También delegación para clicks en resultados (navegación)
+      // 3. Navegación al hacer clic en un resultado
       document.addEventListener('click', (e) => {
         const resultItem = e.target.closest('[data-search-result-id]');
         if (resultItem) {
@@ -104,7 +104,7 @@
               container.classList.remove('active');
               container.innerHTML = '';
             }
-            // Opcional: limpiar input
+            // Limpiar el campo de búsqueda
             const input = document.getElementById('home-search') || document.getElementById('global-search');
             if (input) input.value = '';
           }
@@ -129,18 +129,27 @@
         return;
       }
 
-      // Renderizar resultados
+      // Renderizar resultados con resaltado (highlight)
       const isEs = this.getLang() === 'es';
+      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${escapedTerm})`, 'gi');
+
       const itemsHtml = results.map(item => {
         const title = isEs ? item.titleES : item.titleEN;
+        const preview = item.preview;
+
+        // Resaltar coincidencias en título y preview
+        const highlightedTitle = title.replace(regex, '<mark class="bg-yellow-300 dark:bg-yellow-600 px-0.5 rounded">$1</mark>');
+        const highlightedPreview = preview.replace(regex, '<mark class="bg-yellow-300 dark:bg-yellow-600 px-0.5 rounded">$1</mark>');
+
         return `
           <div data-search-result-id="${item.id}" class="p-4 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition flex items-start gap-3">
             <div class="w-8 h-8 rounded-lg bg-brand-blue/10 flex items-center justify-center text-brand-blue flex-shrink-0">
               <i class="fa-solid fa-${item.icon} text-sm"></i>
             </div>
             <div class="flex-1 min-w-0">
-              <div class="font-bold text-sm text-gray-900 dark:text-white truncate">${title}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 truncate">${item.preview}</div>
+              <div class="font-bold text-sm text-gray-900 dark:text-white truncate">${highlightedTitle}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 truncate">${highlightedPreview}</div>
             </div>
           </div>
         `;

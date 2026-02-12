@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION (CORREGIDO) */
 
 (function () {
     'use strict';
@@ -82,7 +82,10 @@
         state.updateTimer = setTimeout(() => {
             if (state.isAppLoaded) {
                 updateNav();
-                SmartTextIndex.build(state.topics);
+                // 🔁 Construir índice de búsqueda cada vez que se registren temas
+                if (window.SmartSearchEngine) {
+                    window.SmartSearchEngine.buildIndex(state.topics);
+                }
                 if (state.currentRoute === 'home') render('home');
             }
         }, 100);
@@ -97,6 +100,20 @@
         render(route);
         updateNavActive(route);
         if(main) main.scrollTop = (route === 'home' ? (state.scrollPositions['home'] || 0) : 0);
+        
+        // 🧹 Limpiar resultados de búsqueda al navegar (opcional pero buena práctica)
+        setTimeout(() => {
+            const homeResults = $('#home-search-results');
+            if (homeResults) {
+                homeResults.classList.remove('active');
+                homeResults.innerHTML = '';
+            }
+            const sidebarResults = $('#sidebar-search-results');
+            if (sidebarResults) {
+                sidebarResults.classList.remove('active');
+                sidebarResults.innerHTML = '';
+            }
+        }, 50);
       },
       
       toggleLanguage() {
@@ -123,12 +140,7 @@
       getTopics() { return state.topics; }
     };
   
-    const SmartTextIndex = (() => {
-      const index = [];
-      function build(topics) {}
-      function search(term) { return []; }
-      return { build, search };
-    })();
+    // ❌ ELIMINADO: SmartTextIndex (stub inútil) - ahora usamos SmartSearchEngine directamente
 
     function renderHome() {
       const total = state.topics.length;
@@ -154,12 +166,15 @@
            </div>
         </div>
 
+        <!-- === TARJETA SMART SEARCH (HOME) === -->
         <div class="bg-white dark:bg-brand-card p-6 rounded-3xl border border-gray-200 dark:border-brand-border shadow-lg mb-10">
           <h2 class="text-xl font-bold mb-4"><i class="fa-solid fa-search mr-2 text-brand-blue"></i> Smart Search</h2>
           <div class="relative">
             <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
             <input type="text" id="home-search" class="w-full bg-gray-50 dark:bg-black/30 border-2 border-gray-100 dark:border-brand-border rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-brand-blue text-slate-900 dark:text-white" placeholder="Search medical terms, diagnoses, drugs...">
           </div>
+          <!-- 🆕 CONTENEDOR DE RESULTADOS PARA EL HOME SEARCH -->
+          <div id="home-search-results" class="mt-3 w-full bg-white dark:bg-brand-card border border-gray-200 dark:border-brand-border rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">

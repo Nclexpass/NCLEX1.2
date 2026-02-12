@@ -34,8 +34,43 @@
         .hidden-lang { display: none !important; }
         .nav-btn.active { background-color: rgba(0, 122, 255, 0.1); color: #007AFF; font-weight: 700; }
         .dark .nav-btn.active { background-color: rgba(0, 122, 255, 0.2); color: #60a5fa; }
-        #home-search-results { max-height: 500px; overflow-y: auto; z-index: 40; position: absolute; top: 100%; left: 0; width: 100%; background-color: white; border-radius: 0 0 0.75rem 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.1); display: none; }
-        .dark #home-search-results { background-color: #1C1C1E; border: 1px solid #2C2C2E; border-top: none; }
+        
+        /* === CONTENEDOR DE RESULTADOS DEL SIDEBAR (barra izquierda) === */
+        #sidebar-search-results {
+            max-height: 500px;
+            overflow-y: auto;
+            z-index: 40;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background-color: white;
+            border-radius: 0 0 0.75rem 0.75rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            display: none;
+        }
+        .dark #sidebar-search-results {
+            background-color: #1C1C1E;
+            border: 1px solid #2C2C2E;
+            border-top: none;
+        }
+        #sidebar-search-results.active { display: block; }
+
+        /* === CONTENEDOR DE RESULTADOS DEL HOME (Smart Search) === */
+        #home-search-results {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 0.75rem;
+            border-radius: 0.75rem;
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            display: none;
+        }
+        .dark #home-search-results {
+            background-color: #1C1C1E;
+            border-color: #2C2C2E;
+        }
         #home-search-results.active { display: block; }
     </style>
 </head>
@@ -67,7 +102,8 @@
             <div class="relative group">
                 <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base group-focus-within:text-brand-blue transition-colors"></i>
                 <input type="text" id="global-search" placeholder="Buscar / Search..." autocomplete="off" class="w-full bg-gray-100 dark:bg-black/30 border border-transparent focus:border-brand-blue/30 rounded-xl py-3 pl-11 pr-4 text-base focus:outline-none focus:ring-2 focus:ring-brand-blue/20 transition-all placeholder-gray-500">
-                <div id="home-search-results" class="no-scrollbar"></div>
+                <!-- Resultados del sidebar (renombrado) -->
+                <div id="sidebar-search-results" class="no-scrollbar"></div>
             </div>
         </div>
 
