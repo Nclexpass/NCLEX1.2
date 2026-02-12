@@ -1,11 +1,11 @@
-// js/auth.js — VERSIÓN CLOUD SYNC (Sincronización de Progreso)
+// js/auth.js — VERSIÓN ADMINISTRADOR (Tu control total)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 (function() {
   'use strict';
 
-  // ===== 1. CONFIGURACIÓN FIREBASE =====
+  // ===== 1. CONEXIÓN A FIREBASE =====
   const firebaseConfig = {
     apiKey: "AIzaSyC07GVdRw3IkVp230DTT1GyYS_gFFtPeHU",
     authDomain: "nclex-masterclass.firebaseapp.com",
@@ -19,202 +19,255 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   try {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
-      console.log("🔥 Firebase Cloud Sync activo");
+      console.log("🔥 Sistema de Cuentas Activo");
   } catch (e) {
-      console.error("Error conectando a Firebase:", e);
+      console.error("Error Firebase:", e);
   }
 
-  // ===== 2. VARIABLES DE ESTADO =====
-  const STORAGE_KEY = 'nclex_user_session_v2';
-  const KEYS_TO_SYNC = [
-      'nclex_progress',      // Tu progreso general
-      'nclex_quiz_history',  // Historial de exámenes
-      'nclex_time_spent',    // Tiempo de estudio
-      'nclex_last_visit',    // Última visita
-      'sim_selected_cats',   // Preferencias del simulador
-      'books_cache'          // Caché de libros (opcional)
-  ];
+  // ===== 2. TU LLAVE MAESTRA (¡CÁMBIALA AQUÍ!) =====
+  const MASTER_KEY = "Guitarra89#"; // <--- Esta es la contraseña que solo TÚ debes saber
+  
+  const STORAGE_KEY = 'nclex_user_session_v5';
+  const KEYS_TO_SYNC = ['nclex_progress', 'nclex_quiz_history', 'nclex_time_spent', 'nclex_last_visit', 'sim_selected_cats'];
   let autoSaveInterval = null;
 
-  // ===== 3. SISTEMA DE SINCRONIZACIÓN (EL MOTOR NUEVO) =====
+  // ===== 3. SISTEMA DE DATOS (NUBE) =====
   
-  // BAJAR DATOS (Cloud -> Local)
   async function syncDown(userId) {
       if (!db || !userId) return;
-      console.log('☁️ Descargando progreso de la nube...');
-      
       try {
-          const docRef = doc(db, "users", userId);
-          const docSnap = await getDoc(docRef);
-
+          const docSnap = await getDoc(doc(db, "users", userId));
           if (docSnap.exists()) {
               const data = docSnap.data();
-              
-              // Restaurar cada clave en localStorage
               KEYS_TO_SYNC.forEach(key => {
-                  if (data[key]) {
-                      localStorage.setItem(key, JSON.stringify(data[key]));
-                  }
+                  if (data[key]) localStorage.setItem(key, JSON.stringify(data[key]));
               });
-              
-              console.log('✅ Progreso restaurado exitosamente');
-              // Avisar al Dashboard que los datos han cambiado
               window.dispatchEvent(new Event('nclex:dataLoaded'));
-          } else {
-              console.log('✨ Usuario nuevo o sin datos previos');
           }
-      } catch (error) {
-          console.error("Error descargando datos:", error);
-      }
+      } catch (e) { console.error(e); }
   }
 
-  // SUBIR DATOS (Local -> Cloud)
   async function syncUp() {
       const user = checkAuth();
       if (!db || !user) return;
-
-      const dataToSave = {};
+      
+      const dataToSave = { lastSync: new Date().toISOString() };
       let hasData = false;
-
-      // Recolectar datos del localStorage
+      
       KEYS_TO_SYNC.forEach(key => {
           const item = localStorage.getItem(key);
-          if (item) {
-              try {
-                  dataToSave[key] = JSON.parse(item);
-                  hasData = true;
-              } catch (e) {}
-          }
+          if (item) { dataToSave[key] = JSON.parse(item); hasData = true; }
       });
-      
-      // Agregar timestamp
-      dataToSave.lastSync = new Date().toISOString();
 
-      if (hasData) {
-          try {
-              await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
-              console.log('☁️ Progreso guardado en la nube');
-          } catch (error) {
-              console.error("Error subiendo datos:", error);
-          }
-      }
+      if (hasData) await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
   }
 
-  // Iniciar Autoguardado
   function startAutoSave() {
       if (autoSaveInterval) clearInterval(autoSaveInterval);
-      // Guardar cada 60 segundos
-      autoSaveInterval = setInterval(syncUp, 60000);
+      autoSaveInterval = setInterval(syncUp, 60000); // Guardar cada minuto
   }
 
-  // ===== 4. LÓGICA DE AUTENTICACIÓN =====
+  // ===== 4. PANTALLA DE LOGIN / REGISTRO =====
 
   function checkAuth() {
-    try {
-      const session = localStorage.getItem(STORAGE_KEY);
-      return session ? JSON.parse(session) : null;
-    } catch { return null; }
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
   }
 
   function renderAuthScreen() {
-    // Si ya existe el overlay, no duplicar
     if (document.getElementById('auth-overlay')) return;
 
     const overlay = document.createElement('div');
     overlay.id = 'auth-overlay';
     overlay.className = 'fixed inset-0 z-[100] bg-[#F5F5F7] flex items-center justify-center p-4';
+    
     overlay.innerHTML = `
-      <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-in border border-gray-200">
-        <div class="p-8 text-center">
-          <div class="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30">
-            <i class="fa-solid fa-user-nurse text-4xl text-white"></i>
+      <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-fade-in">
+        <div class="p-8 pb-4 text-center">
+          <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
+            <i class="fa-solid fa-user-nurse text-3xl text-white"></i>
           </div>
-          <h1 class="text-2xl font-black text-gray-900 mb-2">NCLEX MASTERCLASS</h1>
-          <p class="text-gray-500 mb-8 font-medium">Inicia sesión para guardar tu progreso</p>
-          
-          <div class="space-y-4">
-            <div>
-              <label class="block text-left text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 ml-1">Usuario / ID</label>
-              <input type="text" id="auth-username" 
-                class="w-full bg-gray-50 border border-gray-200 text-gray-900 text-lg rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-4 font-bold outline-none transition-all" 
-                placeholder="Ej. Estudiante2026">
-            </div>
-            
-            <button id="auth-login-btn" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-bold rounded-xl text-lg px-5 py-4 transition-all transform active:scale-95 shadow-lg shadow-blue-500/20">
-              Entrar y Sincronizar
-            </button>
-          </div>
-          
-          <p id="auth-error" class="mt-4 text-red-500 text-sm font-bold hidden"></p>
+          <h1 class="text-2xl font-black text-gray-900">NCLEX MASTERCLASS</h1>
+          <p class="text-gray-500 text-sm font-bold">Portal del Estudiante</p>
         </div>
-        <div class="bg-gray-50 p-4 text-center border-t border-gray-100">
-          <p class="text-xs text-gray-400 font-medium">System v3.0 • Secure Cloud Sync</p>
+
+        <div class="px-8 pb-8 space-y-4">
+            
+            <div id="view-login" class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Usuario</label>
+                    <input type="text" id="login-user" class="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl p-3 font-bold outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-400 uppercase ml-1">Contraseña</label>
+                    <input type="password" id="login-pass" class="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl p-3 font-bold outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <button id="btn-login" class="w-full bg-blue-600 text-white font-bold rounded-xl py-3 shadow-lg hover:bg-blue-700 transition-transform active:scale-95">
+                    Entrar
+                </button>
+                
+                <div class="pt-4 border-t border-gray-100 text-center">
+                    <button id="toggle-register" class="text-xs text-blue-500 font-bold hover:underline">
+                        ¿Eres Administrador? Crear cuenta nueva
+                    </button>
+                </div>
+            </div>
+
+            <div id="view-register" class="space-y-4 hidden">
+                <div class="p-3 bg-yellow-50 border border-yellow-100 rounded-xl flex items-center gap-3">
+                    <i class="fa-solid fa-lock text-yellow-600"></i>
+                    <p class="text-xs font-bold text-yellow-800">Modo Administrador</p>
+                </div>
+
+                <div>
+                    <input type="text" id="reg-user" placeholder="Nuevo Usuario" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold outline-none">
+                </div>
+                <div>
+                    <input type="text" id="reg-pass" placeholder="Contraseña para el estudiante" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-bold outline-none">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-red-400 uppercase ml-1">Clave Maestra</label>
+                    <input type="password" id="reg-master" placeholder="Tu código secreto" class="w-full bg-red-50 border border-red-100 text-red-900 rounded-xl p-3 font-bold outline-none focus:border-red-500">
+                </div>
+                
+                <button id="btn-register" class="w-full bg-gray-900 text-white font-bold rounded-xl py-3 shadow-lg hover:bg-gray-800 transition-transform active:scale-95">
+                    Crear Estudiante
+                </button>
+                
+                <div class="text-center pt-2">
+                    <button id="toggle-login" class="text-xs text-gray-400 font-bold hover:text-gray-600">
+                        Cancelar / Volver al Login
+                    </button>
+                </div>
+            </div>
+
+            <p id="auth-msg" class="text-center text-sm font-bold min-h-[20px]"></p>
         </div>
       </div>
     `;
     document.body.appendChild(overlay);
 
-    // Event Listeners
-    const btn = document.getElementById('auth-login-btn');
-    const input = document.getElementById('auth-username');
-    
-    const handleLogin = async () => {
-        const username = input.value.trim();
-        if (username.length < 3) {
-            document.getElementById('auth-error').innerText = "Nombre muy corto";
-            document.getElementById('auth-error').classList.remove('hidden');
-            return;
-        }
+    // LÓGICA DE INTERFAZ
+    const viewLogin = document.getElementById('view-login');
+    const viewRegister = document.getElementById('view-register');
+    const msg = document.getElementById('auth-msg');
 
-        // Animación de carga
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Conectando...';
-        btn.disabled = true;
-
-        // 1. Guardar sesión local
-        const session = { name: username, loginTime: Date.now() };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-
-        // 2. DESCARGAR PROGRESO DE LA NUBE
-        await syncDown(username);
-
-        // 3. Cerrar overlay e iniciar app
-        startAutoSave();
-        overlay.remove();
-        
-        // Forzar actualización de UI
-        if(window.nclexApp && window.nclexApp.refreshUI) window.nclexApp.refreshUI();
+    // Cambiar entre pantallas
+    document.getElementById('toggle-register').onclick = () => {
+        viewLogin.classList.add('hidden');
+        viewRegister.classList.remove('hidden');
+        msg.innerText = "";
+    };
+    document.getElementById('toggle-login').onclick = () => {
+        viewRegister.classList.add('hidden');
+        viewLogin.classList.remove('hidden');
+        msg.innerText = "";
     };
 
-    btn.onclick = handleLogin;
-    input.onkeypress = (e) => { if(e.key === 'Enter') handleLogin() };
+    // --- ACCIÓN: LOGIN ---
+    document.getElementById('btn-login').onclick = async () => {
+        const user = document.getElementById('login-user').value.trim();
+        const pass = document.getElementById('login-pass').value.trim();
+        
+        if (!user || !pass) return showMsg("Faltan datos", "text-red-500");
+        
+        document.getElementById('btn-login').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+
+        try {
+            const docRef = doc(db, "users", user);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists() && docSnap.data().password === pass) {
+                completeLogin(user);
+            } else {
+                showMsg("Usuario o contraseña incorrectos", "text-red-500");
+                document.getElementById('btn-login').innerHTML = 'Entrar';
+            }
+        } catch (e) {
+            console.error(e);
+            showMsg("Error de conexión", "text-red-500");
+            document.getElementById('btn-login').innerHTML = 'Entrar';
+        }
+    };
+
+    // --- ACCIÓN: CREAR ESTUDIANTE (ADMIN) ---
+    document.getElementById('btn-register').onclick = async () => {
+        const user = document.getElementById('reg-user').value.trim();
+        const pass = document.getElementById('reg-pass').value.trim();
+        const master = document.getElementById('reg-master').value.trim();
+
+        if (!user || !pass) return showMsg("Faltan datos del estudiante", "text-red-500");
+        
+        // AQUÍ SE COMPRUEBA TU CLAVE MAESTRA
+        if (master !== MASTER_KEY) {
+            return showMsg("⛔ Clave Maestra Incorrecta", "text-red-600");
+        }
+
+        try {
+            const docRef = doc(db, "users", user);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                showMsg("Este usuario ya existe", "text-orange-500");
+            } else {
+                // Crear el usuario en la base de datos
+                await setDoc(docRef, {
+                    password: pass,
+                    created: new Date().toISOString(),
+                    role: 'student'
+                });
+                
+                showMsg("✅ Estudiante creado con éxito", "text-green-600");
+                setTimeout(() => {
+                    // Volver al login automáticamente
+                    viewRegister.classList.add('hidden');
+                    viewLogin.classList.remove('hidden');
+                    document.getElementById('login-user').value = user;
+                    msg.innerText = "Ya puedes entrar con la cuenta nueva";
+                }, 1500);
+            }
+        } catch (e) {
+            console.error(e);
+            showMsg("Error al crear usuario", "text-red-500");
+        }
+    };
+
+    function showMsg(text, color) {
+        msg.className = `text-center text-sm font-bold min-h-[20px] ${color}`;
+        msg.innerText = text;
+    }
+
+    async function completeLogin(username) {
+        const session = { name: username, loginTime: Date.now() };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+        await syncDown(username);
+        startAutoSave();
+        document.getElementById('auth-overlay').remove();
+        if(window.nclexApp && window.nclexApp.refreshUI) window.nclexApp.refreshUI();
+    }
   }
 
-  // ===== 5. INICIALIZACIÓN =====
+  // ===== INICIALIZACIÓN =====
   function init() {
     const user = checkAuth();
     if (!user) {
-      // Esperar a que el loader principal desaparezca para no superponerse
-      setTimeout(() => renderAuthScreen(), 1500);
+      setTimeout(renderAuthScreen, 1500);
     } else {
-      console.log("👤 Usuario detectado:", user.name);
-      // Si ya está logueado, sincronizar (bajar cambios recientes) y activar autoguardado
+      console.log("👤 Sesión activa:", user.name);
       syncDown(user.name); 
       startAutoSave();
     }
   }
 
-  // Exponer función de logout globalmente
   window.NCLEX_AUTH = {
       logout: () => {
-          if(confirm("¿Cerrar sesión? Tu progreso local se mantendrá pero no se sincronizará.")) {
-              // Forzar una última subida antes de salir
+          if(confirm("¿Cerrar sesión?")) {
               syncUp().then(() => {
                   localStorage.removeItem(STORAGE_KEY);
                   location.reload();
               });
           }
       },
-      forceSave: syncUp // Para llamar manualmente si se desea
+      forceSave: syncUp
   };
 
   if (document.readyState === 'loading') {
