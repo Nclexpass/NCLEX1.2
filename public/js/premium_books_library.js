@@ -1,44 +1,44 @@
-// premium_books_library.js — Apple-style PDF Library (VERSIÓN CORREGIDA 3.1)
-// FIXED: Destructuración correcta de NCLEXUtils, manejo de errores mejorado
+// premium_books_library.js — Apple-style PDF Library (VERSIÓN CORREGIDA 3.2)
+// FIXED: Conflictos de variables, dependencia segura de Utils y Caché Inteligente
 
 (function () {
   'use strict';
 
-  // ===== DEPENDENCIAS =====
+  // ===== DEPENDENCIAS SEGURAS =====
+  // Intentamos obtener NCLEXUtils, si no existe, creamos un fallback local robusto
   const U = window.NCLEXUtils || {
     $: (s) => document.querySelector(s),
     $$: (s) => Array.from(document.querySelectorAll(s)),
-    storageGet: (k, d) => d,
-    storageSet: () => false,
+    storageGet: (k, d) => {
+      try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; }
+    },
+    storageSet: (k, v) => {
+      try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; }
+    },
     debounce: (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; },
-    escapeHtml: (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-    format: { 
-      truncate: (t, m) => t.length > m ? t.slice(0, m) + '...' : t, 
-      formatFileSize: (b) => {
-        if (b === 0 || !b) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(b) / Math.log(k));
-        return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-      }
-    }
+    escapeHtml: (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
+    format: {} 
   };
 
-  // ✅ CORREGIDO: Destructuración segura de utilidades
-  const { $, $$, storageGet, storageSet, debounce, escapeHtml } = U;
-  
-  // ✅ CORREGIDO: Acceder a formatFileSize desde U.format (no destructurado directamente)
-  const formatFileSize = U.format?.formatFileSize || function(bytes) {
-    if (!bytes || bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-  
-  const truncate = U.format?.truncate || function(t, m) { 
-    return t.length > m ? t.slice(0, m) + '...' : t; 
-  };
+  // Destructuración segura para uso interno
+  const { $, storageGet, storageSet, escapeHtml } = U;
+
+  // Definición segura de helpers de formato (evitando doble declaración)
+  const formatFileSize = (U.format && U.format.formatFileSize) 
+    ? U.format.formatFileSize 
+    : function(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+      };
+
+  const truncateText = (U.format && U.format.truncate)
+    ? U.format.truncate
+    : function(t, m) { 
+        return (t && t.length > m) ? t.slice(0, m) + '...' : t; 
+      };
 
   // ===== CONFIGURACIÓN =====
   const CONFIG = {
@@ -46,8 +46,8 @@
     CACHE_DURATION: 5 * 60 * 1000, // 5 minutos
     STORAGE_KEY: 'books_cache',
     CACHE_TIME_KEY: 'books_cache_time',
-    MAX_RETRIES: 3,
-    RETRY_DELAY: 1000
+    MAX_RETRIES: 2,
+    RETRY_DELAY: 1500
   };
 
   // ===== ESTADO =====
@@ -374,7 +374,8 @@
 
   function isSpanishUI() {
     const esEl = document.querySelector('.lang-es');
-    return !!(esEl && !esEl.classList.contains('hidden-lang'));
+    // Si no hay indicadores de idioma, asumir español por defecto
+    return esEl ? !esEl.classList.contains('hidden-lang') : true;
   }
 
   function t(es, en) {
@@ -407,7 +408,7 @@
       state.books = cached;
       state.isLoading = false;
       render();
-      // Fetch en background para actualizar
+      // Fetch en background para actualizar si es necesario
       fetchFromAPI(true);
       return;
     }
@@ -464,11 +465,11 @@
 
       state.error = error.message;
       
-      // Usar caché vieja si existe como fallback
+      // Usar caché vieja si existe como fallback aunque esté vencida
       const oldCache = storageGet(CONFIG.STORAGE_KEY, null);
       if (oldCache) {
         state.books = oldCache;
-        state.error = t('Datos desactualizados', 'Stale data');
+        state.error = t('Conexión débil. Mostrando datos guardados.', 'Weak connection. Showing cached data.');
       }
     } finally {
       state.isLoading = false;
@@ -692,7 +693,7 @@
     isOpen: () => state.isOpen
   };
 
-  // Inicialización
+  // Inicialización segura
   function init() {
     ensureElements();
     // Precargar en background
