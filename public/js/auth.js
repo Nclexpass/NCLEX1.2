@@ -87,7 +87,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
             <i class="fa-solid fa-user-nurse text-3xl text-white"></i>
           </div>
           <h1 class="text-2xl font-black text-gray-900">NCLEX ESSENTIALS</h1>
-          <p class="text-gray-500 text-sm font-bold">Portal del Estudiante</p>
+<p class="text-gray-400 text-[10px] uppercase tracking-[0.2em] font-bold">Concise Study Suite</p>
         </div>
 
         <div class="px-8 pb-8 space-y-4">
