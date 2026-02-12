@@ -1,4 +1,4 @@
-// auth.js — VERSIÓN CLOUD FINAL (Firebase Conectado & Bilingüe)
+// auth.js — VERSIÓN CLOUD FINAL (Firebase Conectado & Bilingüe) - CORREGIDO
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -6,7 +6,6 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   'use strict';
 
   // --- 1. CONEXIÓN A LA NUBE ---
-  // Configuración pública de cliente (seguridad gestionada por Firestore Rules)
   const firebaseConfig = {
     apiKey: "AIzaSyC07GVdRw3IkVp230DTT1GyYS_gFFtPeHU",
     authDomain: "nclex-masterclass.firebaseapp.com",
@@ -16,7 +15,6 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
     appId: "1:235534790151:web:7f52194c17f176654d44a2"
   };
 
-  // Iniciar Firebase de manera segura con manejo de errores
   let app, db;
   try {
       app = initializeApp(firebaseConfig);
@@ -24,8 +22,6 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
       console.log("🔥 Firebase conectado correctamente / Firebase connected.");
   } catch (e) {
       console.error("Error crítico iniciando Firebase:", e);
-      // Fallback visual si falla la carga crítica
-      // No usamos alert aquí para no bloquear la carga inicial, el error se manejará al intentar usar db
   }
 
   // --- 2. CONFIGURACIÓN ---
@@ -49,11 +45,9 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
 
   function checkSession(activeUser) {
     if (activeUser) {
-      // Usuario detectado: Quitar spinner y mostrar UI
       forceRemoveLoading();
       updateUserUI(activeUser);
     } else {
-      // Usuario no detectado: Mostrar Login
       renderAuthScreen('login');
     }
   }
@@ -62,7 +56,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   
   async function registerUserInCloud(name, pass, overlay) {
     if (!db) {
-        alert("Error: No hay conexión con la base de datos (Firebase Init Failed).");
+        alert("Error: No hay conexión con la base de datos.");
         return false;
     }
 
@@ -73,11 +67,10 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
         const docSnap = await getDoc(userRef);
         
         if (docSnap.exists()) {
-            alert("⚠️ ESTE USUARIO YA EXISTE / USER ALREADY EXISTS.\n\nPor favor, intenta iniciar sesión o usa una variación.\nPlease login or use a name variation.");
+            alert("⚠️ ESTE USUARIO YA EXISTE / USER ALREADY EXISTS.\n\nPor favor, intenta iniciar sesión o usa una variación.");
             return false;
         }
 
-        // Crear registro de estudiante
         await setDoc(userRef, {
             name: name.trim(), 
             pass: pass, 
@@ -101,7 +94,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
 
   async function loginUserFromCloud(name, pass, overlay) {
     if (!db) {
-        alert("Error: No hay conexión con la base de datos (Firebase Init Failed).");
+        alert("Error: No hay conexión con la base de datos.");
         return false;
     }
 
@@ -114,8 +107,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
       if (docSnap.exists()) {
         const userData = docSnap.data();
         if (userData.pass === pass) {
-          // Actualizar último login
-          setDoc(userRef, { lastLogin: new Date().toISOString() }, { merge: true });
+          await setDoc(userRef, { lastLogin: new Date().toISOString() }, { merge: true });
           loginSuccess(overlay, userData.name);
           return true;
         } else {
@@ -123,7 +115,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
           return false;
         }
       } else {
-        alert("❌ USUARIO NO ENCONTRADO / USER NOT FOUND.\n\nVerifica el nombre o REGÍSTRATE.\nCheck name or REGISTER.");
+        alert("❌ USUARIO NO ENCONTRADO / USER NOT FOUND.\n\nVerifica el nombre o REGÍSTRATE.");
         return false;
       }
     } catch (error) {
@@ -133,7 +125,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
     }
   }
 
-  // --- 5. ALGORITMO TOKEN (GATEKEEPER) ---
+  // --- 5. ALGORITMO TOKEN ---
   function generateHash(name) {
     const cleanName = name.trim().toLowerCase().replace(/\s+/g, '');
     const stringToHash = cleanName + SECRET_SALT;
@@ -145,7 +137,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
     return Math.abs(hash).toString(16).toUpperCase().slice(0, 6).padStart(6, 'X');
   }
 
-  // --- 6. GESTIÓN DE PANTALLAS (UI) ---
+  // --- 6. GESTIÓN DE PANTALLAS ---
   function renderAuthScreen(mode) {
     let overlay = document.getElementById('auth-overlay');
     
@@ -163,13 +155,13 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
     else if (mode === 'register') renderRegisterPanel(overlay);
     else renderLoginPanel(overlay);
     
-    // Sincronización de idioma con logic.js (si ya cargó)
-    if(window.nclexApp && window.nclexApp.toggleLanguage) {
+    // Sincronizar idioma
+    setTimeout(() => {
         const lang = localStorage.getItem('nclex_lang') || 'es';
         const isEs = lang === 'es';
         overlay.querySelectorAll('.lang-es').forEach(el => isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
         overlay.querySelectorAll('.lang-en').forEach(el => !isEs ? el.classList.remove('hidden-lang') : el.classList.add('hidden-lang'));
-    }
+    }, 0);
   }
 
   function renderLoginPanel(overlay) {
@@ -329,7 +321,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Copiado!';
             setTimeout(() => btn.innerHTML = originalText, 2000);
         }).catch(err => {
-            console.warn("Clipboard access failed (likely non-secure context):", err);
+            console.warn("Clipboard access failed:", err);
             prompt("Copia el texto manualmente / Copy manually:", text);
         });
       },
@@ -343,7 +335,6 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   };
 
   function forceRemoveLoading() {
-    // Eliminar la pantalla de carga del sistema (index.html)
     const loading = document.getElementById('loading');
     if (loading) { 
         loading.style.opacity = '0'; 
@@ -355,7 +346,6 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
     localStorage.setItem(STORAGE_KEY, userName); 
     forceRemoveLoading(); 
     
-    // Animación de salida del overlay de Auth
     overlay.classList.add('opacity-0');
     setTimeout(() => { 
         overlay.remove(); 
@@ -364,7 +354,6 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   }
 
   function updateUserUI(userName) {
-    // 1. Mostrar nombre en el sidebar
     const sidebarHeader = document.querySelector('aside .leading-tight');
     if (sidebarHeader) {
         let userSub = sidebarHeader.querySelector('.user-status-display');
@@ -376,12 +365,10 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
         userSub.innerHTML = `${bilingual("Estudiante:", "Student:")} <span class="text-brand-blue font-bold">${userName}</span>`;
     }
     
-    // 2. Agregar botón de Logout al sidebar
     const nav = document.getElementById('sidebar-nav');
     if (nav && !document.getElementById('logout-btn')) {
         const btn = document.createElement('button');
         btn.id = 'logout-btn';
-        // FIX: Cambiada clase 'nav-btn' a 'auth-action-btn' para evitar que logic.js sobrescriba el color rojo
         btn.className = "auth-action-btn w-full flex items-center gap-4 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/10 text-red-500 mt-4 border border-transparent hover:border-red-200 transition-all group";
         btn.innerHTML = `
             <div class="w-6 flex justify-center">
@@ -394,7 +381,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
     }
   }
 
-  // Iniciar proceso de autenticación
+  // Iniciar
   initAuth();
 
 })();

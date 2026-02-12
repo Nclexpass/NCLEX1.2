@@ -13,7 +13,6 @@
   
   if (!U) {
     console.error('NCLEXUtils no está cargado. Cargando fallback...');
-    // Fallback mínimo si utils.js no cargó
     window.NCLEXUtils = {
       storageGet: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } },
       storageSet: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
@@ -32,8 +31,7 @@
     $, 
     $$, 
     escapeHtml, 
-    format: { truncate },
-    timing: { sleep }
+    format: { truncate }
   } = window.NCLEXUtils;
 
   // ===== CONFIGURACIÓN =====
@@ -73,7 +71,7 @@
   const warn = (...a) => { if (CONFIG.DEBUG) console.warn(...a); };
   const errLog = (...a) => { console.error(...a); };
 
-  // ===== HELPERS (ahora usando NCLEXUtils) =====
+  // ===== HELPERS =====
 
   function getLang() {
     return storageGet(CONFIG.STORAGE_KEYS.lang, 'es');
@@ -92,8 +90,11 @@
       const isEs = currentLang === 'es';
       
       const scope = root || document;
-      U.dom.toggleClass($$('.lang-es', scope), 'hidden-lang', !isEs);
-      U.dom.toggleClass($$('.lang-en', scope), 'hidden-lang', isEs);
+      const langEs = $$('.lang-es', scope);
+      const langEn = $$('.lang-en', scope);
+      
+      langEs.forEach(el => el.classList.toggle('hidden-lang', !isEs));
+      langEn.forEach(el => el.classList.toggle('hidden-lang', isEs));
       
       document.documentElement.lang = currentLang;
     } catch (_) {}
@@ -108,7 +109,6 @@
       .replace(/[^a-z0-9]/g, '');
   }
 
-  // escapeHtml ahora viene de NCLEXUtils
   function escapeJsString(s) {
     return (s || '').toString()
       .replace(/\\/g, '\\\\')
@@ -135,7 +135,7 @@
   function isOnSimulatorRoute() {
     const btn = $('.nav-btn[data-route="simulator"]');
     if (!btn) return false;
-    return U.dom.hasClass(btn, 'active') || 
+    return btn.classList.contains('active') || 
            btn.classList.contains('text-brand-blue') || 
            btn.classList.contains('text-white');
   }
@@ -149,7 +149,7 @@
     }
   }
 
-  // ===== CSV PARSER (sin cambios, lógica compleja) =====
+  // ===== CSV PARSER =====
   function parseCSV(text) {
     const rows = [];
     let row = [];
@@ -192,7 +192,7 @@
     return rows;
   }
 
-  // ===== CONEXIÓN RESILIENTE =====
+  // ===== CONEXIÓN =====
   async function fetchWithFallback(url) {
     const strategies = [
       { name: "Direct", url },
@@ -228,7 +228,7 @@
     throw lastError;
   }
 
-  // ===== PARSER DE PREGUNTAS (sin cambios en lógica) =====
+  // ===== PARSER =====
   function findColumnIndex(headers, possibleNames) {
     const possibles = (possibleNames || []).map(normalizeKey).filter(Boolean);
 
@@ -298,22 +298,22 @@
       const headers = table[0];
 
       const columnDefinitions = [
-        { field: 'id',          possible: ['id', 'questionid', 'code', 'codigo'], defaultIdx: 0, optional: false },
-        { field: 'category',    possible: ['category', 'categoria', 'categoría', 'cat', 'tema', 'topic'], defaultIdx: 1, optional: false },
-        { field: 'textEs',      possible: ['textEs','text_es','textoEs','texto_es','preguntaEs','pregunta_es','questionEs','question_es','question es','pregunta es','spanish'], defaultIdx: 2, optional: false },
-        { field: 'textEn',      possible: ['textEn','text_en','textoEn','texto_en','preguntaEn','pregunta_en','questionEn','question_en','question en','english'], defaultIdx: 3, optional: true },
-        { field: 'optAEs',      possible: ['optAEs','opt_a_es','aEs','a_es','optionAEs','option_a_es','option a es','opcion a es'], defaultIdx: 4, optional: false },
-        { field: 'optAEn',      possible: ['optAEn','opt_a_en','aEn','a_en','optionAEn','option_a_en','option a en'], defaultIdx: 5, optional: true },
-        { field: 'optBEs',      possible: ['optBEs','opt_b_es','bEs','b_es','optionBEs','option_b_es','option b es','opcion b es'], defaultIdx: 6, optional: false },
-        { field: 'optBEn',      possible: ['optBEn','opt_b_en','bEn','b_en','optionBEn','option_b_en','option b en'], defaultIdx: 7, optional: true },
-        { field: 'optCEs',      possible: ['optCEs','opt_c_es','cEs','c_es','optionCEs','option_c_es','option c es','opcion c es'], defaultIdx: 8, optional: false },
-        { field: 'optCEn',      possible: ['optCEn','opt_c_en','cEn','c_en','optionCEn','option_c_en','option c en'], defaultIdx: 9, optional: true },
-        { field: 'optDEs',      possible: ['optDEs','opt_d_es','dEs','d_es','optionDEs','option_d_es','option d es','opcion d es'], defaultIdx: 10, optional: true },
-        { field: 'optDEn',      possible: ['optDEn','opt_d_en','dEn','d_en','optionDEn','option_d_en','option d en'], defaultIdx: 11, optional: true },
-        { field: 'correct',     possible: ['correct','correcta','correctas','answer','answers','key','respuesta','respuestas','respuesta correcta'], defaultIdx: 12, optional: false },
+        { field: 'id', possible: ['id', 'questionid', 'code', 'codigo'], defaultIdx: 0, optional: false },
+        { field: 'category', possible: ['category', 'categoria', 'categoría', 'cat', 'tema', 'topic'], defaultIdx: 1, optional: false },
+        { field: 'textEs', possible: ['textEs','text_es','textoEs','texto_es','preguntaEs','pregunta_es','questionEs','question_es','question es','pregunta es','spanish'], defaultIdx: 2, optional: false },
+        { field: 'textEn', possible: ['textEn','text_en','textoEn','texto_en','preguntaEn','pregunta_en','questionEn','question_en','question en','english'], defaultIdx: 3, optional: true },
+        { field: 'optAEs', possible: ['optAEs','opt_a_es','aEs','a_es','optionAEs','option_a_es','option a es','opcion a es'], defaultIdx: 4, optional: false },
+        { field: 'optAEn', possible: ['optAEn','opt_a_en','aEn','a_en','optionAEn','option_a_en','option a en'], defaultIdx: 5, optional: true },
+        { field: 'optBEs', possible: ['optBEs','opt_b_es','bEs','b_es','optionBEs','option_b_es','option b es','opcion b es'], defaultIdx: 6, optional: false },
+        { field: 'optBEn', possible: ['optBEn','opt_b_en','bEn','b_en','optionBEn','option_b_en','option b en'], defaultIdx: 7, optional: true },
+        { field: 'optCEs', possible: ['optCEs','opt_c_es','cEs','c_es','optionCEs','option_c_es','option c es','opcion c es'], defaultIdx: 8, optional: false },
+        { field: 'optCEn', possible: ['optCEn','opt_c_en','cEn','c_en','optionCEn','option_c_en','option c en'], defaultIdx: 9, optional: true },
+        { field: 'optDEs', possible: ['optDEs','opt_d_es','dEs','d_es','optionDEs','option_d_es','option d es','opcion d es'], defaultIdx: 10, optional: true },
+        { field: 'optDEn', possible: ['optDEn','opt_d_en','dEn','d_en','optionDEn','option_d_en','option d en'], defaultIdx: 11, optional: true },
+        { field: 'correct', possible: ['correct','correcta','correctas','answer','answers','key','respuesta','respuestas','respuesta correcta'], defaultIdx: 12, optional: false },
         { field: 'rationaleEs', possible: ['rationaleEs','rationale_es','explicacionEs','explicacion_es','explicación es','feedback es','rationale es','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 13, optional: true },
         { field: 'rationaleEn', possible: ['rationaleEn','rationale_en','explicacionEn','explicacion_en','explicación en','feedback en','rationale en','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 14, optional: true },
-        { field: 'type',        possible: ['type','tipo','format','formato','questiontype'], defaultIdx: 15, optional: true }
+        { field: 'type', possible: ['type','tipo','format','formato','questiontype'], defaultIdx: 15, optional: true }
       ];
 
       const hasHeaders = looksLikeHeaderRow(headers, columnDefinitions);
@@ -436,13 +436,12 @@
     }
   }
 
-  // ===== PERSISTENCIA (usando NCLEXUtils) =====
+  // ===== PERSISTENCIA =====
   function loadPrefs() {
     state.selectedCategories = storageGet(CONFIG.STORAGE_KEYS.selectedCats, []);
     state.limit = storageGet(CONFIG.STORAGE_KEYS.limit, 10);
     state.fontSize = storageGet(CONFIG.STORAGE_KEYS.font, 1);
     
-    // Validaciones
     if (!Array.isArray(state.selectedCategories)) state.selectedCategories = [];
     if (typeof state.limit !== 'number' || state.limit < 1) state.limit = 10;
     if (typeof state.fontSize !== 'number') state.fontSize = 1;
@@ -455,7 +454,7 @@
     storageSet(CONFIG.STORAGE_KEYS.font, state.fontSize);
   }
 
-  // ===== CARGA PRINCIPAL =====
+  // ===== CARGA =====
   async function loadQuestions() {
     state.isLoading = true;
     state.error = null;
@@ -464,14 +463,14 @@
       const csvData = await fetchWithFallback(GOOGLE_CSV_URL);
       parseAndLoad(csvData);
     } catch (e) {
-      errLog("🔥 Simulator Critical Failure:", e);
+      errLog("Simulator Critical Failure:", e);
       state.error = `Error de conexión: no se pudo acceder a la base de datos.<br><span class="text-xs text-gray-400">${escapeHtml(e?.message || 'Unknown error')}</span>`;
       state.isLoading = false;
       checkAndRender();
     }
   }
 
-  // ===== ICONOS Y ESTILOS =====
+  // ===== ESTILOS =====
   function getCategoryStyle(catName) {
     const n = (catName || '').toLowerCase();
     if (n.includes('newborn') || n.includes('neo')) return { i: 'baby', c: 'text-pink-400', badge: 'bg-pink-500/10 text-pink-600 dark:text-pink-200 dark:bg-pink-500/10' };
@@ -487,10 +486,10 @@
 
   function getClinicalTip(category) {
     const n = (category || '').toLowerCase();
-    if (n.includes('pharm')) return bilingual("💊 <strong>Tip:</strong> Contraindicaciones + niveles terapéuticos.", "💊 <strong>Tip:</strong> Contraindications + therapeutic levels.");
-    if (n.includes('priorit')) return bilingual("🚨 <strong>Tip:</strong> ¿Quién muere si no actúas AHORA?", "🚨 <strong>Tip:</strong> Who dies if you don't act NOW?");
-    if (n.includes('infect')) return bilingual("🦠 <strong>Tip:</strong> Contacto, Gotas o Aire → PPE.", "🦠 <strong>Tip:</strong> Contact, Droplet, Airborne → PPE.");
-    return bilingual("🧠 <strong>Estrategia:</strong> Lee la pregunta 2 veces.", "🧠 <strong>Strategy:</strong> Read the stem twice.");
+    if (n.includes('pharm')) return bilingual("💊 Tip: Contraindicaciones + niveles terapéuticos.", "💊 Tip: Contraindications + therapeutic levels.");
+    if (n.includes('priorit')) return bilingual("🚨 Tip: ¿Quién muere si no actúas AHORA?", "🚨 Tip: Who dies if you don't act NOW?");
+    if (n.includes('infect')) return bilingual("🦠 Tip: Contacto, Gotas o Aire → PPE.", "🦠 Tip: Contact, Droplet, Airborne → PPE.");
+    return bilingual("🧠 Estrategia: Lee la pregunta 2 veces.", "🧠 Strategy: Read the stem twice.");
   }
 
   // ===== MULTI SELECT =====
@@ -615,25 +614,22 @@
     const selectedCount = (state.selectedCategories || []).length;
     const selectedLabel = selectedCount === 0
       ? bilingual("Ninguno seleccionado", "None selected")
-      : bilingual(`${selectedCount} seleccionados`, `${selectedCount} selected`);
+      : bilingual(selectedCount + " seleccionados", selectedCount + " selected");
 
     const limitOptions = [10, 20, 30, 40, 50, 75, 100].map(n => {
       const active = state.limit === n;
-      return `<button onclick="window.simController.setLimit(${n})"
-        class="px-3 py-1.5 rounded-full text-xs font-black transition ${active ? 'text-white shadow' : 'bg-[var(--brand-bg)] text-[var(--brand-text)] hover:opacity-90'}"
-        style="${active ? `background-color: rgb(var(--brand-blue-rgb));` : ''}">${n}</button>`;
+      return `<button onclick="window.simController.setLimit(${n})" 
+        class="px-3 py-1.5 rounded-full text-xs font-black transition ${active ? 'text-white shadow' : 'bg-[var(--brand-bg)] text-[var(--brand-text)] hover:opacity-90'}" 
+        ${active ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''}>${n}</button>`;
     }).join('');
 
     const selectedChips = (state.selectedCategories || []).slice(0, 8).map(cat => {
       const style = getCategoryStyle(cat);
-      return `
-        <button onclick="window.simController.toggleCategory('${escapeJsString(cat)}')"
-          class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black ${style.badge} border border-[var(--brand-border)] hover:opacity-90 transition">
-          <i class="fa-solid fa-${style.i}"></i>
-          ${escapeHtml(cat)}
-          <span class="opacity-70">✕</span>
-        </button>
-      `;
+      return `<button onclick="window.simController.toggleCategory('${escapeJsString(cat)}')" 
+        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black ${style.badge} border border-[var(--brand-border)] hover:opacity-90 transition">
+        <i class="fa-solid fa-${style.i}"></i>
+        ${escapeHtml(cat)}
+        <span class="opacity-70">✕</span></button>`;
     }).join('');
 
     const moreChip = (state.selectedCategories || []).length > 8
@@ -651,157 +647,137 @@
         ? `<span class="w-6 h-6 rounded-xl text-white inline-flex items-center justify-center text-xs font-black shadow" style="background-color: rgb(var(--brand-blue-rgb));">✓</span>`
         : `<span class="w-6 h-6 rounded-xl bg-[var(--brand-bg)] text-[var(--brand-text)] inline-flex items-center justify-center text-xs font-black">+</span>`;
 
-      return `
-        <div class="rounded-3xl border ${bg} ${ring} shadow-sm hover:shadow-lg transition">
-          <button onclick="window.simController.toggleCategory('${escapeJsString(cat)}')" class="w-full text-left p-5">
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-[var(--brand-bg)] flex items-center justify-center">
-                  <i class="fa-solid fa-${style.i} ${style.c}"></i>
-                </div>
-                <div>
-                  <div class="font-black text-[var(--brand-text)] leading-tight">${escapeHtml(cat)}</div>
-                  <div class="mt-1 text-xs text-[var(--brand-text-muted)]">${getClinicalTip(cat)}</div>
-                </div>
+      return `<div class="rounded-3xl border ${bg} ${ring} shadow-sm hover:shadow-lg transition">
+        <button onclick="window.simController.toggleCategory('${escapeJsString(cat)}')" class="w-full text-left p-5">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-[var(--brand-bg)] flex items-center justify-center">
+                <i class="fa-solid fa-${style.i} ${style.c}"></i>
               </div>
-              <div class="flex flex-col items-end gap-2">
-                ${check}
-                <span class="text-xs font-black px-3 py-1 rounded-full bg-[var(--brand-bg)] text-[var(--brand-text-muted)]">${count}</span>
+              <div>
+                <div class="font-black text-[var(--brand-text)] leading-tight">${escapeHtml(cat)}</div>
+                <div class="mt-1 text-xs text-[var(--brand-text-muted)]">${getClinicalTip(cat)}</div>
               </div>
             </div>
-          </button>
-
-          <div class="px-5 pb-5 -mt-2 flex items-center justify-between gap-2">
-            <span class="text-[11px] font-bold text-[var(--brand-text-muted)]">
-              ${selected ? bilingual("Incluido en mezcla", "Included in mix") : bilingual("Toca para agregar", "Tap to add")}
-            </span>
-            <button onclick="window.simController.startQuiz('${escapeJsString(cat)}')"
-              class="px-4 py-2 rounded-2xl text-xs font-black bg-[var(--brand-bg)] text-[var(--brand-text)] hover:opacity-90 transition">
-              ${bilingual("Solo", "Only")}
-            </button>
+            <div class="flex flex-col items-end gap-2">
+              ${check}
+              <span class="text-xs font-black px-3 py-1 rounded-full bg-[var(--brand-bg)] text-[var(--brand-text-muted)]">${count}</span>
+            </div>
           </div>
+        </button>
+        <div class="px-5 pb-5 -mt-2 flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold text-[var(--brand-text-muted)]">
+            ${selected ? bilingual("Incluido en mezcla", "Included in mix") : bilingual("Toca para agregar", "Tap to add")}
+          </span>
+          <button onclick="window.simController.startQuiz('${escapeJsString(cat)}')" 
+            class="px-4 py-2 rounded-2xl text-xs font-black bg-[var(--brand-bg)] text-[var(--brand-text)] hover:opacity-90 transition">
+            ${bilingual("Solo", "Only")}
+          </button>
         </div>
-      `;
+      </div>`;
     }).join('');
 
     const canStartSelected = selectedCount > 0;
 
-    return `
-      <div class="p-6 max-w-6xl mx-auto">
-        <header class="mb-6">
-          <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-            <div class="p-6 bg-gradient-to-r from-[rgba(var(--brand-blue-rgb),0.1)] via-purple-500/10 to-emerald-500/10">
-              <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-                <div>
-                  <h1 class="text-3xl md:text-4xl font-black text-[var(--brand-text)]">
-                    ${bilingual("Simulador NCLEX", "NCLEX Simulator")}
-                  </h1>
-                  <p class="text-[var(--brand-text-muted)] mt-1">
-                    ${bilingual("Selecciona varios temas y mezcla preguntas.", "Select multiple topics and mix questions.")}
-                  </p>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-2">
-                  <button onclick="window.simController.startQuiz('ALL')" 
-                    class="px-5 py-2.5 rounded-2xl bg-slate-900 text-white font-black shadow hover:shadow-lg transition">
-                    ${bilingual("Mixto total", "Full mix")}
-                  </button>
-                  <button onclick="window.simController.startSelected()"
-                    class="px-5 py-2.5 rounded-2xl font-black transition ${canStartSelected ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}"
-                    style="${canStartSelected ? `background-color: rgb(var(--brand-blue-rgb));` : ''}"
-                    ${canStartSelected ? '' : 'disabled'}>
-                    ${bilingual("Iniciar selección", "Start selection")}
-                  </button>
+    return `<div class="p-6 max-w-6xl mx-auto">
+      <header class="mb-6">
+        <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
+          <div class="p-6 bg-gradient-to-r from-[rgba(var(--brand-blue-rgb),0.1)] via-purple-500/10 to-emerald-500/10">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <div>
+                <h1 class="text-3xl md:text-4xl font-black text-[var(--brand-text)]">${bilingual("Simulador NCLEX", "NCLEX Simulator")}</h1>
+                <p class="text-[var(--brand-text-muted)] mt-1">${bilingual("Selecciona varios temas y mezcla preguntas.", "Select multiple topics and mix questions.")}</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button onclick="window.simController.startQuiz('ALL')" 
+                  class="px-5 py-2.5 rounded-2xl bg-slate-900 text-white font-black shadow hover:shadow-lg transition">
+                  ${bilingual("Mixto total", "Full mix")}
+                </button>
+                <button onclick="window.simController.startSelected()" 
+                  class="px-5 py-2.5 rounded-2xl font-black transition ${canStartSelected ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}" 
+                  ${canStartSelected ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''} 
+                  ${canStartSelected ? '' : 'disabled'}>
+                  ${bilingual("Iniciar selección", "Start selection")}
+                </button>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <span class="text-xs font-black px-3 py-1.5 rounded-full bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)]">
+                ${bilingual("Seleccionados:", "Selected:")} ${selectedLabel}
+              </span>
+              <button onclick="window.simController.selectAll()" 
+                class="px-3 py-1.5 rounded-full text-xs font-black bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:opacity-90 transition">
+                ${bilingual("Seleccionar todo", "Select all")}
+              </button>
+              <button onclick="window.simController.clearSelected()" 
+                class="px-3 py-1.5 rounded-full text-xs font-black bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:opacity-90 transition">
+                ${bilingual("Limpiar", "Clear")}
+              </button>
+              <span class="ml-auto text-xs font-bold text-[var(--brand-text-muted)]">
+                ${bilingual("Preguntas cargadas:", "Loaded questions:")} <span class="font-black text-[var(--brand-text)]">${total}</span>
+              </span>
+            </div>
+            ${selectedCount > 0
+              ? `<div class="mt-3 flex flex-wrap items-center gap-2">${selectedChips}${moreChip}</div>`
+              : `<div class="mt-3 text-xs text-[var(--brand-text-muted)]">${bilingual("Tip: toca varias tarjetas para mezclar temas.", "Tip: tap multiple cards to mix topics.")}</div>`
+            }
+          </div>
+        </div>
+      </header>
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div class="lg:col-span-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            ${categoryCards}
+          </div>
+        </div>
+        <aside class="space-y-4 lg:sticky lg:top-4 h-fit">
+          <div class="rounded-3xl shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)] overflow-hidden">
+            <div class="p-5 border-b border-[var(--brand-border)] bg-[var(--brand-bg)]">
+              <div class="font-black text-[var(--brand-text)]">${bilingual("Configuración", "Settings")}</div>
+              <div class="text-xs text-[var(--brand-text-muted)] mt-1">${bilingual("Ajusta tu práctica.", "Tune your practice.")}</div>
+            </div>
+            <div class="p-5">
+              <div class="text-xs font-black text-[var(--brand-text-muted)] mb-2">${bilingual("Número de preguntas", "Questions count")}</div>
+              <div class="flex flex-wrap gap-2">${limitOptions}</div>
+              <div class="mt-5 text-xs font-black text-[var(--brand-text-muted)] mb-2">${bilingual("Tamaño de letra", "Font size")}</div>
+              <div class="flex gap-2">
+                <button onclick="window.simController.adjustFont(-0.1)" 
+                  class="px-4 py-2 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">A-</button>
+                <button onclick="window.simController.adjustFont(0.1)" 
+                  class="px-4 py-2 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">A+</button>
+              </div>
+              <div class="mt-5 p-4 rounded-2xl text-white shadow-inner" style="background-color: rgb(var(--brand-blue-rgb));">
+                <div class="font-black">${bilingual("Modo mezcla", "Mix mode")}</div>
+                <div class="text-xs text-white/80 mt-1">
+                  ${bilingual("Selecciona temas y luego 'Iniciar selección'.", "Select topics then 'Start selection'.")}
                 </div>
               </div>
-
-              <div class="mt-4 flex flex-wrap items-center gap-2">
-                <span class="text-xs font-black px-3 py-1.5 rounded-full bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)]">
-                  ${bilingual("Seleccionados:", "Selected:")} ${selectedLabel}
-                </span>
-
-                <button onclick="window.simController.selectAll()" 
-                  class="px-3 py-1.5 rounded-full text-xs font-black bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:opacity-90 transition">
-                  ${bilingual("Seleccionar todo", "Select all")}
+            </div>
+          </div>
+          <div class="rounded-3xl shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)] overflow-hidden">
+            <div class="p-5">
+              <div class="font-black text-[var(--brand-text)]">${bilingual("Acciones rápidas", "Quick actions")}</div>
+              <div class="mt-3 grid grid-cols-1 gap-2">
+                <button onclick="window.simController.startQuiz('ALL')" 
+                  class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:opacity-90 transition">
+                  ${bilingual("Mixto total", "Full mix")}
+                </button>
+                <button onclick="window.simController.startSelected()"
+                  class="px-5 py-3 rounded-2xl font-black transition ${((state.selectedCategories || []).length > 0) ? 'text-white' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}" 
+                  ${((state.selectedCategories || []).length > 0) ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''} 
+                  ${((state.selectedCategories || []).length > 0) ? '' : 'disabled'}>
+                  ${bilingual("Iniciar selección", "Start selection")}
                 </button>
                 <button onclick="window.simController.clearSelected()" 
-                  class="px-3 py-1.5 rounded-full text-xs font-black bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:opacity-90 transition">
-                  ${bilingual("Limpiar", "Clear")}
+                  class="px-5 py-3 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
+                  ${bilingual("Limpiar selección", "Clear selection")}
                 </button>
-
-                <span class="ml-auto text-xs font-bold text-[var(--brand-text-muted)]">
-                  ${bilingual("Preguntas cargadas:", "Loaded questions:")} <span class="font-black text-[var(--brand-text)]">${total}</span>
-                </span>
               </div>
-
-              ${(selectedCount > 0)
-                ? `<div class="mt-3 flex flex-wrap items-center gap-2">${selectedChips}${moreChip}</div>`
-                : `<div class="mt-3 text-xs text-[var(--brand-text-muted)]">${bilingual("Tip: toca varias tarjetas para mezclar temas.", "Tip: tap multiple cards to mix topics.")}</div>`
-              }
             </div>
           </div>
-        </header>
-
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div class="lg:col-span-3">
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              ${categoryCards}
-            </div>
-          </div>
-
-          <aside class="space-y-4 lg:sticky lg:top-4 h-fit">
-            <div class="rounded-3xl shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)] overflow-hidden">
-              <div class="p-5 border-b border-[var(--brand-border)] bg-[var(--brand-bg)]">
-                <div class="font-black text-[var(--brand-text)]">${bilingual("Configuración", "Settings")}</div>
-                <div class="text-xs text-[var(--brand-text-muted)] mt-1">${bilingual("Ajusta tu práctica.", "Tune your practice.")}</div>
-              </div>
-
-              <div class="p-5">
-                <div class="text-xs font-black text-[var(--brand-text-muted)] mb-2">${bilingual("Número de preguntas", "Questions count")}</div>
-                <div class="flex flex-wrap gap-2">${limitOptions}</div>
-
-                <div class="mt-5 text-xs font-black text-[var(--brand-text-muted)] mb-2">${bilingual("Tamaño de letra", "Font size")}</div>
-                <div class="flex gap-2">
-                  <button onclick="window.simController.adjustFont(-0.1)" 
-                    class="px-4 py-2 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">A-</button>
-                  <button onclick="window.simController.adjustFont(0.1)" 
-                    class="px-4 py-2 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">A+</button>
-                </div>
-
-                <div class="mt-5 p-4 rounded-2xl text-white shadow-inner" style="background-color: rgb(var(--brand-blue-rgb));">
-                  <div class="font-black">${bilingual("Modo mezcla", "Mix mode")}</div>
-                  <div class="text-xs text-white/80 mt-1">
-                    ${bilingual("Selecciona temas y luego "Iniciar selección".", "Select topics then "Start selection".")}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="rounded-3xl shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)] overflow-hidden">
-              <div class="p-5">
-                <div class="font-black text-[var(--brand-text)]">${bilingual("Acciones rápidas", "Quick actions")}</div>
-                <div class="mt-3 grid grid-cols-1 gap-2">
-                  <button onclick="window.simController.startQuiz('ALL')" 
-                    class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:opacity-90 transition">
-                    ${bilingual("Mixto total", "Full mix")}
-                  </button>
-                  <button onclick="window.simController.startSelected()"
-                    class="px-5 py-3 rounded-2xl font-black transition ${canStartSelected ? 'text-white' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}"
-                    style="${canStartSelected ? `background-color: rgb(var(--brand-blue-rgb));` : ''}"
-                    ${canStartSelected ? '' : 'disabled'}>
-                    ${bilingual("Iniciar selección", "Start selection")}
-                  </button>
-                  <button onclick="window.simController.clearSelected()" 
-                    class="px-5 py-3 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
-                    ${bilingual("Limpiar selección", "Clear selection")}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
+        </aside>
       </div>
-    `;
+    </div>`;
   }
 
   function renderActiveQuiz() {
@@ -827,71 +803,60 @@
         ? `<span class="inline-flex items-center justify-center w-6 h-6 rounded-2xl border ${isSelected ? 'text-white shadow' : 'border-[var(--brand-border)] text-[var(--brand-text-muted)]'} text-xs font-black" style="${isSelected ? `background-color: rgb(var(--brand-blue-rgb)); border-color: rgb(var(--brand-blue-rgb));` : ''}">${isSelected ? '✓' : ''}</span>`
         : `<span class="inline-flex items-center justify-center w-8 h-8 rounded-2xl ${isSelected ? 'text-white shadow' : 'bg-[var(--brand-bg)] text-[var(--brand-text)]'} text-xs font-black" style="${isSelected ? `background-color: rgb(var(--brand-blue-rgb));` : ''}">${opt.id.toUpperCase()}</span>`;
 
-      return `
-        <button onclick="window.simController.selectOption('${opt.id}')" class="${classes}">
-          <div class="flex items-start gap-3">
-            ${badge}
-            <div class="flex-1" style="font-size:${state.fontSize}rem">
-              ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
-            </div>
+      return `<button onclick="window.simController.selectOption('${opt.id}')" class="${classes}">
+        <div class="flex items-start gap-3">
+          ${badge}
+          <div class="flex-1" style="font-size:${state.fontSize}rem">
+            ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
           </div>
-        </button>
-      `;
+        </div>
+      </button>`;
     }).join('');
 
     const canSubmit = (state.userSelection || []).length > 0;
 
-    return `
-      <div class="p-6 max-w-5xl mx-auto">
-        <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-          <div class="p-6 bg-gradient-to-r from-[rgba(var(--brand-blue-rgb),0.1)] to-purple-500/10 border-b border-[var(--brand-border)]">
-            <div class="flex items-center justify-between gap-3">
-              <div class="text-sm font-black text-[var(--brand-text-muted)]">
-                ${bilingual("Pregunta", "Question")} ${current} / ${total}
-                <span class="ml-2 text-xs px-3 py-1 rounded-full bg-[var(--brand-bg)] border border-[var(--brand-border)]">${escapeHtml(q.category)}</span>
-                <span class="ml-2 text-xs px-3 py-1 rounded-full ${isSata ? 'bg-purple-500/15 text-purple-700 dark:text-purple-200' : 'bg-blue-500/15 text-blue-700 dark:text-blue-200'}">
-                  ${isSata ? bilingual("SATA", "SATA") : bilingual("Single", "Single")}
-                </span>
-              </div>
-              <div class="text-xs font-black text-[var(--brand-text-muted)]">${progress}%</div>
+    return `<div class="p-6 max-w-5xl mx-auto">
+      <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
+        <div class="p-6 bg-gradient-to-r from-[rgba(var(--brand-blue-rgb),0.1)] to-purple-500/10 border-b border-[var(--brand-border)]">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-black text-[var(--brand-text-muted)]">
+              ${bilingual("Pregunta", "Question")} ${current} / ${total}
+              <span class="ml-2 text-xs px-3 py-1 rounded-full bg-[var(--brand-bg)] border border-[var(--brand-border)]">${escapeHtml(q.category)}</span>
+              <span class="ml-2 text-xs px-3 py-1 rounded-full ${isSata ? 'bg-purple-500/15 text-purple-700 dark:text-purple-200' : 'bg-blue-500/15 text-blue-700 dark:text-blue-200'}">
+                ${isSata ? bilingual("SATA", "SATA") : bilingual("Single", "Single")}
+              </span>
             </div>
-
-            <div class="mt-3 h-2.5 rounded-full bg-[var(--brand-bg)] overflow-hidden">
-              <div class="h-full transition-all duration-300" style="width:${progress}%; background-color: rgb(var(--brand-blue-rgb));"></div>
-            </div>
+            <div class="text-xs font-black text-[var(--brand-text-muted)]">${progress}%</div>
           </div>
-
-          <div class="p-6">
-            <div class="text-xl md:text-2xl font-black text-[var(--brand-text)] mb-5"
-              style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
-              ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
-            </div>
-
-            <div class="space-y-3">
-              ${optionButtons}
-            </div>
-
-            <div class="mt-6 flex flex-wrap gap-2">
-              <button onclick="window.simController.quit()" 
-                class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
-                ${bilingual("Salir", "Quit")}
-              </button>
-
-              <button onclick="window.simController.submit()"
-                class="px-5 py-2.5 rounded-2xl font-black transition ${canSubmit ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}"
-                style="${canSubmit ? `background-color: rgb(var(--brand-blue-rgb));` : ''}"
-                ${canSubmit ? '' : 'disabled'}>
-                ${bilingual("Enviar", "Submit")}
-              </button>
-            </div>
-
-            <div class="mt-4 text-xs text-[var(--brand-text-muted)]">
-              ${isSata ? bilingual("Selecciona TODAS las correctas.", "Select ALL that apply.") : bilingual("Selecciona UNA respuesta.", "Select ONE answer.")}
-            </div>
+          <div class="mt-3 h-2.5 rounded-full bg-[var(--brand-bg)] overflow-hidden">
+            <div class="h-full transition-all duration-300" style="width:${progress}%; background-color: rgb(var(--brand-blue-rgb));"></div>
+          </div>
+        </div>
+        <div class="p-6">
+          <div class="text-xl md:text-2xl font-black text-[var(--brand-text)] mb-5" style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
+            ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
+          </div>
+          <div class="space-y-3">
+            ${optionButtons}
+          </div>
+          <div class="mt-6 flex flex-wrap gap-2">
+            <button onclick="window.simController.quit()" 
+              class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
+              ${bilingual("Salir", "Quit")}
+            </button>
+            <button onclick="window.simController.submit()"
+              class="px-5 py-2.5 rounded-2xl font-black transition ${canSubmit ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}" 
+              ${canSubmit ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''} 
+              ${canSubmit ? '' : 'disabled'}>
+              ${bilingual("Enviar", "Submit")}
+            </button>
+          </div>
+          <div class="mt-4 text-xs text-[var(--brand-text-muted)]">
+            ${isSata ? bilingual("Selecciona TODAS las correctas.", "Select ALL that apply.") : bilingual("Selecciona UNA respuesta.", "Select ONE answer.")}
           </div>
         </div>
       </div>
-    `;
+    </div>`;
   }
 
   function renderRationale() {
@@ -925,24 +890,22 @@
           ? `<span class="text-xs font-black px-3 py-1 rounded-full bg-red-600 text-white shadow">${bilingual("Tu elección", "Your pick")}</span>`
           : `<span class="text-xs font-black px-3 py-1 rounded-full bg-[var(--brand-bg)] text-[var(--brand-text-muted)]">${opt.id.toUpperCase()}</span>`;
 
-      return `
-        <div class="p-4 rounded-3xl border ${border} ${bg} shadow-sm">
-          <div class="flex items-start gap-3">
-            <div class="shrink-0">${tag}</div>
-            <div class="flex-1" style="font-size:${state.fontSize}rem">
-              ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
-            </div>
+      return `<div class="p-4 rounded-3xl border ${border} ${bg} shadow-sm">
+        <div class="flex items-start gap-3">
+          <div class="shrink-0">${tag}</div>
+          <div class="flex-1" style="font-size:${state.fontSize}rem">
+            ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
           </div>
         </div>
-      `;
+      </div>`;
     }).join('');
 
     const headerBadge = isCorrect
       ? `<div class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-green-600 text-white text-sm font-black shadow">
-            <i class="fa-solid fa-check"></i> ${bilingual("Correcto", "Correct")}
+          <i class="fa-solid fa-check"></i> ${bilingual("Correcto", "Correct")}
          </div>`
       : `<div class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-red-600 text-white text-sm font-black shadow">
-            <i class="fa-solid fa-xmark"></i> ${bilingual("Incorrecto", "Incorrect")}
+          <i class="fa-solid fa-xmark"></i> ${bilingual("Incorrecto", "Incorrect")}
          </div>`;
 
     const rationaleBlock = (q.rationaleEs || q.rationaleEn)
@@ -954,46 +917,37 @@
         </div>`
       : '';
 
-    return `
-      <div class="p-6 max-w-5xl mx-auto">
-        <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-          <div class="p-6 bg-gradient-to-r from-slate-900/5 to-[rgba(var(--brand-blue-rgb),0.1)] border-b border-[var(--brand-border)]">
-            <div class="flex items-center justify-between gap-3">
-              <div class="text-sm font-black text-[var(--brand-text-muted)]">
-                ${bilingual("Revisión", "Review")} • ${escapeHtml(q.category)} • ${q.type === 'sata' ? 'SATA' : 'Single'}
-              </div>
-              ${headerBadge}
+    return `<div class="p-6 max-w-5xl mx-auto">
+      <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
+        <div class="p-6 bg-gradient-to-r from-slate-900/5 to-[rgba(var(--brand-blue-rgb),0.1)] border-b border-[var(--brand-border)]">
+          <div class="flex items-center justify-between gap-3">
+            <div class="text-sm font-black text-[var(--brand-text-muted)]">
+              ${bilingual("Revisión", "Review")} • ${escapeHtml(q.category)} • ${q.type === 'sata' ? 'SATA' : 'Single'}
             </div>
+            ${headerBadge}
           </div>
-
-          <div class="p-6">
-            <div class="text-xl md:text-2xl font-black text-[var(--brand-text)] mb-5"
-              style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
-              ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
-            </div>
-
-            <div class="space-y-3">
-              ${optionCards}
-            </div>
-
-            ${rationaleBlock}
-
-            <div class="mt-6 flex flex-wrap gap-2">
-              <button onclick="window.simController.quit()" 
-                class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
-                ${bilingual("Salir", "Quit")}
-              </button>
-
-              <button onclick="window.simController.next()" 
-                class="px-5 py-2.5 rounded-2xl text-white font-black shadow hover:shadow-lg transition"
-                style="background-color: rgb(var(--brand-blue-rgb));">
-                ${bilingual("Siguiente", "Next")}
-              </button>
-            </div>
+        </div>
+        <div class="p-6">
+          <div class="text-xl md:text-2xl font-black text-[var(--brand-text)] mb-5" style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
+            ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
+          </div>
+          <div class="space-y-3">
+            ${optionCards}
+          </div>
+          ${rationaleBlock}
+          <div class="mt-6 flex flex-wrap gap-2">
+            <button onclick="window.simController.quit()" 
+              class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
+              ${bilingual("Salir", "Quit")}
+            </button>
+            <button onclick="window.simController.next()" 
+              class="px-5 py-2.5 rounded-2xl text-white font-black shadow hover:shadow-lg transition" style="background-color: rgb(var(--brand-blue-rgb));">
+              ${bilingual("Siguiente", "Next")}
+            </button>
           </div>
         </div>
       </div>
-    `;
+    </div>`;
   }
 
   function renderResults() {
@@ -1007,56 +961,51 @@
         ? bilingual("Vas bien. Refuerza tus debilidades.", "Good progress. Reinforce weaknesses.")
         : bilingual("Necesitas más práctica. Sigue entrenando.", "You need more practice. Keep training.");
 
-    // Registrar resultado en dashboard si existe
     if (window.Dashboard && typeof window.Dashboard.recordQuiz === 'function' && total > 0) {
       const category = state.activeSession[0]?.category || 'Mixed';
       window.Dashboard.recordQuiz(category, score, total);
     }
 
-    return `
-      <div class="p-6 max-w-4xl mx-auto">
-        <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-          <div class="p-6 bg-gradient-to-r from-emerald-500/10 to-[rgba(var(--brand-blue-rgb),0.1)] border-b border-[var(--brand-border)]">
-            <h2 class="text-3xl font-black text-[var(--brand-text)]">${bilingual("Resultados", "Results")}</h2>
-            <p class="text-[var(--brand-text-muted)] mt-1">${msg}</p>
+    return `<div class="p-6 max-w-4xl mx-auto">
+      <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
+        <div class="p-6 bg-gradient-to-r from-emerald-500/10 to-[rgba(var(--brand-blue-rgb),0.1)] border-b border-[var(--brand-border)]">
+          <h2 class="text-3xl font-black text-[var(--brand-text)]">${bilingual("Resultados", "Results")}</h2>
+          <p class="text-[var(--brand-text-muted)] mt-1">${msg}</p>
+        </div>
+        <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="p-5 rounded-3xl bg-[var(--brand-bg)]">
+            <div class="text-xs font-black text-[var(--brand-text-muted)]">${bilingual("Puntaje", "Score")}</div>
+            <div class="text-3xl font-black text-[var(--brand-text)]">${score} / ${total}</div>
           </div>
-
-          <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div class="p-5 rounded-3xl bg-[var(--brand-bg)]">
-              <div class="text-xs font-black text-[var(--brand-text-muted)]">${bilingual("Puntaje", "Score")}</div>
-              <div class="text-3xl font-black text-[var(--brand-text)]">${score} / ${total}</div>
-            </div>
-            <div class="p-5 rounded-3xl bg-[var(--brand-bg)]">
-              <div class="text-xs font-black text-[var(--brand-text-muted)]">${bilingual("Porcentaje", "Percent")}</div>
-              <div class="text-3xl font-black text-[var(--brand-text)]">${pct}%</div>
-            </div>
-            <div class="p-5 rounded-3xl text-white" style="background-color: #1e293b;">
-              <div class="text-xs font-black text-white/70">${bilingual("Siguiente paso", "Next step")}</div>
-              <div class="text-sm font-bold mt-1">
-                ${bilingual("Mezcla temas y sube tu límite para más dificultad.", "Mix topics and increase your limit for more challenge.")}
-              </div>
-            </div>
+          <div class="p-5 rounded-3xl bg-[var(--brand-bg)]">
+            <div class="text-xs font-black text-[var(--brand-text-muted)]">${bilingual("Porcentaje", "Percent")}</div>
+            <div class="text-3xl font-black text-[var(--brand-text)]">${pct}%</div>
           </div>
-
-          <div class="p-6 pt-0 flex flex-wrap gap-2">
-            <button onclick="window.simController.quit()" 
-              class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
-              ${bilingual("Volver al lobby", "Back to lobby")}
-            </button>
-            <button onclick="window.simController.startQuiz('ALL')" 
-              class="px-5 py-2.5 rounded-2xl bg-slate-900 text-white font-black shadow hover:shadow-lg transition">
-              ${bilingual("Repetir mixto total", "Retry full mix")}
-            </button>
-            <button onclick="window.simController.startSelected()"
-              class="px-5 py-2.5 rounded-2xl font-black transition ${((state.selectedCategories || []).length > 0) ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}"
-              style="${((state.selectedCategories || []).length > 0) ? `background-color: rgb(var(--brand-blue-rgb));` : ''}"
-              ${((state.selectedCategories || []).length > 0) ? '' : 'disabled'}>
-              ${bilingual("Repetir selección", "Retry selection")}
-            </button>
+          <div class="p-5 rounded-3xl text-white" style="background-color: #1e293b;">
+            <div class="text-xs font-black text-white/70">${bilingual("Siguiente paso", "Next step")}</div>
+            <div class="text-sm font-bold mt-1">
+              ${bilingual("Mezcla temas y sube tu límite para más dificultad.", "Mix topics and increase your limit for more challenge.")}
+            </div>
           </div>
         </div>
+        <div class="p-6 pt-0 flex flex-wrap gap-2">
+          <button onclick="window.simController.quit()" 
+            class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
+            ${bilingual("Volver al lobby", "Back to lobby")}
+          </button>
+          <button onclick="window.simController.startQuiz('ALL')" 
+            class="px-5 py-2.5 rounded-2xl bg-slate-900 text-white font-black shadow hover:shadow-lg transition">
+            ${bilingual("Repetir mixto total", "Retry full mix")}
+          </button>
+          <button onclick="window.simController.startSelected()"
+            class="px-5 py-2.5 rounded-2xl font-black transition ${((state.selectedCategories || []).length > 0) ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}" 
+            ${((state.selectedCategories || []).length > 0) ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''} 
+            ${((state.selectedCategories || []).length > 0) ? '' : 'disabled'}>
+            ${bilingual("Repetir selección", "Retry selection")}
+          </button>
+        </div>
       </div>
-    `;
+    </div>`;
   }
 
   // ===== FUNCIÓN DE RENDER EXPORTADA =====
@@ -1209,8 +1158,10 @@
   // ===== INICIALIZACIÓN =====
   loadPrefs();
   
-  U.ready(() => {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadQuestions);
+  } else {
     loadQuestions();
-  });
+  }
 
 })();
