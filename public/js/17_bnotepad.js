@@ -1,5 +1,5 @@
 // 17_bnotepad.js — Apple Notes (VERSIÓN MEJORADA 3.1)
-// MEJORAS: Posicionamiento junto a Library, diseño NCLEX, funcionalidad mejorada
+// MEJORAS: Botón integrado en el sidebar junto a Library, diseño NCLEX, funcionalidad mejorada
 
 (function () {
     'use strict';
@@ -12,8 +12,7 @@
         DEFAULT_WIDTH: 380,
         DEFAULT_HEIGHT: 520,
         MAX_INSTANCES: 1,
-        // Posición relativa al botón de Library (ajustar según layout)
-        OFFSET_FROM_LIBRARY: 60 // px a la derecha del botón Library
+        OFFSET_FROM_LIBRARY: 60
     };
 
     // ===== ESTADO =====
@@ -82,13 +81,11 @@
     }
 
     function calculateInitialX() {
-        // Calcular posición basada en el botón de Library si existe
         const libraryBtn = document.querySelector('[data-route="library"], #library-btn, .library-trigger');
         if (libraryBtn) {
             const rect = libraryBtn.getBoundingClientRect();
             return rect.right + CONFIG.OFFSET_FROM_LIBRARY;
         }
-        // Fallback: posición centrada derecha
         return window.innerWidth - CONFIG.DEFAULT_WIDTH - 280;
     }
 
@@ -167,7 +164,7 @@
         }
     }
 
-    // ===== ESTILOS DINÁMICOS =====
+    // ===== ESTILOS DINÁMICOS (modificados: botón sidebar, no fixed) =====
     
     function injectStyles() {
         if (document.getElementById('apple-notes-style-v4')) return;
@@ -175,80 +172,64 @@
         const style = document.createElement('style');
         style.id = 'apple-notes-style-v4';
         style.textContent = `
-            /* Botón flotante - Estilo NCLEX Essentials */
+            /* Botón de notas en el sidebar - Estilo NCLEX Essentials */
             #bnotepad-trigger-btn {
-                position: fixed;
-                bottom: 24px;
-                right: 88px; /* Posicionado al lado del Library (asumiendo Library está en right: 24px) */
-                width: 52px;
-                height: 52px;
-                border-radius: 16px;
+                width: 100%;
+                padding: 0.75rem 1rem;
+                border-radius: 0.75rem;
                 background: linear-gradient(135deg, 
-                    rgba(var(--brand-blue-rgb, 0, 122, 255), 0.95), 
-                    rgba(var(--brand-blue-rgb, 0, 122, 255), 0.85)
-                );
-                border: 1px solid rgba(255, 255, 255, 0.2);
-                box-shadow: 
-                    0 4px 20px rgba(var(--brand-blue-rgb, 0, 122, 255), 0.3),
-                    0 0 0 1px rgba(0, 0, 0, 0.05),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-                backdrop-filter: blur(10px);
+                    rgba(var(--brand-blue-rgb, 0, 122, 255), 0.1), 
+                    rgba(var(--brand-blue-rgb, 0, 122, 255), 0.05));
+                border: 1px solid var(--brand-border);
                 display: flex;
                 align-items: center;
-                justify-content: center;
+                justify-content: flex-start;
+                gap: 0.75rem;
+                color: var(--brand-text);
+                font-size: 0.875rem;
+                font-weight: 600;
+                transition: all 0.2s ease;
                 cursor: pointer;
-                z-index: ${CONFIG.Z_INDEX};
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                color: white;
-                font-size: 22px;
+                position: relative;
             }
             
-            .dark #bnotepad-trigger-btn {
-                background: linear-gradient(135deg, 
-                    rgba(var(--brand-blue-rgb, 0, 122, 255), 0.9), 
-                    rgba(var(--brand-blue-rgb, 0, 122, 255), 0.7)
-                );
-                border-color: rgba(255, 255, 255, 0.1);
-                box-shadow: 
-                    0 4px 20px rgba(var(--brand-blue-rgb, 0, 122, 255), 0.25),
-                    0 0 0 1px rgba(0, 0, 0, 0.2),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            #bnotepad-trigger-btn i {
+                width: 1.5rem;
+                text-align: center;
+                color: rgb(var(--brand-blue-rgb));
+                font-size: 1.125rem;
             }
             
             #bnotepad-trigger-btn:hover {
-                transform: translateY(-3px) scale(1.05);
-                box-shadow: 
-                    0 8px 30px rgba(var(--brand-blue-rgb, 0, 122, 255), 0.4),
-                    0 0 0 1px rgba(0, 0, 0, 0.05),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+                background: rgba(var(--brand-blue-rgb), 0.15);
+                border-color: rgb(var(--brand-blue-rgb));
             }
             
-            #bnotepad-trigger-btn:active {
-                transform: translateY(-1px) scale(0.98);
+            .dark #bnotepad-trigger-btn {
+                background: rgba(var(--brand-blue-rgb), 0.15);
+                border-color: var(--brand-border);
+            }
+            
+            .dark #bnotepad-trigger-btn:hover {
+                background: rgba(var(--brand-blue-rgb), 0.25);
             }
             
             #bnotepad-trigger-btn.active {
-                background: linear-gradient(135deg, 
-                    rgba(255, 59, 48, 0.95), 
-                    rgba(255, 59, 48, 0.85)
-                );
-                box-shadow: 
-                    0 4px 20px rgba(255, 59, 48, 0.3),
-                    0 0 0 1px rgba(0, 0, 0, 0.05),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+                background: rgba(var(--brand-blue-rgb), 0.2);
+                color: rgb(var(--brand-blue-rgb));
             }
-
+            
             /* Badge de notificación */
             #bnotepad-trigger-btn::after {
                 content: '';
                 position: absolute;
                 top: -2px;
                 right: -2px;
-                width: 14px;
-                height: 14px;
+                width: 12px;
+                height: 12px;
                 background: #FF3B30;
                 border-radius: 50%;
-                border: 2px solid var(--brand-bg, #F5F5F7);
+                border: 2px solid var(--brand-bg);
                 opacity: 0;
                 transform: scale(0);
                 transition: all 0.3s ease;
@@ -259,7 +240,7 @@
                 transform: scale(1);
             }
 
-            /* Ventana de notas - Estilo NCLEX */
+            /* Ventana de notas - Estilo NCLEX (sin cambios) */
             #bnotepad-window {
                 position: fixed;
                 background: var(--brand-card, rgba(255, 255, 255, 0.98));
@@ -297,7 +278,7 @@
                 visibility: visible;
             }
 
-            /* Header arrastrable - Estilo NCLEX */
+            /* Header arrastrable */
             #bnotepad-header {
                 height: 52px;
                 display: flex;
@@ -317,258 +298,136 @@
                 cursor: grabbing;
             }
 
-            /* Botones de tráfico estilo macOS mejorado */
-            .bnotepad-traffic { 
-                display: flex; 
-                gap: 10px; 
-            }
-            
+            /* Botones de tráfico estilo macOS */
+            .bnotepad-traffic { display: flex; gap: 10px; }
             .bnotepad-dot { 
-                width: 14px; 
-                height: 14px; 
-                border-radius: 50%; 
-                cursor: pointer;
-                transition: all 0.2s ease;
-                position: relative;
+                width: 14px; height: 14px; border-radius: 50%; cursor: pointer;
+                transition: all 0.2s ease; position: relative;
                 box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.1);
             }
-            
-            .bnotepad-dot:hover {
-                transform: scale(1.15);
-            }
-            
+            .bnotepad-dot:hover { transform: scale(1.15); }
             .bnotepad-dot::before {
-                content: '';
-                position: absolute;
-                inset: 0;
-                border-radius: 50%;
+                content: ''; position: absolute; inset: 0; border-radius: 50%;
                 background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3), transparent);
             }
-            
-            .dot-red { 
-                background: #FF5F57; 
-                box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
-            }
-            .dot-yellow { 
-                background: #FEBC2E; 
-                box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
-            }
-            .dot-green { 
-                background: #28C840; 
-                box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
-            }
+            .dot-red { background: #FF5F57; }
+            .dot-yellow { background: #FEBC2E; }
+            .dot-green { background: #28C840; }
 
-            /* Título y controles del header */
             .bnotepad-header-center {
-                position: absolute;
-                left: 50%;
-                transform: translateX(-50%);
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 2px;
+                position: absolute; left: 50%; transform: translateX(-50%);
+                display: flex; flex-direction: column; align-items: center; gap: 2px;
             }
-            
             .bnotepad-title {
-                font-size: 13px;
-                font-weight: 700;
-                color: var(--brand-text, #1C1C1E);
+                font-size: 13px; font-weight: 700; color: var(--brand-text, #1C1C1E);
                 letter-spacing: -0.01em;
             }
-            
             .bnotepad-subtitle {
-                font-size: 10px;
-                font-weight: 500;
-                color: var(--brand-text-muted, #8E8E93);
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
+                font-size: 10px; font-weight: 500; color: var(--brand-text-muted, #8E8E93);
+                text-transform: uppercase; letter-spacing: 0.05em;
             }
 
-            /* Controles derecha del header */
-            .bnotepad-header-actions {
-                display: flex;
-                gap: 8px;
-                align-items: center;
-            }
+            .bnotepad-header-actions { display: flex; gap: 8px; align-items: center; }
 
-            /* Botón de descarga */
             #bnotepad-download {
-                width: 32px;
-                height: 32px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 8px;
-                transition: all 0.2s ease;
-                color: var(--brand-text-muted, #8E8E93);
-                background: transparent;
-                border: none;
-                cursor: pointer;
-                font-size: 14px;
+                width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+                border-radius: 8px; transition: all 0.2s ease;
+                color: var(--brand-text-muted, #8E8E93); background: transparent; border: none;
+                cursor: pointer; font-size: 14px;
             }
-            
             #bnotepad-download:hover {
                 background: rgba(var(--brand-blue-rgb, 0, 122, 255), 0.1);
-                color: rgb(var(--brand-blue-rgb, 0, 122, 255));
-                transform: translateY(-1px);
+                color: rgb(var(--brand-blue-rgb, 0, 122, 255)); transform: translateY(-1px);
             }
 
-            /* Toolbar de formato */
             #bnotepad-toolbar {
-                display: flex;
-                gap: 4px;
-                padding: 8px 16px;
+                display: flex; gap: 4px; padding: 8px 16px;
                 border-bottom: 1px solid var(--brand-border, rgba(0, 0, 0, 0.06));
                 background: rgba(var(--brand-blue-rgb, 0, 122, 255), 0.02);
             }
-            
             .bnotepad-tool-btn {
-                width: 32px;
-                height: 32px;
-                border-radius: 8px;
-                border: none;
-                background: transparent;
-                color: var(--brand-text-muted, #8E8E93);
-                cursor: pointer;
-                transition: all 0.15s ease;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 14px;
+                width: 32px; height: 32px; border-radius: 8px; border: none;
+                background: transparent; color: var(--brand-text-muted, #8E8E93);
+                cursor: pointer; transition: all 0.15s ease;
+                display: flex; align-items: center; justify-content: center; font-size: 14px;
             }
-            
             .bnotepad-tool-btn:hover {
                 background: rgba(var(--brand-blue-rgb, 0, 122, 255), 0.1);
                 color: rgb(var(--brand-blue-rgb, 0, 122, 255));
             }
-            
-            .bnotepad-tool-btn.active {
-                background: rgba(var(--brand-blue-rgb, 0, 122, 255), 0.15);
-                color: rgb(var(--brand-blue-rgb, 0, 122, 255));
-            }
 
-            /* Área de texto mejorada */
             #bnotepad-textarea {
-                flex: 1;
-                width: 100%;
-                background: transparent;
-                border: none;
-                resize: none;
-                padding: 20px;
-                font-size: 15px;
-                line-height: 1.7;
-                outline: none;
+                flex: 1; width: 100%; background: transparent; border: none; resize: none;
+                padding: 20px; font-size: 15px; line-height: 1.7; outline: none;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-                color: var(--brand-text, #1C1C1E);
-                tab-size: 4;
-                letter-spacing: -0.01em;
+                color: var(--brand-text, #1C1C1E); tab-size: 4; letter-spacing: -0.01em;
             }
-            
-            .dark #bnotepad-textarea { 
-                color: var(--brand-text, #E5E5E5); 
-            }
-            
+            .dark #bnotepad-textarea { color: var(--brand-text, #E5E5E5); }
             #bnotepad-textarea::placeholder {
-                color: var(--brand-text-muted, #8E8E93);
-                font-style: italic;
+                color: var(--brand-text-muted, #8E8E93); font-style: italic;
             }
 
-            /* Footer con estadísticas */
             #bnotepad-footer {
-                height: 36px;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 0 20px;
-                border-top: 1px solid var(--brand-border, rgba(0, 0, 0, 0.06));
+                height: 36px; display: flex; align-items: center; justify-content: space-between;
+                padding: 0 20px; border-top: 1px solid var(--brand-border, rgba(0, 0, 0, 0.06));
                 background: rgba(var(--brand-blue-rgb, 0, 122, 255), 0.02);
-                font-size: 11px;
-                color: var(--brand-text-muted, #8E8E93);
-                font-weight: 500;
+                font-size: 11px; color: var(--brand-text-muted, #8E8E93); font-weight: 500;
             }
             
-            #bnotepad-wordcount {
-                text-transform: uppercase;
-                letter-spacing: 0.03em;
-            }
+            #bnotepad-wordcount { text-transform: uppercase; letter-spacing: 0.03em; }
             
             #bnotepad-save-indicator {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                opacity: 0;
-                transition: opacity 0.3s ease;
+                display: flex; align-items: center; gap: 6px; opacity: 0; transition: opacity 0.3s ease;
             }
-            
             #bnotepad-save-indicator::before {
-                content: '✓';
-                font-size: 10px;
-                width: 14px;
-                height: 14px;
-                background: #34C759;
-                color: white;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                content: '✓'; font-size: 10px; width: 14px; height: 14px;
+                background: #34C759; color: white; border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
             }
 
-            /* Resize handle */
             .bnotepad-resize-handle {
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                width: 24px;
-                height: 24px;
-                cursor: nwse-resize;
-                background: linear-gradient(135deg, 
-                    transparent 45%, 
-                    var(--brand-text-muted, #C7C7CC) 45%,
-                    var(--brand-text-muted, #C7C7CC) 55%,
-                    transparent 55%
-                );
-                border-bottom-right-radius: 20px;
-                opacity: 0.2;
-                transition: opacity 0.2s;
+                position: absolute; bottom: 0; right: 0; width: 24px; height: 24px;
+                cursor: nwse-resize; background: linear-gradient(135deg, 
+                    transparent 45%, var(--brand-text-muted, #C7C7CC) 45%,
+                    var(--brand-text-muted, #C7C7CC) 55%, transparent 55%);
+                border-bottom-right-radius: 20px; opacity: 0.2; transition: opacity 0.2s;
             }
-            
-            .bnotepad-resize-handle:hover {
-                opacity: 0.5;
-            }
+            .bnotepad-resize-handle:hover { opacity: 0.5; }
 
-            /* Animaciones */
-            @keyframes bnotepad-pulse {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.1); }
-            }
-            
-            .bnotepad-notify {
-                animation: bnotepad-pulse 0.4s ease;
-            }
-            
-            @keyframes slideInUp {
-                from { opacity: 0; transform: translateY(10px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
+            @keyframes bnotepad-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+            .bnotepad-notify { animation: bnotepad-pulse 0.4s ease; }
         `;
         document.head.appendChild(style);
     }
 
-    // ===== CREACIÓN DE ELEMENTOS =====
+    // ===== CREACIÓN DE ELEMENTOS (modificada: botón en sidebar) =====
     
     function createElements() {
         if (elements.trigger && document.body.contains(elements.trigger)) return;
 
         injectStyles();
 
-        // Botón flotante mejorado
+        // Botón flotante reemplazado por botón de sidebar
         elements.trigger = document.createElement('button');
         elements.trigger.id = 'bnotepad-trigger-btn';
         elements.trigger.setAttribute('aria-label', 'Abrir bloc de notas');
         elements.trigger.setAttribute('title', 'Quick Notes (Ctrl+Shift+N)');
-        elements.trigger.innerHTML = `<i class="fa-solid fa-pen-to-square"></i>`;
+        elements.trigger.innerHTML = `
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span class="lang-es">Quick Notes</span>
+            <span class="lang-en hidden-lang">Quick Notes</span>
+        `;
         
-        // Ventana mejorada
+        // Insertar en el contenedor del sidebar
+        const container = document.getElementById('bnotepad-sidebar-trigger-container');
+        if (container) {
+            container.appendChild(elements.trigger);
+        } else {
+            // Fallback: sidebar al final
+            document.querySelector('#main-sidebar')?.appendChild(elements.trigger);
+        }
+
+        // Ventana (sin cambios)
         elements.window = document.createElement('div');
         elements.window.id = 'bnotepad-window';
         elements.window.setAttribute('role', 'dialog');
@@ -617,7 +476,6 @@
             <div class="bnotepad-resize-handle"></div>
         `;
 
-        document.body.appendChild(elements.trigger);
         document.body.appendChild(elements.window);
 
         // Cachear referencias
@@ -642,41 +500,32 @@
         elements.window.style.height = state.h + 'px';
         elements.textarea.value = state.content;
         
-        // Actualizar badge si hay contenido
         if (state.content.trim()) {
             elements.trigger?.classList.add('has-content');
         }
     }
 
-    // ===== EVENTOS =====
+    // ===== EVENTOS (sin cambios relevantes) =====
     
     function setupEvents() {
         cleanupEventListeners();
 
-        // Botón trigger
         addEventListenerWithCleanup(elements.trigger, 'click', toggleNotepad);
-        
-        // Header - arrastre
         addEventListenerWithCleanup(elements.header, 'mousedown', startDrag);
         
-        // Botones de tráfico
         const trafficContainer = elements.header.querySelector('.bnotepad-traffic');
         addEventListenerWithCleanup(trafficContainer, 'click', handleTrafficClick);
 
-        // Toolbar
         const toolbar = elements.window.querySelector('#bnotepad-toolbar');
         addEventListenerWithCleanup(toolbar, 'click', handleToolbarClick);
 
-        // Botón descarga
         addEventListenerWithCleanup(elements.downloadBtn, 'click', downloadNote);
 
-        // Textarea
         let saveTimeout;
         addEventListenerWithCleanup(elements.textarea, 'input', (e) => {
             state.content = e.target.value;
             updateWordCount();
             
-            // Toggle badge
             if (state.content.trim()) {
                 elements.trigger?.classList.add('has-content');
             } else {
@@ -687,7 +536,6 @@
             saveTimeout = setTimeout(saveContent, 500);
         });
 
-        // Atajos de teclado
         addEventListenerWithCleanup(document, 'keydown', handleKeyboard);
         addEventListenerWithCleanup(window, 'resize', handleWindowResize);
     }
@@ -724,18 +572,13 @@
     }
 
     function handleKeyboard(e) {
-        // Ctrl/Cmd + Shift + N: Toggle
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'N') {
             e.preventDefault();
             toggleNotepad();
         }
-        
-        // Esc: Cerrar
         if (e.key === 'Escape' && state.isOpen) {
             closeNotepad();
         }
-        
-        // Ctrl/Cmd + S: Guardar
         if ((e.ctrlKey || e.metaKey) && e.key === 's' && state.isOpen) {
             e.preventDefault();
             saveContent();
@@ -927,7 +770,7 @@
     // ===== INICIALIZACIÓN =====
     
     function init() {
-        console.log('📝 BNotepad v3.1 initializing...');
+        console.log('📝 BNotepad v3.1 (sidebar) initializing...');
         
         loadState();
         createElements();
