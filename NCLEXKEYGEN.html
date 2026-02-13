@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>NCLEX MASTER KEYGEN - REYNIER DIAZ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
+        
+        body { 
+            background: radial-gradient(circle at center, #001a33 0%, #000814 100%); 
+            min-height: 100vh; 
+            overflow-x: hidden;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .retro-window { 
+            background: rgba(10, 25, 47, 0.95); 
+            border: 3px solid #00d4ff; 
+            box-shadow: 0 0 50px rgba(0, 212, 255, 0.4), inset 0 0 20px rgba(0, 212, 255, 0.2); 
+        }
+
+        .scanline { 
+            width: 100%; height: 2px; 
+            background: rgba(0, 212, 255, 0.1); 
+            position: absolute; top: 0; 
+            animation: scan 6s linear infinite; 
+            pointer-events: none; z-index: 50; 
+        }
+
+        @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+
+        .btn-neon {
+            background: #00d4ff;
+            color: #000;
+            transition: all 0.3s;
+            text-shadow: none;
+            font-weight: 900;
+        }
+
+        .btn-neon:hover {
+            background: #fff;
+            box-shadow: 0 0 20px #fff;
+            transform: scale(1.02);
+        }
+
+        .paso-box {
+            background: rgba(0, 0, 0, 0.5);
+            border-left: 4px solid #00d4ff;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <div class="scanline"></div>
+
+    <div class="retro-window w-full max-w-xl rounded-3xl overflow-hidden relative">
+        <div class="bg-cyan-600 p-4 flex justify-between items-center border-b-2 border-cyan-400">
+            <span class="text-white text-[12px] font-black tracking-widest italic">
+                <i class="fa-solid fa-user-nurse mr-2"></i> NCLEX_ADMIN_v3.6.0.exe
+            </span>
+            <div class="flex gap-4 items-center">
+                <button onclick="toggleMusic()" class="text-white hover:text-cyan-200 transition-all">
+                    <i id="musicIcon" class="fa-solid fa-volume-xmark"></i>
+                </button>
+                <div class="flex gap-1">
+                    <div class="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                    <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-8">
+            <h1 class="text-2xl font-black text-center mb-10 text-cyan-400 tracking-tighter uppercase italic" style="text-shadow: 0 0 15px #00d4ff;">
+                Generador de Línea 27
+            </h1>
+
+            <div class="paso-box p-6 mb-6">
+                <label class="text-[10px] font-black text-cyan-500 uppercase block mb-4 tracking-widest">
+                    Paso 1: Escribe tu contraseña secreta
+                </label>
+                <input type="text" id="palabraSecreta" placeholder="EJ: EnfermeroPro2026#" 
+                    class="w-full bg-black border-2 border-cyan-900 rounded-xl p-4 text-green-400 outline-none focus:border-cyan-400 text-center font-bold text-lg">
+                <button onclick="crearLinea()" class="btn-neon w-full mt-4 py-4 rounded-xl uppercase text-sm tracking-widest">
+                    Generar Código Maestro
+                </button>
+            </div>
+
+            <div id="seccionResultado" class="hidden animate-fade-in">
+                <div class="p-6 bg-black rounded-2xl border-2 border-dashed border-pink-500 mb-6">
+                    <label class="text-[10px] font-black text-pink-500 uppercase block mb-4 tracking-widest text-center">
+                        Paso 2: Copia esta línea completa
+                    </label>
+                    <div id="lineaFinal" class="text-[12px] text-pink-400 break-all font-mono bg-slate-900 p-4 rounded-xl border border-pink-900/50 mb-4 text-center"></div>
+                    <button onclick="copiar()" class="w-full bg-pink-600 hover:bg-pink-400 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-lg transition-all">
+                        <i class="fa-solid fa-copy mr-2"></i> Copiar Línea Completa
+                    </button>
+                </div>
+
+                <div class="p-4 bg-cyan-950/30 border border-cyan-500/30 rounded-xl">
+                    <p class="text-[10px] text-cyan-300 leading-relaxed font-bold">
+                        <i class="fa-solid fa-triangle-exclamation text-yellow-400 mr-2"></i>
+                        PASO 3: Ve a GitHub (public/js/auth.js), busca la <span class="text-white underline">LÍNEA 27</span>, bórrala toda y pega lo que acabas de copiar.
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-10 pt-6 border-t border-cyan-900/50 flex justify-between items-center font-bold">
+                <span class="text-[9px] text-cyan-700 tracking-widest">SHA-256 ENCRYPTION</span>
+                <span class="text-[10px] text-cyan-400 uppercase">© 2026 REYNIER DIAZ</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx = null, isPlaying = false;
+        
+        // Melodía clásica de Keygen
+        function playKeygenMelody() {
+            const melody = [
+                {f: 440, d: 0.2}, {f: 523, d: 0.2}, {f: 659, d: 0.2}, {f: 783, d: 0.4},
+                {f: 659, d: 0.2}, {f: 523, d: 0.2}, {f: 440, d: 0.4}
+            ];
+            let time = audioCtx.currentTime;
+            
+            function next() {
+                if (!isPlaying) return;
+                melody.forEach(note => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(note.f, time);
+                    gain.gain.setValueAtTime(0.05, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + note.d);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(time); osc.stop(time + note.d);
+                    time += note.d;
+                });
+                setTimeout(next, melody.length * 200);
+            }
+            next();
+        }
+
+        function toggleMusic() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            isPlaying = !isPlaying;
+            document.getElementById('musicIcon').className = isPlaying ? "fa-solid fa-volume-high" : "fa-solid fa-volume-xmark";
+            if (isPlaying) playKeygenMelody();
+        }
+
+        async function crearLinea() {
+            const pass = document.getElementById('palabraSecreta').value.trim();
+            if (!pass) { alert("¡Escribe algo!"); return; }
+
+            // Efecto de sonido de clic
+            if(audioCtx) {
+                const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+                o.frequency.setValueAtTime(880, audioCtx.currentTime);
+                g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start(); o.stop(audioCtx.currentTime + 0.1);
+            }
+
+            const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
+            const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+            
+            document.getElementById('lineaFinal').innerText = `const MASTER_HASH = "${hex}";`;
+            document.getElementById('seccionResultado').classList.remove('hidden');
+            
+            if(!isPlaying) toggleMusic();
+        }
+
+        function copiar() {
+            const texto = document.getElementById('lineaFinal').innerText;
+            navigator.clipboard.writeText(texto).then(() => {
+                alert("¡Línea 27 copiada! Ve a GitHub y actualiza tu archivo.");
+            });
+        }
+    </script>
+</body>
+</html>
