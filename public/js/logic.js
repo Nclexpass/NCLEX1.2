@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.5) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN 3.5.0) */
 
 (function () {
     'use strict';
@@ -326,10 +326,8 @@
                 </p>
             </header>
 
-            <!-- Panel de progreso mejorado -->
             <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg mb-8 transition-colors">
                 <div class="flex flex-col md:flex-row items-center gap-6">
-                    <!-- Anillo de progreso circular (simulado con SVG) -->
                     <div class="relative w-24 h-24 flex-shrink-0">
                         <svg class="w-full h-full" viewBox="0 0 100 100">
                             <circle cx="50" cy="50" r="40" fill="none" stroke="var(--brand-border)" stroke-width="8" />
@@ -361,7 +359,6 @@
                     </div>
                 </div>
 
-                <!-- Recomendaciones de estudio -->
                 ${nextTopics.length > 0 ? `
                 <div class="mt-6 pt-4 border-t border-[var(--brand-border)]">
                     <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--brand-text-muted)] mb-3 flex items-center gap-2">
@@ -398,10 +395,8 @@
                 <div id="home-search-results" class="mt-3 w-full bg-[var(--brand-card)] border border-[var(--brand-border)] rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
             </div>
 
-            <!-- SECCIÓN DE TARJETAS MEJORADAS (con gradientes dinámicos según el skin) -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
                 
-                <!-- Simulator Card -->
                 <div onclick="window.nclexApp.navigate('simulator')" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
                     style="background: linear-gradient(135deg, ${primaryColor}, rgba(var(--brand-blue-rgb), 0.7) 70%, rgba(var(--brand-blue-rgb), 0.4));">
@@ -416,7 +411,6 @@
                     </div>
                 </div>
                 
-                <!-- NGN Case: Sepsis Card -->
                 <div onclick="window.nclexApp.navigate('ngn-sepsis')" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
                     style="background: linear-gradient(135deg, rgba(var(--brand-blue-rgb), 0.9), rgba(var(--brand-blue-rgb), 0.6) 80%, rgba(var(--brand-blue-rgb), 0.3));">
@@ -431,7 +425,6 @@
                     </div>
                 </div>
                 
-                <!-- Apariencia (Skins) Card -->
                 <div onclick="window.nclexApp.navigate('skins')" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
                     style="background: linear-gradient(135deg, rgba(var(--brand-blue-rgb), 0.8), rgba(var(--brand-blue-rgb), 0.5) 60%, rgba(var(--brand-blue-rgb), 0.2));">
@@ -450,7 +443,6 @@
                     </div>
                 </div>
                 
-                <!-- Library Card -->
                 <div onclick="window.Library?.open()" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
                     style="background: linear-gradient(135deg, rgba(var(--brand-blue-rgb), 0.7), rgba(var(--brand-blue-rgb), 0.4) 50%, rgba(var(--brand-blue-rgb), 0.1));">
@@ -680,7 +672,8 @@
     }
 
     function init() {
-        console.log('🚀 NCLEX App v3.5 initializing...');
+        const v = window.NCLEX_VERSION || '3.5.0';
+        console.log(`🚀 NCLEX App v${v} initializing...`);
         
         loadPersistedState();
         updateStreak(); // Actualizar racha al iniciar

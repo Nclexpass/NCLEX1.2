@@ -1,11 +1,11 @@
-// utils.js — Utilidades compartidas NCLEX Masterclass (VERSIÓN 3.0.2)
+// utils.js — Utilidades compartidas NCLEX Masterclass (VERSIÓN 3.5.0)
 // FIXED: Storage.get ahora maneja strings no JSON (como 'es' o 'en')
 
 (function() {
     'use strict';
 
     const CONFIG = {
-        VERSION: '3.0.2',
+        VERSION: '3.5.0', // Sincronizado con logic.js y index.html
         STORAGE_PREFIX: 'nclex_',
         DEBOUNCE_DEFAULT: 150,
         THROTTLE_DEFAULT: 100

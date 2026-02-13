@@ -1,5 +1,6 @@
 // skins.js — UI History Museum: 20 Historical Interface Eras + The Neural Vision Masterpiece
 // Curated collection of interface design evolution from 1984 to spatial computing era
+// FIXED: Compatible con logic.js (SkinSystem API + renderSkinSelector)
 
 (function() {
     'use strict';
@@ -742,8 +743,8 @@
             localStorage.setItem('nclex_skin_v1', skinId);
         } catch (e) {}
 
-        // Trigger custom event
-        window.dispatchEvent(new CustomEvent('skinChanged', { detail: { skin } }));
+        // Trigger custom event for logic.js to pick up
+        window.dispatchEvent(new CustomEvent('skinchange', { detail: { skin } }));
     }
 
     function initSkins() {
@@ -759,18 +760,84 @@
         const savedSkin = localStorage.getItem('nclex_skin_v1') || 'neural-vision';
         applySkin(savedSkin);
     }
+    
+    // ===== UI RENDERER (New Feature) =====
+    function renderSkinSelector() {
+        const currentSkinId = window.SkinSystem.current();
+        
+        return `
+            <header class="mb-8 animate-slide-in">
+                <div class="flex items-center gap-3 mb-2">
+                    <button onclick="window.nclexApp.navigate('home')" class="p-2 rounded-full hover:bg-[var(--brand-bg)] text-[var(--brand-text-muted)] transition-colors">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <h1 class="text-3xl lg:text-4xl font-black tracking-tight text-[var(--brand-text)]">
+                        <span class="lang-es">Galería de Estilos</span>
+                        <span class="lang-en hidden-lang">Style Gallery</span>
+                    </h1>
+                </div>
+                <p class="text-[var(--brand-text-muted)] text-lg ml-12">
+                    <span class="lang-es">Personaliza tu entorno de estudio.</span>
+                    <span class="lang-en hidden-lang">Customize your study environment.</span>
+                </p>
+            </header>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in pb-10">
+                ${SKINS.map(skin => {
+                    const isActive = currentSkinId === skin.id;
+                    const primaryColor = skin.colors[2] || skin.colors[0];
+                    
+                    return `
+                        <div onclick="window.SkinSystem.apply('${skin.id}')" 
+                             class="group relative bg-[var(--brand-card)] rounded-2xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] border ${isActive ? 'border-4 border-[rgb(var(--brand-blue-rgb))]' : 'border-[var(--brand-border)]'}"
+                             style="box-shadow: 0 4px 20px -5px ${isActive ? 'rgba(var(--brand-blue-rgb), 0.3)' : 'rgba(0,0,0,0.1)'}">
+                            
+                            <div class="h-24 w-full relative overflow-hidden" style="background: ${skin.colors[0]}">
+                                <div class="absolute inset-0 opacity-30 bg-gradient-to-br from-transparent to-black/20"></div>
+                                <div class="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center bg-white/20 backdrop-blur-md shadow-lg border border-white/30 text-white">
+                                    <i class="fa-solid fa-${skin.icon}"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="p-5">
+                                <h3 class="font-bold text-lg mb-1 text-[var(--brand-text)] flex items-center gap-2">
+                                    <span class="lang-es">${skin.nameEs}</span>
+                                    <span class="lang-en hidden-lang">${skin.name}</span>
+                                    ${isActive ? '<i class="fa-solid fa-check-circle text-[rgb(var(--brand-blue-rgb))]"></i>' : ''}
+                                </h3>
+                                
+                                <div class="flex items-center gap-2 mt-3">
+                                    ${skin.colors.map(c => `
+                                        <div class="w-6 h-6 rounded-full border border-black/10 shadow-sm" style="background-color: ${c}"></div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            
+                            ${isActive ? `
+                                <div class="absolute inset-0 border-4 border-[rgb(var(--brand-blue-rgb))] rounded-2xl pointer-events-none"></div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
 
-    // ===== PUBLIC API =====
-    window.NCLEX_SKINS = {
-        all: SKINS,
+    // ===== PUBLIC API (Renamed to match logic.js) =====
+    window.SkinSystem = {
+        SKINS: SKINS,
         masterpiece: SKINS.find(s => s.isMasterpiece),
         apply: applySkin,
+        renderSkinSelector: renderSkinSelector,
         current: () => {
             const currentClass = Array.from(document.body.classList)
                 .find(c => c.startsWith('skin-'));
             return currentClass ? currentClass.replace('skin-', '') : null;
         }
     };
+    
+    // Backward compatibility just in case
+    window.NCLEX_SKINS = window.SkinSystem;
 
     // Auto-initialize
     if (document.readyState === 'loading') {

@@ -9,10 +9,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NCLEX ESSENTIALS | Concise Study Suite</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&display=swap" rel="stylesheet">
+    
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -192,7 +196,6 @@
                 <span class="hidden lg:block text-base font-bold lang-en hidden-lang">Simulator</span>
             </button>
 
-            <!-- BOTÓN DE NOTEPAD (NUEVO) -->
             <button onclick="window.BNotepad?.toggle()" id="notepad-sidebar-btn"
                 class="nav-btn w-full flex items-center gap-4 p-4 rounded-xl transition-all text-[var(--brand-text-muted)] group border border-dashed border-[var(--brand-border)] hover:border-[rgb(var(--brand-blue-rgb))] hover:bg-[rgba(var(--brand-blue-rgb),0.05)]">
                 <div class="w-6 flex justify-center">
@@ -200,7 +203,6 @@
                 </div>
                 <span class="hidden lg:block text-base font-bold lang-es">Notas</span>
                 <span class="hidden lg:block text-base font-bold lang-en hidden-lang">Notes</span>
-                <!-- Badge opcional si hay notas sin leer -->
                 <span id="notepad-badge" class="hidden lg:inline-block ml-auto bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">●</span>
             </button>
         </nav>
@@ -232,7 +234,6 @@
     <main id="main-content" role="main" class="flex-1 relative overflow-y-auto h-screen scroll-smooth transition-colors duration-300">
         <div id="app-view" class="p-6 lg:p-12 max-w-7xl mx-auto pb-32 min-h-screen"></div>
         
-        <!-- FOOTER SUTIL -->
         <footer class="text-center py-6 text-xs text-[var(--brand-text-muted)] border-t border-[var(--brand-border)] mt-auto">
             <span class="lang-es">created by Reynier Diaz Gerones</span>
             <span class="lang-en hidden-lang">created by Reynier Diaz Gerones</span>
@@ -245,18 +246,17 @@
         <i class="fa-solid fa-arrow-up text-lg"></i>
     </button>
 
-    <script src="js/utils.js?v=3.0"></script>
+    <script defer src="js/utils.js?v=3.0"></script>
+    <script defer src="js/logic.js?v=3.0"></script>
+    <script defer src="js/skins.js?v=3.0"></script>
     
-    <script src="js/logic.js?v=3.0"></script>
-    <script src="js/skins.js?v=3.0"></script>
+    <script defer src="js/31_search_service.js?v=3.0"></script>
+    <script defer src="js/32_analytics_dashboard.js?v=3.0"></script>
     
-    <script src="js/31_search_service.js?v=3.0"></script>
-    <script src="js/32_analytics_dashboard.js?v=3.0"></script>
-    
-    <script src="js/17_bnotepad.js?v=3.2"></script> <!-- Versión actualizada -->
-    <script src="js/premium_books_library.js?v=3.1"></script>
-    <script src="js/simulator.js?v=3.0"></script>
-    <script src="js/ngn_engine.js?v=3.0"></script>
+    <script defer src="js/17_bnotepad.js?v=3.2"></script>
+    <script defer src="js/premium_books_library.js?v=3.1"></script>
+    <script defer src="js/simulator.js?v=3.0"></script>
+    <script defer src="js/ngn_engine.js?v=3.0"></script>
     
     <script defer src="js/01_newborn.js?v=3.0"></script>
     <script defer src="js/02_maternity.js?v=3.0"></script>
@@ -293,7 +293,8 @@
     <script>
         (function() {
             'use strict';
-            window.NCLEX_VERSION = '3.1.0';
+            // Sincronizado con versión en logic.js
+            window.NCLEX_VERSION = '3.5.0';
             window.__nclexReady = false;
             
             window.hideLoader = function() {
@@ -308,8 +309,8 @@
                 }
             };
             
-            // Fallback
-            setTimeout(window.hideLoader, 5000);
+            // Fallback aumentado por seguridad
+            setTimeout(window.hideLoader, 8000);
             
             // Event listener principal
             document.addEventListener('nclex:ready', window.hideLoader);
