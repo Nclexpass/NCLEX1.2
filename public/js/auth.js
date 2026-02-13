@@ -24,7 +24,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
 
   // ===== 2. SEGURIDAD (HASHING) =====
   // Tu clave actual es: Budaplatoazul#
-  const MASTER_HASH = "94089730fcb0896e9af9ef7eb2827f792c5983e5b84e45bba21abf2b3d209faf";
+  const MASTER_HASH = "612245dc8a2beb47bfe2011da7402ecee514ec795d47a665fa61d43863280ce0";
   
   async function verifyMasterKey(inputKey) {
       // .trim() elimina espacios invisibles que causan errores
