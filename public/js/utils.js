@@ -1,11 +1,11 @@
-// utils.js — Utilidades compartidas NCLEX Masterclass (VERSIÓN 3.0.1)
-// FIXED: isArray ahora retorna valor correctamente
+// utils.js — Utilidades compartidas NCLEX Masterclass (VERSIÓN 3.0.2)
+// FIXED: Storage.get ahora maneja strings no JSON (como 'es' o 'en')
 
 (function() {
     'use strict';
 
     const CONFIG = {
-        VERSION: '3.0.1',
+        VERSION: '3.0.2',
         STORAGE_PREFIX: 'nclex_',
         DEBOUNCE_DEFAULT: 150,
         THROTTLE_DEFAULT: 100
@@ -74,7 +74,12 @@
             try {
                 const item = localStorage.getItem(CONFIG.STORAGE_PREFIX + key);
                 if (item === null) return defaultValue;
-                return JSON.parse(item);
+                // Intentar parsear como JSON; si falla, devolver el string original
+                try {
+                    return JSON.parse(item);
+                } catch {
+                    return item; // No es JSON, devolver raw (ej: 'es')
+                }
             } catch (e) {
                 console.warn(`Storage.get error for "${key}":`, e);
                 return defaultValue;
