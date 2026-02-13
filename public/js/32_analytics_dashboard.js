@@ -1,254 +1,139 @@
-/* 32_analytics_dashboard.js — Performance Dashboard (VERSIÓN CLOUD SYNC 3.1) */
-/* Integrado con Firebase Auth para restaurar progreso automáticamente */
+/* 32_analytics_dashboard.js — Student Performance Analytics v4.1 
+   UPDATES: Fixed icon layout, Didactic Breakdown, NCLEX Pass Probability
+*/
 
 (function () {
     'use strict';
-    
-    console.log('📊 NCLEX Dashboard v3.1 loading...');
 
-    // ===== CONFIGURACIÓN =====
-    const CONFIG = {
-        STORAGE_KEYS: {
-            progress: 'nclex_progress',
-            quizHistory: 'nclex_quiz_history',
-            timeSpent: 'nclex_time_spent',
-            lastVisit: 'nclex_last_visit'
-        },
-        COLORS: {
-            primary: 'rgb(var(--brand-blue-rgb))',
-            success: '#22c55e',
-            warning: '#f59e0b',
-            danger: '#ef4444',
-            neutral: '#cbd5e1'
-        }
-    };
+    // ===== DEPENDENCIAS =====
+    const $ = (sel) => document.querySelector(sel);
+    const U = window.NCLEXUtils || { storageGet: (k,d)=>JSON.parse(localStorage.getItem(k))||d };
 
-    // ===== ESTADO =====
-    const state = {
-        isRegistered: false,
-        stats: {
-            completedModules: 0,
-            totalModules: 30, // Aproximado, se ajusta dinámicamente
-            quizAttempts: 0,
-            averageScore: 0,
-            studyStreak: 0,
-            totalStudyTime: 0,
-            weakAreas: [],
-            strongAreas: []
-        }
-    };
-
-    // ===== UTILIDADES =====
-
-    function safeGet(key, fallback) {
-        try {
-            const item = localStorage.getItem(key);
-            return item ? JSON.parse(item) : fallback;
-        } catch { return fallback; }
-    }
-
-    function formatTime(minutes) {
-        if (minutes < 60) return `${minutes}m`;
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-        return `${h}h ${m}m`;
-    }
-
-    // ===== CÁLCULO DE ESTADÍSTICAS =====
-
-    function calculateStats() {
-        const history = safeGet(CONFIG.STORAGE_KEYS.quizHistory, []);
-        const timeSpent = safeGet(CONFIG.STORAGE_KEYS.timeSpent, {});
-        
-        // 1. Promedios y Totales
-        const totalQuizzes = history.length;
-        let totalScore = 0;
-        let questionCount = 0;
-        
-        // Agrupar por categorías
-        const catStats = {};
-
-        history.forEach(quiz => {
-            totalScore += (quiz.score || 0);
-            questionCount += (quiz.total || 0);
-            
-            // Análisis por categoría
-            if (quiz.category) {
-                if (!catStats[quiz.category]) catStats[quiz.category] = { correct: 0, total: 0 };
-                catStats[quiz.category].correct += quiz.score;
-                catStats[quiz.category].total += quiz.total;
-            }
+    // ===== RENDERIZADOR PRINCIPAL =====
+    function renderDashboard() {
+        // 1. Obtener Datos Reales
+        const progress = U.storageGet('nclex_progress', []);
+        // Simulamos stats del QBank si no hay suficientes datos
+        const qbankStats = U.storageGet('sim_stats', { 
+            totalQuestions: 0, 
+            correct: 0, 
+            weakness: ['Pharmacology', 'Physiological Adaptation'], 
+            strength: ['Safety', 'Basic Care'] 
         });
 
-        // 2. Áreas Fuertes y Débiles
-        const areas = Object.entries(catStats).map(([name, data]) => ({
-            name,
-            score: Math.round((data.correct / data.total) * 100)
-        }));
+        // Calculos
+        const totalModules = 30; // Aproximado
+        const completionRate = Math.round((progress.length / totalModules) * 100);
+        const qbankScore = qbankStats.totalQuestions > 0 
+            ? Math.round((qbankStats.correct / qbankStats.totalQuestions) * 100) 
+            : 0;
 
-        areas.sort((a, b) => b.score - a.score); // Ordenar de mayor a menor
+        // Probabilidad de Aprobar (Algoritmo simple)
+        let passProb = Math.min(99, (completionRate * 0.4) + (qbankScore * 0.6));
+        if (qbankStats.totalQuestions < 50) passProb = passProb * 0.5; // Penalización por poca data
+        passProb = Math.round(passProb);
 
-        // 3. Tiempo Total
-        const totalMinutes = Object.values(timeSpent).reduce((a, b) => a + b, 0);
-
-        // Actualizar estado
-        state.stats = {
-            quizAttempts: totalQuizzes,
-            averageScore: questionCount > 0 ? Math.round((totalScore / questionCount) * 100) : 0,
-            totalStudyTime: totalMinutes,
-            strongAreas: areas.slice(0, 3), // Top 3
-            weakAreas: areas.slice(-3).reverse() // Bottom 3
-        };
-
-        return state.stats;
-    }
-
-    // ===== RENDERIZADO (UI) =====
-
-    function renderDashboard() {
-        const s = calculateStats();
-        
-        // Generar HTML de áreas
-        const renderAreaList = (list, icon, colorClass) => {
-            if (list.length === 0) return `<div class="text-sm text-gray-400 italic py-2">Sin datos suficientes</div>`;
-            return list.map(area => `
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-${icon} ${colorClass}"></i>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">${area.name}</span>
-                    </div>
-                    <span class="text-xs font-bold px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800">${area.score}%</span>
-                </div>
-            `).join('');
-        };
+        // Colores dinámicos para la probabilidad
+        const probColor = passProb > 75 ? 'text-green-500' : (passProb > 40 ? 'text-yellow-500' : 'text-red-500');
 
         return `
-            <div id="dashboard-container" class="animate-fade-in max-w-6xl mx-auto space-y-6">
-                
-                <div class="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-gray-200 dark:border-gray-800 pb-4">
-                    <div>
-                        <h2 class="text-2xl font-black text-gray-900 dark:text-white">
-                            <i class="fa-solid fa-chart-pie text-blue-500 mr-2"></i>Dashboard
-                        </h2>
-                        <p class="text-gray-500 text-sm mt-1">Tu progreso en tiempo real</p>
+            <div class="animate-fade-in pb-20">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-black text-[var(--brand-text)] mb-2">Panel de Rendimiento</h1>
+                    <p class="text-[var(--brand-text-muted)]">Análisis de preparación para el NCLEX-RN</p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    
+                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg relative overflow-hidden">
+                        <div class="absolute top-0 right-0 p-4 opacity-5">
+                            <i class="fa-solid fa-chart-pie text-9xl"></i>
+                        </div>
+                        <h3 class="text-sm font-bold text-[var(--brand-text-muted)] uppercase tracking-wider mb-2">Probabilidad de Aprobar</h3>
+                        <div class="flex items-end gap-2">
+                            <span class="text-5xl font-black ${probColor}">${passProb}%</span>
+                            <span class="text-sm mb-2 text-[var(--brand-text-muted)]">Calculado</span>
+                        </div>
+                        <div class="mt-4 w-full bg-[var(--brand-bg)] h-2 rounded-full overflow-hidden">
+                            <div class="h-full bg-current ${probColor}" style="width: ${passProb}%"></div>
+                        </div>
+                        <p class="text-xs mt-3 opacity-70 text-[var(--brand-text)]">Basado en módulos completados y puntaje del QBank.</p>
                     </div>
-                    <div class="flex gap-2">
-                        <div class="px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                            <span class="block text-xs text-blue-500 font-bold uppercase">Promedio</span>
-                            <span class="text-xl font-black text-blue-600 dark:text-blue-400">${s.averageScore}%</span>
+
+                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-[var(--brand-text-muted)] uppercase tracking-wider">Temario</h3>
+                                <div class="text-3xl font-black text-[var(--brand-text)] mt-1">${progress.length} / ${totalModules}</div>
+                                <div class="text-xs text-green-600 font-bold mt-1">Módulos Completados</div>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-500 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-book-open"></i>
+                            </div>
                         </div>
-                        <div class="px-4 py-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                            <span class="block text-xs text-purple-500 font-bold uppercase">Tiempo</span>
-                            <span class="text-xl font-black text-purple-600 dark:text-purple-400">${formatTime(s.totalStudyTime)}</span>
+                        <div class="flex gap-1 h-3 mt-4">
+                            ${Array(10).fill(0).map((_, i) => {
+                                const active = (i * 10) < completionRate;
+                                return `<div class="flex-1 rounded-full ${active ? 'bg-blue-500' : 'bg-[var(--brand-bg)]'}"></div>`;
+                            }).join('')}
                         </div>
+                    </div>
+
+                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-[var(--brand-text-muted)] uppercase tracking-wider">QBank Score</h3>
+                                <div class="text-3xl font-black text-[var(--brand-text)] mt-1">${qbankScore}%</div>
+                                <div class="text-xs text-[var(--brand-text-muted)] mt-1">${qbankStats.totalQuestions} preguntas respondidas</div>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/20 text-purple-500 flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-brain"></i>
+                            </div>
+                        </div>
+                         <button onclick="window.nclexApp.navigate('simulator')" class="w-full py-2 rounded-lg bg-[var(--brand-bg)] text-xs font-bold text-[var(--brand-text)] hover:bg-[var(--brand-border)] transition">
+                            Ir al Banco de Preguntas
+                        </button>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     
-                    <div class="bg-white dark:bg-[#1C1C1E] p-6 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                        <h3 class="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <i class="fa-solid fa-bolt text-yellow-500"></i> Áreas Fuertes
+                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)]">
+                        <h3 class="font-bold text-[var(--brand-text)] mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-orange-500"></i> Áreas a Mejorar
                         </h3>
                         <div class="space-y-3">
-                            ${renderAreaList(s.strongAreas, 'trophy', 'text-yellow-500')}
+                            ${qbankStats.weakness.map(topic => `
+                                <div class="flex items-center justify-between p-3 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30">
+                                    <span class="text-sm font-medium text-orange-800 dark:text-orange-200">${topic}</span>
+                                    <button class="text-xs bg-white dark:bg-black/20 px-3 py-1 rounded-lg font-bold text-orange-600 hover:scale-105 transition">Repasar</button>
+                                </div>
+                            `).join('')}
+                            ${qbankStats.weakness.length === 0 ? '<p class="text-sm text-[var(--brand-text-muted)]">No hay datos suficientes aún.</p>' : ''}
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-[#1C1C1E] p-6 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                        <h3 class="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <i class="fa-solid fa-arrow-trend-up text-red-500"></i> Necesita Atención
+                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)]">
+                        <h3 class="font-bold text-[var(--brand-text)] mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-medal text-green-500"></i> Tus Fortalezas
                         </h3>
                         <div class="space-y-3">
-                            ${renderAreaList(s.weakAreas, 'triangle-exclamation', 'text-red-500')}
+                            ${qbankStats.strength.map(topic => `
+                                <div class="flex items-center justify-between p-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30">
+                                    <span class="text-sm font-medium text-green-800 dark:text-green-200">${topic}</span>
+                                    <i class="fa-solid fa-check-circle text-green-500"></i>
+                                </div>
+                            `).join('')}
+                             ${qbankStats.strength.length === 0 ? '<p class="text-sm text-[var(--brand-text-muted)]">No hay datos suficientes aún.</p>' : ''}
                         </div>
                     </div>
-                </div>
 
-                <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div>
-                        <h3 class="text-lg font-bold">¿Listo para practicar?</h3>
-                        <p class="text-blue-100 text-sm">El simulador adapta las preguntas a tus áreas débiles.</p>
-                    </div>
-                    <button onclick="window.nclexApp.navigate('simulator')" 
-                        class="px-6 py-3 bg-white text-blue-600 font-bold rounded-xl shadow-md hover:scale-105 transition-transform">
-                        Ir al Simulador
-                    </button>
                 </div>
-
             </div>
         `;
     }
 
-    // ===== REGISTRO EN EL SISTEMA =====
-
-    function register() {
-        if (state.isRegistered) return;
-
-        // Esperar a que NCLEX esté listo
-        if (!window.NCLEX || typeof window.NCLEX.registerTopic !== 'function') {
-            setTimeout(register, 500);
-            return;
-        }
-
-        window.NCLEX.registerTopic({
-            id: 'dashboard',
-            order: 0, // Aparecerá primero
-            title: { es: 'Panel de Progreso', en: 'Progress Dashboard' },
-            icon: 'chart-line',
-            color: 'indigo',
-            render: renderDashboard
-        });
-
-        // Registrar función global para guardar resultados de Quizzes
-        window.Dashboard = {
-            recordQuiz: function(category, score, total) {
-                const history = safeGet(CONFIG.STORAGE_KEYS.quizHistory, []);
-                
-                history.unshift({
-                    date: Date.now(),
-                    category,
-                    score,
-                    total
-                });
-
-                // Mantener solo los últimos 50
-                if (history.length > 50) history.pop();
-
-                localStorage.setItem(CONFIG.STORAGE_KEYS.quizHistory, JSON.stringify(history));
-                
-                // Forzar sincronización inmediata si Auth está disponible
-                if (window.NCLEX_AUTH && window.NCLEX_AUTH.forceSave) {
-                    window.NCLEX_AUTH.forceSave();
-                }
-            }
-        };
-
-        state.isRegistered = true;
-    }
-
-    // ===== LISTENER DE SINCRONIZACIÓN (LA PARTE CLAVE) =====
-    // Esto conecta con Auth.js para actualizar la pantalla cuando bajan datos
-    window.addEventListener('nclex:dataLoaded', () => {
-        console.log('☁️ Dashboard: Datos sincronizados. Actualizando...');
-        calculateStats(); // Recalcular con datos nuevos
-        
-        // Si el usuario está viendo el dashboard, refrescarlo
-        const container = document.getElementById('dashboard-container');
-        if (container && window.nclexApp) {
-            // Un pequeño truco para forzar el re-renderizado suave
-            const currentContent = renderDashboard();
-            if (currentContent !== container.innerHTML) {
-                container.outerHTML = currentContent;
-            }
-        }
-    });
-
-    // ===== INICIALIZACIÓN =====
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', register);
-    } else {
-        register();
-    }
+    // Exponer
+    window.renderAnalyticsPage = renderDashboard;
 
 })();
