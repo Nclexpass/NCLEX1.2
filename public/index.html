@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es" dir="ltr" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
@@ -51,7 +51,7 @@
             --brand-text-muted: #64748B;
         }
 
-        /* Modo oscuro base - SIEMPRE después de :root */
+        /* Modo oscuro base */
         .dark {
             --brand-bg: #0F0F11;
             --brand-dark: #FFFFFF;
@@ -127,6 +127,78 @@
 
         @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
         .animate-slide-in { animation: slideIn 0.3s ease-out forwards; }
+
+        /* ===== MODO ESTUDIO (BLUR EFFECT) ===== */
+        /* Solo aplica cuando body tiene .study-blur-active */
+        body.study-blur-active .blur-target {
+            filter: blur(6px);
+            user-select: none;
+            cursor: help;
+            transition: filter 0.3s ease;
+            background-color: rgba(var(--brand-blue-rgb), 0.1);
+            border-radius: 4px;
+            padding: 0 4px;
+        }
+        /* Al pasar el mouse se ve */
+        body.study-blur-active .blur-target:hover {
+            filter: blur(0);
+            background-color: transparent;
+        }
+
+        /* ===== NOTEPAD LATERAL (SLIDE-OUT) ===== */
+        #notepad-wrapper {
+            position: fixed;
+            top: 20%;
+            right: 0;
+            width: 320px;
+            height: 60vh;
+            background-color: var(--brand-card);
+            border: 1px solid var(--brand-border);
+            border-right: none;
+            border-radius: 1rem 0 0 1rem;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.1);
+            z-index: 100;
+            transform: translateX(280px); /* Escondido, solo se ve la pestaña */
+            transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        
+        #notepad-wrapper:hover, #notepad-wrapper.active {
+            transform: translateX(0);
+        }
+
+        #notepad-tab {
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-90deg);
+            background-color: var(--brand-card);
+            border: 1px solid var(--brand-border);
+            border-bottom: none;
+            padding: 8px 16px;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            width: 120px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--brand-text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        /* Ajuste para móvil: más pequeño y abajo */
+        @media (max-width: 768px) {
+            #notepad-wrapper {
+                width: 280px;
+                top: auto;
+                bottom: 20px;
+                height: 50vh;
+                transform: translateX(240px);
+            }
+        }
+
     </style>
 </head>
 
@@ -142,6 +214,23 @@
                 <span class="lang-es">CARGANDO...</span>
                 <span class="lang-en hidden-lang">LOADING...</span>
             </p>
+        </div>
+    </div>
+    
+    <div id="notepad-wrapper">
+        <div id="notepad-tab">
+            <i class="fa-solid fa-pen-to-square text-[rgb(var(--brand-blue-rgb))]"></i>
+            <span>Notes</span>
+        </div>
+        <div id="notepad-content" class="w-full h-full overflow-hidden p-4 flex flex-col">
+            <div class="flex justify-between items-center mb-2 pb-2 border-b border-[var(--brand-border)]">
+                <h3 class="font-bold text-lg">Quick Notes</h3>
+                <div class="flex gap-2 text-xs">
+                    <button id="notepad-save" class="text-green-500 hover:text-green-600"><i class="fa-solid fa-save"></i> Save</button>
+                    <button id="notepad-clear" class="text-red-500 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+            <textarea id="notepad-area" class="w-full flex-1 bg-transparent resize-none focus:outline-none text-sm leading-relaxed" placeholder="Type your clinical notes here..."></textarea>
         </div>
     </div>
     
@@ -227,55 +316,55 @@
         <i class="fa-solid fa-arrow-up text-lg"></i>
     </button>
 
-    <script src="js/utils.js?v=3.0"></script>
+    <script src="js/utils.js?v=4.0"></script>
     
-    <script src="js/logic.js?v=3.0"></script>
-    <script src="js/skins.js?v=3.0"></script>
+    <script src="js/logic.js?v=4.0"></script>
+    <script src="js/skins.js?v=4.0"></script>
     
-    <script src="js/31_search_service.js?v=3.0"></script>
-    <script src="js/32_analytics_dashboard.js?v=3.0"></script>
+    <script src="js/31_search_service.js?v=4.0"></script>
+    <script src="js/32_analytics_dashboard.js?v=4.0"></script>
     
-    <script src="js/17_bnotepad.js?v=3.0"></script>
-    <script src="js/premium_books_library.js?v=3.1"></script>
-    <script src="js/simulator.js?v=3.0"></script>
-    <script src="js/ngn_engine.js?v=3.0"></script>
+    <script src="js/17_bnotepad.js?v=4.0"></script>
+    <script src="js/premium_books_library.js?v=4.0"></script>
+    <script src="js/simulator.js?v=4.0"></script>
+    <script src="js/ngn_engine.js?v=4.0"></script>
     
-    <script defer src="js/01_newborn.js?v=3.0"></script>
-    <script defer src="js/02_maternity.js?v=3.0"></script>
-    <script defer src="js/03_pediatrics_growth_development.js?v=3.0"></script>
-    <script defer src="js/04_med_surg_adult.js?v=3.0"></script>
-    <script defer src="js/05_cardiovascular.js?v=3.0"></script>
-    <script defer src="js/06_respiratory.js?v=3.0"></script>
-    <script defer src="js/07_pharmacology.js?v=3.0"></script>
-    <script defer src="js/08_endocrine.js?v=3.0"></script>
-    <script defer src="js/09_mental_health.js?v=3.0"></script>
-    <script defer src="js/10_neurological.js?v=3.0"></script>
-    <script defer src="js/11_musculoskeletal.js?v=3.0"></script>
-    <script defer src="js/12_fundamentals.js?v=3.0"></script>
-    <script defer src="js/13_hematology_oncology.js?v=3.0"></script>
-    <script defer src="js/14_gastrointestinal.js?v=3.0"></script>
-    <script defer src="js/15_integumentary_burns.js?v=3.0"></script>
-    <script defer src="js/16_labs_values.js?v=3.0"></script>
-    <script defer src="js/18_leadership_management.js?v=3.0"></script>
-    <script defer src="js/19_prioritization_delegation.js?v=3.0"></script>
-    <script defer src="js/20_renal_genitourinary.js?v=3.0"></script>
-    <script defer src="js/21_infectious_immune.js?v=3.0"></script>
-    <script defer src="js/22_emergency_critical.js?v=3.0"></script>
-    <script defer src="js/23_fluids_electrolytes.js?v=3.0"></script>
-    <script defer src="js/24_clinical_nutrition.js?v=3.0"></script>
-    <script defer src="js/25_perioperative_care.js?v=3.0"></script>
-    <script defer src="js/26_high_risk_pharm.js?v=3.0"></script>
-    <script defer src="js/27_critical_thinking_ngn.js?v=3.0"></script>
-    <script defer src="js/28_ethics_legal.js?v=3.0"></script>
-    <script defer src="js/29_negative_rationales.js?v=3.0"></script>
-    <script defer src="js/30_common_student_errors.js?v=3.0"></script>
+    <script defer src="js/01_newborn.js?v=4.0"></script>
+    <script defer src="js/02_maternity.js?v=4.0"></script>
+    <script defer src="js/03_pediatrics_growth_development.js?v=4.0"></script>
+    <script defer src="js/04_med_surg_adult.js?v=4.0"></script>
+    <script defer src="js/05_cardiovascular.js?v=4.0"></script>
+    <script defer src="js/06_respiratory.js?v=4.0"></script>
+    <script defer src="js/07_pharmacology.js?v=4.0"></script>
+    <script defer src="js/08_endocrine.js?v=4.0"></script>
+    <script defer src="js/09_mental_health.js?v=4.0"></script>
+    <script defer src="js/10_neurological.js?v=4.0"></script>
+    <script defer src="js/11_musculoskeletal.js?v=4.0"></script>
+    <script defer src="js/12_fundamentals.js?v=4.0"></script>
+    <script defer src="js/13_hematology_oncology.js?v=4.0"></script>
+    <script defer src="js/14_gastrointestinal.js?v=4.0"></script>
+    <script defer src="js/15_integumentary_burns.js?v=4.0"></script>
+    <script defer src="js/16_labs_values.js?v=4.0"></script>
+    <script defer src="js/18_leadership_management.js?v=4.0"></script>
+    <script defer src="js/19_prioritization_delegation.js?v=4.0"></script>
+    <script defer src="js/20_renal_genitourinary.js?v=4.0"></script>
+    <script defer src="js/21_infectious_immune.js?v=4.0"></script>
+    <script defer src="js/22_emergency_critical.js?v=4.0"></script>
+    <script defer src="js/23_fluids_electrolytes.js?v=4.0"></script>
+    <script defer src="js/24_clinical_nutrition.js?v=4.0"></script>
+    <script defer src="js/25_perioperative_care.js?v=4.0"></script>
+    <script defer src="js/26_high_risk_pharm.js?v=4.0"></script>
+    <script defer src="js/27_critical_thinking_ngn.js?v=4.0"></script>
+    <script defer src="js/28_ethics_legal.js?v=4.0"></script>
+    <script defer src="js/29_negative_rationales.js?v=4.0"></script>
+    <script defer src="js/30_common_student_errors.js?v=4.0"></script>
 
-    <script type="module" src="js/auth.js?v=3.0"></script>
+    <script type="module" src="js/auth.js?v=4.0"></script>
 
     <script>
         (function() {
             'use strict';
-            window.NCLEX_VERSION = '3.1.0';
+            window.NCLEX_VERSION = '4.0.0'; // Updated version
             window.__nclexReady = false;
             
             window.hideLoader = function() {
@@ -290,7 +379,7 @@
                 }
             };
             
-            // Fallback
+            // Fallback safety
             setTimeout(window.hideLoader, 5000);
             
             // Event listener principal

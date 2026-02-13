@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.1) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 4.0 - FIXED PROGRESS & UI) */
 
 (function () {
     'use strict';
@@ -28,6 +28,7 @@
         currentRoute: 'home',
         currentLang: 'es',
         currentTheme: 'dark',
+        isStudyMode: false, // Nuevo: Modo Borroso para memorizar
         completedTopics: [],
         isAppLoaded: false,
         isRendering: false,
@@ -40,10 +41,15 @@
     
     function loadPersistedState() {
         try {
-            const stored = localStorage.getItem('nclex_progress');
-            state.completedTopics = stored ? JSON.parse(stored) : [];
+            const storedProgress = localStorage.getItem('nclex_progress');
+            state.completedTopics = storedProgress ? JSON.parse(storedProgress) : [];
+            
+            // Cargar preferencia de Study Mode
+            const storedStudyMode = localStorage.getItem('nclex_study_mode');
+            state.isStudyMode = storedStudyMode === 'true';
+
         } catch (e) {
-            console.warn('Error loading progress:', e);
+            console.warn('Error loading state:', e);
             state.completedTopics = [];
             safeStorageSet('nclex_progress', '[]');
         }
@@ -120,13 +126,11 @@
         }
 
         state.topics.sort((a, b) => (parseInt(a.order || 999) - parseInt(b.order || 999)));
-        
         queueUpdate();
     }
 
     function queueUpdate() {
         const now = Date.now();
-        
         if (state.updateQueue.length > 0) {
             clearTimeout(state.updateQueue[0]);
             state.updateQueue = [];
@@ -136,7 +140,6 @@
         
         const timeoutId = setTimeout(() => {
             if (!state.isAppLoaded) return;
-            
             state.lastUpdate = Date.now();
             updateNav();
             
@@ -147,7 +150,6 @@
             if (state.currentRoute === 'home') {
                 render('home');
             }
-            
             state.updateQueue = [];
         }, delay);
         
@@ -186,22 +188,26 @@
             state.currentLang = state.currentLang === 'es' ? 'en' : 'es';
             safeStorageSet('nclex_lang', state.currentLang);
             applyLanguageGlobal();
-            
-            render(state.currentRoute);
-            updateNav();
+            render(state.currentRoute); // Re-render para actualizar textos dinámicos
         },
         
         toggleTheme() {
             state.currentTheme = state.currentTheme === 'dark' ? 'light' : 'dark';
             safeStorageSet('nclex_theme', state.currentTheme);
             applyTheme();
-            
-            window.dispatchEvent(new CustomEvent('themechange', {
-                detail: { theme: state.currentTheme }
-            }));
+        },
+
+        // Nueva función para Modo Estudio (Blur)
+        toggleStudyMode() {
+            state.isStudyMode = !state.isStudyMode;
+            safeStorageSet('nclex_study_mode', state.isStudyMode);
+            applyStudyMode();
+            // Refrescamos el Home para ver el estado del botón
+            if(state.currentRoute === 'home') renderHome(); 
         },
         
         toggleTopicComplete(topicId) {
+            // Evitamos recargas innecesarias
             const index = state.completedTopics.indexOf(topicId);
             if (index > -1) {
                 state.completedTopics.splice(index, 1);
@@ -209,22 +215,18 @@
                 state.completedTopics.push(topicId);
             }
             safeStorageSet('nclex_progress', JSON.stringify(state.completedTopics));
-            render(state.currentRoute);
+            
+            // Actualización optimizada sin re-renderizar todo si es posible
             updateNav();
+            if (state.currentRoute === 'home') {
+                render('home'); // Refrescamos para ver barra de progreso y checks
+            }
         },
 
-        getTopics() { 
-            return [...state.topics]; 
-        },
-
-        getCurrentRoute() {
-            return state.currentRoute;
-        },
-
-        refreshUI() {
-            render(state.currentRoute);
-            updateNav();
-        }
+        getTopics() { return [...state.topics]; },
+        getCurrentRoute() { return state.currentRoute; },
+        getCurrentLang() { return state.currentLang; }, // Importante para Simulador
+        refreshUI() { render(state.currentRoute); updateNav(); }
     };
   
     // ===== RENDERIZADO =====
@@ -252,118 +254,175 @@
         const total = state.topics.length;
         const completed = state.completedTopics.length;
         const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-  
+        
+        // Colores de UI
+        const brandColor = 'rgb(var(--brand-blue-rgb))';
+
         return `
-            <header class="mb-8 animate-slide-in">
-                <h1 class="text-3xl lg:text-4xl font-black tracking-tight text-[var(--brand-text)] mb-2">NCLEX ESSENTIALS</h1>
-                <p class="text-[var(--brand-text-muted)] text-lg">
-                    <span class="lang-es">Tu éxito empieza hoy.</span>
-                    <span class="lang-en hidden-lang">Your success starts today.</span>
-                </p>
-            </header>
-
-            <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg mb-10 transition-colors">
-                <div class="flex justify-between items-end mb-2">
-                    <div>
-                        <h2 class="text-xl font-bold text-[var(--brand-text)]">
-                            <span class="lang-es">Progreso Global</span>
-                            <span class="lang-en hidden-lang">Overall Progress</span>
-                        </h2>
-                        <p class="text-sm text-[var(--brand-text-muted)]">${completed} / ${total} modules</p>
-                    </div>
-                    <span class="text-3xl font-black" style="color: rgb(var(--brand-blue-rgb));">${percent}%</span>
-                </div>
-                <div class="w-full h-4 bg-[var(--brand-bg)] rounded-full overflow-hidden border border-[var(--brand-border)]">
-                    <div class="h-full transition-all duration-1000 ease-out" 
-                         style="width: ${percent}%; background: linear-gradient(90deg, rgb(var(--brand-blue-rgb)), rgba(var(--brand-blue-rgb), 0.7));"></div>
-                </div>
-            </div>
-
-            <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg mb-10 transition-colors">
-                <h2 class="text-xl font-bold mb-4 text-[var(--brand-text)]">
-                    <i class="fa-solid fa-search mr-2" style="color: rgb(var(--brand-blue-rgb));"></i> Smart Search
-                </h2>
-                <div class="relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-[var(--brand-text-muted)]"></i>
-                    <input type="text" id="home-search" 
-                        class="w-full bg-[var(--brand-bg)] border-2 border-[var(--brand-border)] focus:border-[rgb(var(--brand-blue-rgb))] rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-[rgba(var(--brand-blue-rgb),0.2)] transition-all placeholder-[var(--brand-text-muted)] text-[var(--brand-text)]"
-                        placeholder="Search medical terms, diagnoses, drugs...">
-                </div>
-                <div id="home-search-results" class="mt-3 w-full bg-[var(--brand-card)] border border-[var(--brand-border)] rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-                <div onclick="window.nclexApp.navigate('simulator')" 
-                    class="p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform bg-gradient-to-br from-indigo-600 to-violet-600">
-                    <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-brain mr-2"></i> Simulator</h2>
-                    <p class="text-sm opacity-90">Adaptive practice (SATA + Options)</p>
-                </div>
-                
-                <div onclick="window.nclexApp.navigate('ngn-sepsis')" 
-                    class="p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform bg-gradient-to-br from-rose-500 to-orange-600">
-                    <h2 class="text-xl font-black mb-1"><i class="fa-solid fa-notes-medical mr-2"></i> NGN Case: Sepsis</h2>
-                    <p class="text-sm opacity-90">Next Gen Case Study Demo</p>
-                </div>
-                
-                <div onclick="window.nclexApp.navigate('skins')" 
-                    class="p-6 rounded-3xl text-white shadow-xl cursor-pointer hover:scale-[1.02] transition-transform bg-gradient-to-br from-purple-500 to-pink-500">
-                    <h2 class="text-xl font-black mb-1">
-                        <i class="fa-solid fa-palette mr-2"></i>
-                        <span class="lang-es">Apariencia</span>
-                        <span class="lang-en hidden-lang">Appearance</span>
-                    </h2>
-                    <p class="text-sm opacity-90">
-                        <span class="lang-es">5 skins • Colores personalizados</span>
-                        <span class="lang-en hidden-lang">5 skins • Custom colors</span>
+            <div class="animate-slide-in pb-10">
+                <header class="mb-8">
+                    <h1 class="text-3xl lg:text-4xl font-black tracking-tight text-[var(--brand-text)] mb-2">NCLEX ESSENTIALS</h1>
+                    <p class="text-[var(--brand-text-muted)] text-lg mb-6">
+                        <span class="lang-es">Tu camino hacia el éxito clínico.</span>
+                        <span class="lang-en hidden-lang">Your path to clinical success.</span>
                     </p>
-                </div>
-                
-                <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg flex flex-col justify-center transition-colors">
-                    <h2 class="text-xl font-bold mb-1 text-[var(--brand-text)]">
-                        <i class="fa-solid fa-layer-group mr-2" style="color: rgb(var(--brand-blue-rgb));"></i> Library
-                    </h2>
-                    <span class="text-4xl font-black text-[var(--brand-text)]">${total} <span class="text-[var(--brand-text-muted)] text-sm">Topics</span></span>
-                </div>
-            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                ${state.topics.map(t => {
-                    const isComplete = state.completedTopics.includes(t.id);
-                    const colors = getColor(t.color);
-                    return `
-                        <div onclick="window.nclexApp.navigate('topic/${t.id}')" 
-                            class="bg-[var(--brand-card)] p-6 rounded-2xl shadow-lg border ${isComplete ? 'border-green-500' : 'border-[var(--brand-border)]'} hover:-translate-y-1 transition-all cursor-pointer group">
-                            <div class="flex items-start justify-between mb-4">
-                                <div class="w-12 h-12 bg-gradient-to-br ${colors.grad} rounded-xl flex items-center justify-center text-white shadow-md">
-                                    <i class="fa-solid fa-${normalizeFaIcon(t.icon)} text-xl"></i>
+                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg transition-colors relative overflow-hidden">
+                         <div class="absolute top-0 right-0 p-4 opacity-10">
+                            <i class="fa-solid fa-book-medical text-8xl text-[var(--brand-text)]"></i>
+                         </div>
+                         
+                         <div class="relative z-10">
+                            <div class="flex justify-between items-end mb-4">
+                                <div>
+                                    <h2 class="text-xl font-bold text-[var(--brand-text)] flex items-center gap-2">
+                                        <i class="fa-solid fa-chart-line" style="color: ${brandColor};"></i>
+                                        <span class="lang-es">Mi Progreso</span>
+                                        <span class="lang-en hidden-lang">My Progress</span>
+                                    </h2>
+                                    <p class="text-sm text-[var(--brand-text-muted)] mt-1">
+                                        ${completed} <span class="lang-es">módulos completados de</span><span class="lang-en hidden-lang">modules completed of</span> ${total}
+                                    </p>
                                 </div>
-                                <div class="flex gap-1">${getClinicalBadges(t)}</div>
+                                <span class="text-4xl font-black" style="color: ${brandColor};">${percent}%</span>
                             </div>
-                            <h3 class="text-lg font-bold mb-2 text-[var(--brand-text)] truncate">${getBilingualTitle(t)}</h3>
-                            <div class="w-full h-1 bg-[var(--brand-bg)] rounded-full overflow-hidden">
-                                <div class="h-full ${colors.bg} w-0 group-hover:w-full transition-all duration-500"></div>
+                            
+                            <div class="w-full h-4 bg-[var(--brand-bg)] rounded-full overflow-hidden border border-[var(--brand-border)]">
+                                <div class="h-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(var(--brand-blue-rgb),0.5)]" 
+                                     style="width: ${percent}%; background: linear-gradient(90deg, ${brandColor}, rgba(var(--brand-blue-rgb), 0.7));"></div>
                             </div>
+                         </div>
+                    </div>
+                </header>
+
+                <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg mb-8 transition-colors">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-[var(--brand-text-muted)]"></i>
+                        <input type="text" id="home-search" 
+                            class="w-full bg-[var(--brand-bg)] border-2 border-[var(--brand-border)] focus:border-[rgb(var(--brand-blue-rgb))] rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-[rgba(var(--brand-blue-rgb),0.2)] transition-all placeholder-[var(--brand-text-muted)] text-[var(--brand-text)]"
+                            placeholder="Search medical terms, drugs, diagnoses...">
+                    </div>
+                    <div id="home-search-results" class="mt-3 w-full bg-[var(--brand-card)] border border-[var(--brand-border)] rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    
+                    <div onclick="window.nclexApp.navigate('simulator')" 
+                        class="p-5 rounded-2xl text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform bg-gradient-to-br from-indigo-600 to-violet-600 flex flex-col justify-between h-32">
+                        <div class="text-3xl"><i class="fa-solid fa-brain"></i></div>
+                        <div>
+                            <h2 class="font-bold">Simulator</h2>
+                            <p class="text-xs opacity-80">Adaptive Tests</p>
                         </div>
-                    `;
-                }).join('')}
+                    </div>
+                    
+                    <div onclick="window.nclexApp.navigate('ngn-sepsis')" 
+                        class="p-5 rounded-2xl text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform bg-gradient-to-br from-rose-500 to-orange-600 flex flex-col justify-between h-32">
+                        <div class="text-3xl"><i class="fa-solid fa-user-doctor"></i></div>
+                        <div>
+                            <h2 class="font-bold">NGN Case</h2>
+                            <p class="text-xs opacity-80">Sepsis Protocol</p>
+                        </div>
+                    </div>
+
+                    <div onclick="window.nclexApp.toggleStudyMode()" 
+                        class="p-5 rounded-2xl shadow-lg cursor-pointer hover:scale-[1.02] transition-transform border border-[var(--brand-border)] bg-[var(--brand-card)] flex flex-col justify-between h-32 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 p-2">
+                             <div class="w-10 h-6 rounded-full p-1 transition-colors ${state.isStudyMode ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}">
+                                <div class="bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${state.isStudyMode ? 'translate-x-4' : ''}"></div>
+                             </div>
+                        </div>
+                        <div class="text-3xl text-[var(--brand-text)]"><i class="fa-solid fa-eye-slash"></i></div>
+                        <div>
+                            <h2 class="font-bold text-[var(--brand-text)]">
+                                <span class="lang-es">Modo Estudio</span>
+                                <span class="lang-en hidden-lang">Study Mode</span>
+                            </h2>
+                            <p class="text-xs text-[var(--brand-text-muted)]">
+                                <span class="lang-es">Ocultar cifras/labs</span>
+                                <span class="lang-en hidden-lang">Blur numbers/labs</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div onclick="window.nclexApp.navigate('skins')" 
+                        class="p-5 rounded-2xl text-white shadow-lg cursor-pointer hover:scale-[1.02] transition-transform bg-gradient-to-br from-gray-700 to-gray-900 flex flex-col justify-between h-32">
+                        <div class="text-3xl"><i class="fa-solid fa-palette"></i></div>
+                        <div>
+                            <h2 class="font-bold">
+                                <span class="lang-es">Apariencia</span>
+                                <span class="lang-en hidden-lang">Skins</span>
+                            </h2>
+                            <p class="text-xs opacity-80">Custom UI</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-bold text-[var(--brand-text)] mb-4 pl-1">
+                    <span class="lang-es">Módulos de Aprendizaje</span>
+                    <span class="lang-en hidden-lang">Learning Modules</span>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${state.topics.map(t => {
+                        const isComplete = state.completedTopics.includes(t.id);
+                        const colors = getColor(t.color);
+                        
+                        return `
+                            <div onclick="window.nclexApp.navigate('topic/${t.id}')" 
+                                class="relative bg-[var(--brand-card)] p-6 rounded-2xl shadow-lg border-2 ${isComplete ? 'border-green-500/50' : 'border-[var(--brand-border)]'} hover:-translate-y-1 transition-all cursor-pointer group overflow-hidden">
+                                
+                                <button onclick="event.stopPropagation(); window.nclexApp.toggleTopicComplete('${t.id}')" 
+                                    class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all ${isComplete ? 'bg-green-500 text-white shadow-md hover:bg-green-600' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] border border-[var(--brand-border)] hover:border-green-500 hover:text-green-500'}">
+                                    <i class="fa-solid fa-check text-sm"></i>
+                                </button>
+
+                                <div class="flex items-start justify-between mb-4 pr-8">
+                                    <div class="w-12 h-12 bg-gradient-to-br ${colors.grad} rounded-xl flex items-center justify-center text-white shadow-md">
+                                        <i class="fa-solid fa-${normalizeFaIcon(t.icon)} text-xl"></i>
+                                    </div>
+                                </div>
+
+                                <div class="mb-2">
+                                    <div class="flex flex-wrap gap-1 mb-1 opacity-80 text-xs">${getClinicalBadges(t)}</div>
+                                    <h3 class="text-lg font-bold text-[var(--brand-text)] leading-tight line-clamp-2 min-h-[3rem] flex items-center">
+                                        ${getBilingualTitle(t)}
+                                    </h3>
+                                </div>
+                                
+                                <div class="w-full h-1.5 bg-[var(--brand-bg)] rounded-full overflow-hidden mt-4">
+                                    <div class="h-full ${isComplete ? 'bg-green-500' : colors.bg} w-0 group-hover:w-full ${isComplete ? 'w-full' : ''} transition-all duration-700 ease-out"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+
+                <footer class="mt-16 py-8 border-t border-[var(--brand-border)] text-center">
+                    <p class="text-[var(--brand-text-muted)] font-medium text-sm">
+                        NCLEX Essentials &copy; 2026
+                    </p>
+                    <p class="text-[var(--brand-text)] font-bold text-sm mt-1">
+                        <span class="lang-es">Creado por Reynier Diaz Gerones</span>
+                        <span class="lang-en hidden-lang">Created by Reynier Diaz Gerones</span>
+                    </p>
+                    <div class="flex justify-center gap-4 mt-4 text-[var(--brand-text-muted)] text-xl">
+                        <i class="fa-brands fa-github hover:text-[var(--brand-text)] cursor-pointer transition-colors"></i>
+                        <i class="fa-brands fa-linkedin hover:text-[var(--brand-text)] cursor-pointer transition-colors"></i>
+                        <i class="fa-solid fa-envelope hover:text-[var(--brand-text)] cursor-pointer transition-colors"></i>
+                    </div>
+                </footer>
             </div>
         `;
     }
   
     function render(route) {
-        if (state.isRendering) {
-            console.warn('Render bloqueado: ya hay uno en progreso');
-            return;
-        }
+        if (state.isRendering) return;
 
         const view = $('#app-view');
-        if (!view) {
-            console.error('No se encontró #app-view');
-            return;
-        }
+        if (!view) return;
 
         state.isRendering = true;
-        
         view.style.opacity = '0';
         view.style.transform = 'translateY(10px)';
         
@@ -383,18 +442,7 @@
                     } else if (topic && topic.content) {
                         content = `<div class="animate-fade-in">${topic.content}</div>`;
                     } else {
-                        content = `
-                            <div class="p-10 text-center">
-                                <div class="text-6xl mb-4">🔍</div>
-                                <h2 class="text-2xl font-bold text-[var(--brand-text)] mb-2">Module not found</h2>
-                                <p class="text-[var(--brand-text-muted)] mb-4">The topic "${topicId}" doesn't exist or hasn't loaded yet.</p>
-                                <button onclick="window.nclexApp.navigate('home')" 
-                                    class="px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                                    style="background-color: rgb(var(--brand-blue-rgb));">
-                                    Back to Home
-                                </button>
-                            </div>
-                        `;
+                        content = `<div class="p-10 text-center">Module Not Found</div>`;
                     }
                 }
                 else if (route === 'simulator' && typeof window.renderSimulatorPage === 'function') {
@@ -407,31 +455,16 @@
                     content = window.SkinSystem.renderSkinSelector();
                 }
                 else {
-                    content = `
-                        <div class="p-10 text-center">
-                            <div class="text-6xl mb-4">🚧</div>
-                            <h2 class="text-2xl font-bold text-[var(--brand-text)] mb-2">Feature not available</h2>
-                            <p class="text-[var(--brand-text-muted)] mb-4">The "${route}" module is loading or not available.</p>
-                            <button onclick="window.nclexApp.navigate('home')" 
-                                class="px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                                style="background-color: rgb(var(--brand-blue-rgb));">
-                                Back to Home
-                            </button>
-                        </div>
-                    `;
+                    content = `<div class="p-10 text-center">Page Not Found</div>`;
                 }
 
                 view.innerHTML = content;
                 applyLanguageGlobal();
+                applyStudyMode(); // Re-aplicar modo estudio tras render
                 
             } catch (error) {
                 console.error('Error en render:', error);
-                view.innerHTML = `
-                    <div class="p-10 text-center text-red-500">
-                        <h2 class="text-2xl font-bold mb-2">Error loading content</h2>
-                        <p>${error.message}</p>
-                    </div>
-                `;
+                view.innerHTML = `<div class="p-10 text-center text-red-500">Error: ${error.message}</div>`;
             } finally {
                 requestAnimationFrame(() => {
                     view.style.opacity = '1';
@@ -446,8 +479,6 @@
         const nav = $('#topics-nav');
         if (!nav) return;
 
-        const isEs = state.currentLang === 'es';
-        
         nav.innerHTML = state.topics.map(t => {
             const colors = getColor(t.color);
             const isComplete = state.completedTopics.includes(t.id);
@@ -458,7 +489,7 @@
                     class="nav-btn w-full flex items-center gap-4 p-3 rounded-xl transition-all text-[var(--brand-text-muted)] group ${isComplete ? 'opacity-75' : ''}">
                     <div class="w-6 flex justify-center relative">
                         <i class="fa-solid fa-${normalizeFaIcon(t.icon)}" style="color: rgb(${colors.rgb});"></i>
-                        ${isComplete ? '<span class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></span>' : ''}
+                        ${isComplete ? '<span class="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full border border-[var(--brand-bg)]"></span>' : ''}
                     </div>
                     <span class="hidden lg:block text-sm font-bold truncate text-[var(--brand-text)]">${getBilingualTitle(t)}</span>
                 </button>
@@ -472,9 +503,9 @@
         $$('.nav-btn').forEach(btn => {
             const btnRoute = btn.getAttribute('data-route');
             const isActive = btnRoute === route;
-            
             btn.classList.toggle('active', isActive);
             
+            // Highlight icon
             const icon = btn.querySelector('i');
             if (icon && isActive) {
                 icon.style.color = `rgb(var(--brand-blue-rgb))`;
@@ -484,67 +515,41 @@
 
     function applyLanguageGlobal() {
         const isEs = state.currentLang === 'es';
-        
-        $$('.lang-es').forEach(el => {
-            el.classList.toggle('hidden-lang', !isEs);
-        });
-        
-        $$('.lang-en').forEach(el => {
-            el.classList.toggle('hidden-lang', isEs);
-        });
-
+        $$('.lang-es').forEach(el => el.classList.toggle('hidden-lang', !isEs));
+        $$('.lang-en').forEach(el => el.classList.toggle('hidden-lang', isEs));
         document.documentElement.lang = state.currentLang;
     }
   
     function applyTheme() {
         const isDark = state.currentTheme === 'dark';
         document.documentElement.classList.toggle('dark', isDark);
-        
         const metaTheme = $('meta[name="theme-color"]');
-        if (metaTheme) {
-            metaTheme.content = isDark ? '#0F0F11' : '#F5F5F7';
+        if (metaTheme) metaTheme.content = isDark ? '#0F0F11' : '#F5F5F7';
+    }
+
+    function applyStudyMode() {
+        // Agrega una clase al body para manejar efectos CSS globales (Blur)
+        if (state.isStudyMode) {
+            document.body.classList.add('study-blur-active');
+        } else {
+            document.body.classList.remove('study-blur-active');
         }
     }
 
     function init() {
-        console.log('🚀 NCLEX App v3.1 initializing...');
-        
+        console.log('🚀 NCLEX App v4.0 initializing...');
         loadPersistedState();
-        
         applyTheme();
         applyLanguageGlobal();
+        applyStudyMode();
         
         state.isAppLoaded = true;
-        
         updateNav();
         render('home');
         updateNavActive('home');
         
-        window.scrollToTop = function() {
-            const main = $('#main-content');
-            if (main) {
-                main.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        };
-
-        const mainContent = $('#main-content');
-        const backToTop = $('#back-to-top');
-        
-        if (mainContent && backToTop) {
-            mainContent.addEventListener('scroll', () => {
-                const shouldShow = mainContent.scrollTop > 300;
-                backToTop.classList.toggle('hidden', !shouldShow);
-                backToTop.classList.toggle('flex', shouldShow);
-            });
-        }
-        
         document.dispatchEvent(new CustomEvent('nclex:ready'));
-        
-        if (typeof window.hideLoader === 'function') {
-            window.hideLoader();
-        }
-        
-        console.log('✅ NCLEX App initialized successfully');
+        if (typeof window.hideLoader === 'function') window.hideLoader();
     }
 
     // ===== EXPONER FUNCIONES GLOBALES =====
@@ -557,14 +562,12 @@
     } else {
         init();
     }
-
-    window.addEventListener('skinchange', (e) => {
-        console.log('Skin changed, refreshing UI...');
+    
+    // Listener para cambios de skin dinámicos
+    window.addEventListener('skinchange', () => {
         if (state.isAppLoaded) {
             updateNav();
-            if (state.currentRoute === 'home' || state.currentRoute === 'skins') {
-                render(state.currentRoute);
-            }
+            if (state.currentRoute === 'home') render('home');
         }
     });
 
