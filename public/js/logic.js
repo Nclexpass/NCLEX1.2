@@ -255,7 +255,7 @@
   
         return `
             <header class="mb-8 animate-slide-in">
-                <h1 class="text-3xl lg:text-4xl font-black tracking-tight text-[var(--brand-text)] mb-2">NCLEX ESSENTIALS</h1>
+                <h1 class="text-3xl lg:text-4xl font-black tracking-tight text-[var(--brand-text)] mb-2">NCLEX Masterclass OS</h1>
                 <p class="text-[var(--brand-text-muted)] text-lg">
                     <span class="lang-es">Tu éxito empieza hoy.</span>
                     <span class="lang-en hidden-lang">Your success starts today.</span>
