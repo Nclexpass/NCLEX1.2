@@ -27,7 +27,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   // ===== 2. SEGURIDAD (HASHING) =====
   // En lugar de guardar la contraseña, guardamos su HUELLA DIGITAL.
   // Nadie puede saber que la clave es "Guitarra89#" viendo esto:
-  const MASTER_HASH = "5cc5603d4e1f122519f08f932789253ff563385d4111bd76788378e79140becf";
+  const MASTER_HASH = "612245dc8a2beb47bfe2011da7402ecee514ec795d47a665fa61d43863280ce0";
   
   // Función criptográfica para comparar contraseñas sin revelarlas
   async function verifyMasterKey(inputKey) {
