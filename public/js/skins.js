@@ -63,22 +63,20 @@
     function getCurrentTheme() { return document.documentElement.classList.contains('dark') ? 'dark' : 'light'; }
     function getLang() { try { return localStorage.getItem('nclex_lang') || 'es'; } catch { return 'es'; } }
 
-    // Función auxiliar: Convierte Hex (#FF0000) a RGB (255, 0, 0)
     function hexToRgb(hex) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
         return result ? 
             `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : 
-            '0, 122, 255'; // Fallback azul
+            '0, 122, 255';
     }
 
     function notifySkinChange(skinId) {
         window.dispatchEvent(new CustomEvent('skinchange', { 
             detail: { skin: skinId, theme: getCurrentTheme(), timestamp: Date.now() } 
         }));
-        if (window.nclexApp && typeof window.nclexApp.refreshUI === 'function') window.nclexApp.refreshUI();
+        // Eliminamos la llamada a refreshUI para evitar doble render
     }
 
-    // ===== LÓGICA DE APLICACIÓN =====
     function applySkin(skinId, save = true) {
         if (isApplyingSkin) return;
         isApplyingSkin = true;
@@ -86,17 +84,15 @@
         const skin = SKINS.find(s => s.id === skinId) || SKINS[0];
         skinId = skin.id;
 
-        // 1. Limpiar clases previas
         SKINS.forEach(s => document.documentElement.classList.remove(`skin-${s.id}`));
         document.documentElement.classList.add(`skin-${skinId}`);
         currentSkin = skinId;
 
-        // 2. Manejo de Masterpiece (CSS Inyectado)
         const styleId = 'nclex-masterpiece-style';
         const existingStyle = document.getElementById(styleId);
         
         if (skinId === 'masterpiece') {
-            document.documentElement.classList.add('dark'); // Forzar oscuro
+            document.documentElement.classList.add('dark');
             if (!existingStyle) {
                 const style = document.createElement('style');
                 style.id = styleId;
@@ -105,13 +101,8 @@
             }
         } else {
             if (existingStyle) existingStyle.remove();
-            
-            // 3. INYECCIÓN AUTOMÁTICA DE COLORES PARA TODOS LOS SKINS
-            // Toma el primer color de tu lista y lo aplica como el color principal
             const primaryColorHex = skin.colors[0];
             const primaryColorRgb = hexToRgb(primaryColorHex);
-            
-            // Sobrescribimos la variable CSS globalmente
             document.documentElement.style.setProperty('--brand-blue-rgb', primaryColorRgb);
         }
         
@@ -120,7 +111,6 @@
         setTimeout(() => { isApplyingSkin = false; notifySkinChange(skinId); }, 50);
     }
 
-    // ===== RENDERIZAR SELECTOR =====
     function renderSkinSelector() {
         const isEs = getLang() === 'es';
         
@@ -190,7 +180,6 @@
         `;
     }
 
-    // ===== INICIALIZACIÓN =====
     function init() {
         if (isInitialized) return;
         isInitialized = true;
