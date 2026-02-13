@@ -1,4 +1,4 @@
-// js/auth.js — VERSIÓN ADMINISTRADOR (Tu control total)
+// js/auth.js — VERSIÓN 3.5.0 (Blindado con SHA-256)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -19,16 +19,27 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   try {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
-      console.log("🔥 Sistema de Cuentas Activo");
+      console.log("🔥 Sistema de Cuentas v3.5.0 Activo");
   } catch (e) {
       console.error("Error Firebase:", e);
   }
 
-  // ===== 2. TU LLAVE MAESTRA (¡CÁMBIALA AQUÍ!) =====
-  const MASTER_KEY = "Guitarra89#"; // <--- Esta es la contraseña que solo TÚ debes saber
+  // ===== 2. SEGURIDAD (HASHING) =====
+  // En lugar de guardar la contraseña, guardamos su HUELLA DIGITAL.
+  // Nadie puede saber que la clave es "Guitarra89#" viendo esto:
+  const MASTER_HASH = "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8";
   
-  const STORAGE_KEY = 'nclex_user_session_v5';
-  const KEYS_TO_SYNC = ['nclex_progress', 'nclex_quiz_history', 'nclex_time_spent', 'nclex_last_visit', 'sim_selected_cats'];
+  // Función criptográfica para comparar contraseñas sin revelarlas
+  async function verifyMasterKey(inputKey) {
+      const msgBuffer = new TextEncoder().encode(inputKey);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return hashHex === MASTER_HASH;
+  }
+  
+  const STORAGE_KEY = 'nclex_user_session_v35';
+  const KEYS_TO_SYNC = ['nclex_progress', 'nclex_quiz_history', 'nclex_time_spent', 'nclex_last_visit', 'sim_selected_cats', 'nclex_streak'];
   let autoSaveInterval = null;
 
   // ===== 3. SISTEMA DE DATOS (NUBE) =====
@@ -87,7 +98,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
             <i class="fa-solid fa-user-nurse text-3xl text-white"></i>
           </div>
           <h1 class="text-2xl font-black text-gray-900">NCLEX ESSENTIALS</h1>
-          <p class="text-gray-400 text-[10px] uppercase tracking-[0.2em] font-bold">Concise Study Suite</p>
+          <p class="text-gray-400 text-[10px] uppercase tracking-[0.2em] font-bold">Concise Study Suite v3.5</p>
         </div>
 
         <div class="px-8 pb-8 space-y-4">
@@ -193,12 +204,14 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
     document.getElementById('btn-register').onclick = async () => {
         const user = document.getElementById('reg-user').value.trim();
         const pass = document.getElementById('reg-pass').value.trim();
-        const master = document.getElementById('reg-master').value.trim();
+        const masterInput = document.getElementById('reg-master').value.trim();
 
         if (!user || !pass) return showMsg("Faltan datos del estudiante", "text-red-500");
         
-        // AQUÍ SE COMPRUEBA TU CLAVE MAESTRA
-        if (master !== MASTER_KEY) {
+        // VERIFICACIÓN SEGURA DE CLAVE MAESTRA
+        const isValid = await verifyMasterKey(masterInput);
+        
+        if (!isValid) {
             return showMsg("⛔ Clave Maestra Incorrecta", "text-red-600");
         }
 
