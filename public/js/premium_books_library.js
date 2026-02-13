@@ -1,10 +1,11 @@
-// premium_books_library.js — Visual Library v7.0 (Masterpiece Edition)
+// premium_books_library.js — Visual Library v7.2 (Masterpiece Edition)
 // FEATURES: Diseño Tapa Dura de Lujo, Lomo Texturizado, Cinta de Seda, Visor Online
+// MODIFICADO: Se elimina el botón flotante, se expone window.Library.open()
 
 (function () {
   'use strict';
 
-  // ===== DEPENDENCIAS (sin cambios) =====
+  // ===== DEPENDENCIAS =====
   const U = window.NCLEXUtils || {
     $: (s) => document.querySelector(s),
     $$: (s) => Array.from(document.querySelectorAll(s)),
@@ -21,7 +22,7 @@
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  // ===== CONFIGURACIÓN — PALETA ÉLITE (colores más profundos y sofisticados) =====
+  // ===== CONFIGURACIÓN =====
   const CONFIG = {
     GITHUB_RELEASE_URL: 'https://api.github.com/repos/Nclexpass/NCLEX1.2/releases/tags/BOOKS',
     CACHE_DURATION: 5 * 60 * 1000, 
@@ -29,19 +30,18 @@
     CACHE_TIME_KEY: 'books_cache_time',
     MAX_RETRIES: 2,
     RETRY_DELAY: 1500,
-    // 🎨 GRADIENTES PREMIUM — tonos académicos con profundidad
     COVERS: [
-      ['#1a1e2c', '#2d3748'], // Grafito Azulado
-      ['#3c2a4d', '#4a2c5d'], // Púrpura Imperial
-      ['#1f3a3f', '#2b4a55'], // Verde Petróleo
-      ['#5e3a3a', '#7a4c4c'], // Burdeos Profundo
-      ['#2d4a3b', '#3e6b4b'], // Bosque Británico
-      ['#2a3f5e', '#3c5a7d'], // Azul Prusia
-      ['#4a3b2a', '#63543a']  // Cuero Envejecido
+      ['#1a1e2c', '#2d3748'],
+      ['#3c2a4d', '#4a2c5d'],
+      ['#1f3a3f', '#2b4a55'],
+      ['#5e3a3a', '#7a4c4c'],
+      ['#2d4a3b', '#3e6b4b'],
+      ['#2a3f5e', '#3c5a7d'],
+      ['#4a3b2a', '#63543a']
     ]
   };
 
-  // ===== ESTADO (sin cambios) =====
+  // ===== ESTADO =====
   const state = { books: [], isLoading: false, error: null, isOpen: false };
 
   function getCoverColor(title) {
@@ -51,7 +51,7 @@
     return CONFIG.COVERS[index];
   }
 
-  // ===== 🎨 ESTILOS REDISEÑADOS — Elegancia, Realismo, Profesionalismo =====
+  // ===== ESTILOS COMPLETOS =====
   function injectStyles() {
     if (document.getElementById('nclex-library-styles-v6')) return;
     const style = document.createElement('style');
@@ -70,39 +70,6 @@
         --lib-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.6);
         --lib-ribbon: linear-gradient(145deg, #b31b1b, #7a0e0e);
         --lib-spine: linear-gradient(90deg, rgba(0,0,0,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.2) 100%);
-      }
-
-      /* ------------------------------------------------
-         BOTÓN FLOTANTE — Joya minimalista
-      ------------------------------------------------ */
-      #nclex-library-btn {
-        position: fixed;
-        top: 28px;
-        right: 28px;
-        width: 56px;
-        height: 56px;
-        border-radius: 18px;
-        background: radial-gradient(circle at 30% 30%, #2a3f5e, #1a2a3a);
-        border: 1px solid rgba(255, 215, 0, 0.25);
-        box-shadow: 0 8px 25px rgba(0, 20, 40, 0.7), inset 0 1px 0 rgba(255,255,255,0.2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        z-index: 9980;
-        transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1);
-        color: white;
-        backdrop-filter: blur(4px);
-        animation: lib-pulse 4s infinite ease-in-out;
-      }
-      #nclex-library-btn:hover {
-        transform: translateY(-4px) scale(1.06);
-        border-color: rgba(212, 175, 55, 0.6);
-        box-shadow: 0 15px 35px rgba(0, 60, 120, 0.5);
-      }
-      @keyframes lib-pulse {
-        0%, 100% { box-shadow: 0 8px 25px rgba(0, 20, 40, 0.7); }
-        50% { box-shadow: 0 12px 35px rgba(30, 80, 150, 0.6); }
       }
 
       /* ------------------------------------------------
@@ -144,7 +111,7 @@
       }
 
       /* ------------------------------------------------
-         CABECERA — Refinamiento académico
+         CABECERA
       ------------------------------------------------ */
       .nclex-lib-header {
         padding: 24px 36px;
@@ -173,7 +140,7 @@
       }
 
       /* ------------------------------------------------
-         ESTANTERÍA — Grid con elegancia
+         ESTANTERÍA
       ------------------------------------------------ */
       .nclex-lib-grid {
         display: grid;
@@ -187,7 +154,7 @@
       }
 
       /* ------------------------------------------------
-         LIBRO 3D — Tapa Dura con Lomo Realista
+         LIBRO 3D
       ------------------------------------------------ */
       .book-item {
         display: flex;
@@ -217,7 +184,6 @@
         border-left-color: rgba(255,215,0,0.2);
       }
 
-      /* Lomo texturizado (pseudo-elemento) */
       .book-cover::before {
         content: '';
         position: absolute;
@@ -232,7 +198,6 @@
         z-index: 3;
       }
 
-      /* Sutil brillo en borde superior (tapa dura) */
       .book-cover::after {
         content: '';
         position: absolute;
@@ -245,7 +210,6 @@
         pointer-events: none;
       }
 
-      /* Efecto de página lateral */
       .book-cover .page-edge {
         position: absolute;
         right: 0;
@@ -263,9 +227,6 @@
         box-shadow: 25px 35px 60px -10px rgba(0,0,0,0.7);
       }
 
-      /* ------------------------------------------------
-         MARCO DORADO — Filigrana sutil
-      ------------------------------------------------ */
       .book-frame {
         position: absolute;
         inset: 14px;
@@ -281,9 +242,6 @@
         border-color: rgba(212, 175, 55, 0.7);
       }
 
-      /* ------------------------------------------------
-         CINTA DE SEDA — Rojo coral con caída natural
-      ------------------------------------------------ */
       .book-ribbon {
         position: absolute;
         top: -8px;
@@ -319,9 +277,6 @@
         border-radius: 2px 2px 0 0;
       }
 
-      /* ------------------------------------------------
-         CONTENIDO DEL LIBRO — Tipografía de culto
-      ------------------------------------------------ */
       .book-content {
         z-index: 20;
         height: 100%;
@@ -359,9 +314,6 @@
         filter: drop-shadow(0 2px 4px black);
       }
 
-      /* ------------------------------------------------
-         METADATOS Y ACCIONES — Elegancia discreta
-      ------------------------------------------------ */
       .book-details {
         margin-top: 18px;
         text-align: center;
@@ -431,9 +383,6 @@
         box-shadow: 0 8px 18px rgba(0,0,0,0.5);
       }
 
-      /* ------------------------------------------------
-         LOADER — Spinner refinado
-      ------------------------------------------------ */
       .nclex-lib-loading {
         display: flex;
         flex-direction: column;
@@ -456,9 +405,6 @@
         100% { transform: rotate(360deg); }
       }
 
-      /* ------------------------------------------------
-         SCROLLBAR PERSONALIZADO — Acorde al lujo
-      ------------------------------------------------ */
       .nclex-lib-grid::-webkit-scrollbar {
         width: 8px;
       }
@@ -474,9 +420,6 @@
         background: rgba(212, 175, 55, 0.5);
       }
 
-      /* ------------------------------------------------
-         AJUSTES RESPONSIVE & DETALLES FINALES
-      ------------------------------------------------ */
       @media (max-width: 640px) {
         .nclex-lib-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); padding: 30px 20px; gap: 40px 20px; }
         .book-title { font-size: 0.95rem; }
@@ -486,7 +429,7 @@
     document.head.appendChild(style);
   }
 
-  // ===== FETCH DATOS (sin cambios) =====
+  // ===== FETCH DATOS =====
   async function fetchBooks() {
     const cached = storageGet(CONFIG.STORAGE_KEY, null);
     const cachedTime = storageGet(CONFIG.CACHE_TIME_KEY, 0);
@@ -527,7 +470,7 @@
     }
   }
 
-  // ===== RENDERIZADO (sin cambios estructurales, solo apreciación estética) =====
+  // ===== RENDERIZADO =====
   function render() {
     const modal = document.getElementById('nclex-library-modal');
     if (!modal) return;
@@ -556,7 +499,7 @@
             
             <div class="book-ribbon"></div>
             <div class="book-frame"></div>
-            <div class="page-edge"></div> <!-- sutil página lateral -->
+            <div class="page-edge"></div>
             
             <div class="book-content">
               <div class="book-title">${escapeHtml(book.name)}</div>
@@ -588,21 +531,27 @@
     </div>`;
   }
 
-  // ===== INICIALIZACIÓN (sin cambios) =====
-  function init() {
-    if (document.getElementById('nclex-library-btn')) return;
-    injectStyles();
+  // ===== FUNCIONES DE APERTURA/CIERRE =====
+  function openLibrary() {
+    state.isOpen = true;
+    const modal = document.getElementById('nclex-library-modal');
+    if (modal) {
+      modal.classList.add('visible');
+      if (!state.books.length) fetchBooks();
+    }
+  }
 
-    const btn = document.createElement('button');
-    btn.id = 'nclex-library-btn';
-    btn.setAttribute('aria-label', 'Open Library');
-    btn.innerHTML = `<i class="fa-solid fa-book-open text-xl"></i>`;
-    btn.onclick = () => {
-      state.isOpen = true;
-      document.getElementById('nclex-library-modal').classList.add('visible');
-      if(!state.books.length) fetchBooks();
-    };
-    document.body.appendChild(btn);
+  function closeLibrary() {
+    state.isOpen = false;
+    const modal = document.getElementById('nclex-library-modal');
+    if (modal) modal.classList.remove('visible');
+  }
+
+  // ===== INICIALIZACIÓN (sin botón flotante) =====
+  function init() {
+    if (document.getElementById('nclex-library-modal')) return;
+    
+    injectStyles();
 
     const modal = document.createElement('div');
     modal.id = 'nclex-library-modal';
@@ -621,16 +570,24 @@
             </p>
           </div>
           <button class="w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center transition"
-            onclick="document.getElementById('nclex-library-modal').classList.remove('visible');">
+            onclick="window.Library?.close()">
             <i class="fa-solid fa-xmark text-xl text-[var(--brand-text-muted)]"></i>
           </button>
         </div>
         <div class="nclex-lib-content flex-1 overflow-y-auto bg-[var(--brand-bg)] custom-scrollbar"></div>
       </div>
     `;
-    modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('visible'); };
+    modal.onclick = (e) => { if(e.target === modal) closeLibrary(); };
     document.body.appendChild(modal);
 
+    // Exponer API pública
+    window.Library = {
+      open: openLibrary,
+      close: closeLibrary,
+      isOpen: () => state.isOpen
+    };
+
+    // Carga inicial en segundo plano (opcional)
     setTimeout(fetchBooks, 2500);
   }
 
