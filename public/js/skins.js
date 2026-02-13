@@ -7,31 +7,36 @@
 
     // ===== CONFIGURACIÓN DE TEMAS =====
     const SKINS = [
-        // CLÁSICOS
-        { id: 'default', name: 'Default', nameEs: 'Predeterminado', icon: 'palette', colors: ['#007AFF', '#5856D6', '#FF2D55'] },
-        { id: 'ocean', name: 'Ocean', nameEs: 'Océano', icon: 'water', colors: ['#0A84FF', '#64D2FF', '#00C7BE'] },
-        { id: 'forest', name: 'Forest', nameEs: 'Bosque', icon: 'tree', colors: ['#2C6E49', '#4C9A70', '#FFC857'] },
-        { id: 'lavender', name: 'Lavender', nameEs: 'Lavanda', icon: 'flower', colors: ['#9B87F8', '#B8A9FF', '#FF9F1C'] },
-        { id: 'midnight', name: 'Midnight', nameEs: 'Medianoche', icon: 'moon', colors: ['#FFB347', '#FF9F1C', '#00A8E8'] },
-        
-        // ✨ TEMA ESPECIAL
-        { id: 'masterpiece', name: 'Masterpiece', nameEs: 'Obra Maestra', icon: 'crown', colors: ['#D4AF37', '#14181F', '#F0F3FA'] },
+        // ULTRA MINIMAL TECH
+        { id: 'titanium', name: 'Titanium', nameEs: 'Titanio', icon: 'cube', colors: ['#8E8E93', '#C7C7CC', '#48484A'], animation: 'shimmer' },
+        { id: 'silver', name: 'Silver', nameEs: 'Plata', icon: 'square', colors: ['#E5E5EA', '#F2F2F7', '#AEAEB2'], animation: 'pulse-soft' },
+        { id: 'graphite', name: 'Graphite', nameEs: 'Grafito', icon: 'diamond', colors: ['#1C1C1E', '#2C2C2E', '#48484A'], animation: 'float-slow' },
+        { id: 'pearl', name: 'Pearl', nameEs: 'Perla', icon: 'circle', colors: ['#F9F9F9', '#E8E8ED', '#D1D1D6'], animation: 'glow-breathe' },
 
-        // 🎨 TUS NUEVOS TEMAS (¡Excelentes elecciones!)
-        { id: 'sunset', name: 'Sunset', nameEs: 'Atardecer', icon: 'sun', colors: ['#FF6B6B', '#FFD93D', '#6BCF9F'] },
-        { id: 'rose', name: 'Rose', nameEs: 'Rosa', icon: 'heart', colors: ['#FF69B4', '#FFB7C5', '#D4A5A5'] },
-        { id: 'mint', name: 'Mint', nameEs: 'Menta', icon: 'leaf', colors: ['#3EB489', '#98FB98', '#2F6B4F'] },
-        { id: 'charcoal', name: 'Charcoal', nameEs: 'Carbón', icon: 'gem', colors: ['#36454F', '#7F8C8D', '#2C3E50'] },
-        { id: 'autumn', name: 'Autumn', nameEs: 'Otoño', icon: 'wind', colors: ['#E07A5F', '#F2C94C', '#B85C38'] },
-        { id: 'neon', name: 'Neon', nameEs: 'Neón', icon: 'bolt', colors: ['#FF00FF', '#00FFFF', '#FFFF00'] },
+        // COSMIC FUTURE
+        { id: 'nebula', name: 'Nebula', nameEs: 'Nebulosa', icon: 'star', colors: ['#5E17EB', '#BF40BF', '#8B00FF'], animation: 'glow-breathe' },
+        { id: 'void', name: 'Void', nameEs: 'Vacío', icon: 'moon', colors: ['#0A0E27', '#1A1F3A', '#2D3561'], animation: 'pulse-soft' },
+        { id: 'aurora', name: 'Aurora', nameEs: 'Aurora', icon: 'sparkles', colors: ['#00FFC6', '#00B8D4', '#7B2FF7'], animation: 'shimmer' },
+        { id: 'cosmos', name: 'Cosmos', nameEs: 'Cosmos', icon: 'moon', colors: ['#1E0342', '#4B0082', '#9400D3'], animation: 'float-slow' },
 
-        // ===== NUEVOS SKINS =====
-        { id: 'slate', name: 'Slate', nameEs: 'Pizarra', icon: 'mountain', colors: ['#4A5568', '#718096', '#2D3748'] },
-        { id: 'crimson', name: 'Crimson', nameEs: 'Carmesí', icon: 'fire', colors: ['#DC2626', '#EF4444', '#7F1D1D'] },
-        { id: 'emerald', name: 'Emerald', nameEs: 'Esmeralda', icon: 'gem', colors: ['#10B981', '#34D399', '#065F46'] },
-        { id: 'amber', name: 'Amber', nameEs: 'Ámbar', icon: 'star', colors: ['#F59E0B', '#FBBF24', '#92400E'] },
-        { id: 'plum', name: 'Plum', nameEs: 'Ciruela', icon: 'flower', colors: ['#6B21A8', '#8B5CF6', '#4C1D95'] },
-        { id: 'sky', name: 'Sky', nameEs: 'Cielo', icon: 'cloud', colors: ['#0284C7', '#38BDF8', '#075985'] }
+        // GAMING ELITE
+        { id: 'carbon', name: 'Carbon', nameEs: 'Carbono', icon: 'shield', colors: ['#0D0D0D', '#1A1A1A', '#FF0054'], animation: 'spin-linear-slow' },
+        { id: 'blackops', name: 'Black Ops', nameEs: 'Operaciones Negras', icon: 'crosshairs', colors: ['#000000', '#1C1C1C', '#00FF41'], animation: 'pulse-soft' },
+        { id: 'striker', name: 'Striker', nameEs: 'Atacante', icon: 'bolt', colors: ['#FF4500', '#FF6347', '#DC143C'], animation: 'bounce-subtle' },
+        { id: 'phantom', name: 'Phantom', nameEs: 'Fantasma', icon: 'ghost', colors: ['#2F4F4F', '#708090', '#00CED1'], animation: 'float-slow' },
+
+        // LUXURY FUTURISM
+        { id: 'masterpiece', name: 'Masterpiece', nameEs: 'Obra Maestra', icon: 'crown', colors: ['#C0C0C0', '#E8E8E8', '#4DFFF3'], animation: 'shimmer-morph' },
+        { id: 'sapphire', name: 'Sapphire', nameEs: 'Zafiro', icon: 'gem', colors: ['#0F52BA', '#4169E1', '#1E90FF'], animation: 'glow-breathe' },
+        { id: 'marble', name: 'Marble', nameEs: 'Mármol', icon: 'mountain', colors: ['#F5F5F5', '#D3D3D3', '#B8860B'], animation: 'float-slow' },
+        { id: 'platinum', name: 'Platinum', nameEs: 'Platino', icon: 'star', colors: ['#E5E4E2', '#D4D4D4', '#C9C0BB'], animation: 'pulse-soft' },
+
+        // HYPER MODERN ENERGY
+        { id: 'neural', name: 'Neural Frost', nameEs: 'Escarcha Neural', icon: 'brain', colors: ['#00D4FF', '#0099FF', '#A020F0'], animation: 'shimmer' },
+        { id: 'velocity', name: 'Velocity', nameEs: 'Velocidad', icon: 'rocket', colors: ['#FF006E', '#FB5607', '#FFBE0B'], animation: 'bounce-subtle' },
+        { id: 'prism', name: 'Prism', nameEs: 'Prisma', icon: 'wand-magic-sparkles', colors: ['#FF0080', '#7928CA', '#00DFD8'], animation: 'glow-breathe' },
+        { id: 'quantum', name: 'Quantum', nameEs: 'Cuántico', icon: 'atom', colors: ['#6366F1', '#8B5CF6', '#EC4899'], animation: 'spin-linear-slow' },
+        { id: 'photon', name: 'Photon', nameEs: 'Fotón', icon: 'lightbulb', colors: ['#FBBF24', '#F59E0B', '#EF4444'], animation: 'pulse-soft' }
     ];
 
     const STORAGE_KEY = 'nclex_skin';
@@ -74,7 +79,6 @@
         window.dispatchEvent(new CustomEvent('skinchange', { 
             detail: { skin: skinId, theme: getCurrentTheme(), timestamp: Date.now() } 
         }));
-        // Eliminamos la llamada a refreshUI para evitar doble render
     }
 
     function applySkin(skinId, save = true) {
