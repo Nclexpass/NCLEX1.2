@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.3) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.4) */
 
 (function () {
     'use strict';
@@ -311,6 +311,9 @@
         // Tomar los primeros 3 (por orden)
         const nextTopics = incompleteTopics.slice(0, 3);
 
+        // Número de skins disponibles (desde SkinSystem)
+        const skinCount = window.SkinSystem?.SKINS?.length || 18;
+
         return `
             <header class="mb-8 animate-slide-in">
                 <h1 class="text-3xl lg:text-4xl font-black tracking-tight text-[var(--brand-text)] mb-2">NCLEX ESSENTIALS</h1>
@@ -392,9 +395,10 @@
                 <div id="home-search-results" class="mt-3 w-full bg-[var(--brand-card)] border border-[var(--brand-border)] rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
             </div>
 
-            <!-- SECCIÓN DE TARJETAS MEJORADAS (sin cambios) -->
+            <!-- SECCIÓN DE TARJETAS MEJORADAS (con número dinámico de skins) -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-                <!-- ... (mismo contenido que antes) ... -->
+                
+                <!-- Simulator Card -->
                 <div onclick="window.nclexApp.navigate('simulator')" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/30 bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-600">
                     <div class="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 bg-gradient-to-tr from-white via-transparent to-transparent"></div>
@@ -408,6 +412,7 @@
                     </div>
                 </div>
                 
+                <!-- NGN Case: Sepsis Card -->
                 <div onclick="window.nclexApp.navigate('ngn-sepsis')" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-rose-500/30 bg-gradient-to-br from-rose-500 via-rose-500 to-orange-600">
                     <div class="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 bg-gradient-to-tr from-white via-transparent to-transparent"></div>
@@ -421,6 +426,7 @@
                     </div>
                 </div>
                 
+                <!-- Apariencia (Skins) Card - con número actualizado -->
                 <div onclick="window.nclexApp.navigate('skins')" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-500/30 bg-gradient-to-br from-purple-500 via-purple-500 to-pink-500">
                     <div class="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 bg-gradient-to-tr from-white via-transparent to-transparent"></div>
@@ -431,13 +437,14 @@
                             <span class="lang-en hidden-lang">Appearance</span>
                         </h2>
                         <p class="text-sm opacity-90 font-medium tracking-wide">
-                            <span class="lang-es">5 skins • Colores personalizados</span>
-                            <span class="lang-en hidden-lang">5 skins • Custom colors</span>
+                            <span class="lang-es">${skinCount} skins • Colores personalizados</span>
+                            <span class="lang-en hidden-lang">${skinCount} skins • Custom colors</span>
                         </p>
                         <div class="w-12 h-1 bg-white/30 rounded-full mt-4 group-hover:w-20 transition-all duration-300"></div>
                     </div>
                 </div>
                 
+                <!-- Library Card -->
                 <div onclick="window.Library?.open()" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/30 bg-gradient-to-br from-blue-600 via-blue-600 to-cyan-600">
                     <div class="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 bg-gradient-to-tr from-white via-transparent to-transparent"></div>
@@ -666,7 +673,7 @@
     }
 
     function init() {
-        console.log('🚀 NCLEX App v3.3 initializing...');
+        console.log('🚀 NCLEX App v3.4 initializing...');
         
         loadPersistedState();
         updateStreak(); // Actualizar racha al iniciar

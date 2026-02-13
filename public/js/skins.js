@@ -1,5 +1,6 @@
 // skins.js — Sistema de skins "Universal" (Soporta todos tus nuevos temas)
 // FEATURES: Inyección de color dinámica + Tema Masterpiece especial
+// VERSIÓN AMPLIADA: +6 nuevos skins elegantes
 
 (function() {
     'use strict';
@@ -22,7 +23,15 @@
         { id: 'mint', name: 'Mint', nameEs: 'Menta', icon: 'leaf', colors: ['#3EB489', '#98FB98', '#2F6B4F'] },
         { id: 'charcoal', name: 'Charcoal', nameEs: 'Carbón', icon: 'gem', colors: ['#36454F', '#7F8C8D', '#2C3E50'] },
         { id: 'autumn', name: 'Autumn', nameEs: 'Otoño', icon: 'wind', colors: ['#E07A5F', '#F2C94C', '#B85C38'] },
-        { id: 'neon', name: 'Neon', nameEs: 'Neón', icon: 'bolt', colors: ['#FF00FF', '#00FFFF', '#FFFF00'] }
+        { id: 'neon', name: 'Neon', nameEs: 'Neón', icon: 'bolt', colors: ['#FF00FF', '#00FFFF', '#FFFF00'] },
+
+        // ===== NUEVOS SKINS =====
+        { id: 'slate', name: 'Slate', nameEs: 'Pizarra', icon: 'mountain', colors: ['#4A5568', '#718096', '#2D3748'] },
+        { id: 'crimson', name: 'Crimson', nameEs: 'Carmesí', icon: 'fire', colors: ['#DC2626', '#EF4444', '#7F1D1D'] },
+        { id: 'emerald', name: 'Emerald', nameEs: 'Esmeralda', icon: 'gem', colors: ['#10B981', '#34D399', '#065F46'] },
+        { id: 'amber', name: 'Amber', nameEs: 'Ámbar', icon: 'star', colors: ['#F59E0B', '#FBBF24', '#92400E'] },
+        { id: 'plum', name: 'Plum', nameEs: 'Ciruela', icon: 'flower', colors: ['#6B21A8', '#8B5CF6', '#4C1D95'] },
+        { id: 'sky', name: 'Sky', nameEs: 'Cielo', icon: 'cloud', colors: ['#0284C7', '#38BDF8', '#075985'] }
     ];
 
     const STORAGE_KEY = 'nclex_skin';
@@ -97,7 +106,7 @@
         } else {
             if (existingStyle) existingStyle.remove();
             
-            // 3. INYECCIÓN AUTOMÁTICA DE COLORES PARA LOS NUEVOS SKINS
+            // 3. INYECCIÓN AUTOMÁTICA DE COLORES PARA TODOS LOS SKINS
             // Toma el primer color de tu lista y lo aplica como el color principal
             const primaryColorHex = skin.colors[0];
             const primaryColorRgb = hexToRgb(primaryColorHex);
@@ -171,7 +180,7 @@
                     </div>
 
                     <div class="p-6 border-t border-[var(--brand-border)] flex justify-between items-center">
-                        <span class="text-xs text-[var(--brand-text-muted)]">SkinSystem v4.2</span>
+                        <span class="text-xs text-[var(--brand-text-muted)]">SkinSystem v4.3</span>
                         <button onclick="window.nclexApp.navigate('home')" class="px-4 py-2 rounded-xl bg-[var(--brand-bg)] border border-[var(--brand-border)] text-sm font-bold hover:opacity-80">
                             ${isEs ? 'Volver' : 'Back'}
                         </button>
@@ -189,7 +198,7 @@
         try { const savedSkin = localStorage.getItem(STORAGE_KEY); if (savedSkin) currentSkin = savedSkin; } catch (e) {}
         
         applySkin(currentSkin, false);
-        console.log('🎨 SkinSystem v4.2 Loaded');
+        console.log('🎨 SkinSystem v4.3 Loaded');
     }
 
     window.SkinSystem = {
