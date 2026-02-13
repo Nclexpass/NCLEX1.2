@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.4) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.5) */
 
 (function () {
     'use strict';
@@ -314,6 +314,9 @@
         // Número de skins disponibles (desde SkinSystem)
         const skinCount = window.SkinSystem?.SKINS?.length || 18;
 
+        // Obtener color primario del skin actual para los gradientes
+        const primaryColor = `rgb(var(--brand-blue-rgb))`;
+
         return `
             <header class="mb-8 animate-slide-in">
                 <h1 class="text-3xl lg:text-4xl font-black tracking-tight text-[var(--brand-text)] mb-2">NCLEX ESSENTIALS</h1>
@@ -350,10 +353,10 @@
                         </div>
                         <div class="w-full h-4 bg-[var(--brand-bg)] rounded-full overflow-hidden border border-[var(--brand-border)] mb-3">
                             <div class="h-full transition-all duration-1000 ease-out" 
-                                 style="width: ${percent}%; background: linear-gradient(90deg, rgb(var(--brand-blue-rgb)), rgba(var(--brand-blue-rgb), 0.7));"></div>
+                                 style="width: ${percent}%; background: linear-gradient(90deg, ${primaryColor}, rgba(var(--brand-blue-rgb), 0.7));"></div>
                         </div>
                         <p class="text-sm text-[var(--brand-text-muted)] italic">
-                            <i class="fa-regular fa-star mr-1" style="color: rgb(var(--brand-blue-rgb));"></i> ${motivationalMessage}
+                            <i class="fa-regular fa-star mr-1" style="color: ${primaryColor};"></i> ${motivationalMessage}
                         </p>
                     </div>
                 </div>
@@ -384,7 +387,7 @@
 
             <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg mb-10 transition-colors">
                 <h2 class="text-xl font-bold mb-4 text-[var(--brand-text)]">
-                    <i class="fa-solid fa-search mr-2" style="color: rgb(var(--brand-blue-rgb));"></i> Smart Search
+                    <i class="fa-solid fa-search mr-2" style="color: ${primaryColor};"></i> Smart Search
                 </h2>
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-[var(--brand-text-muted)]"></i>
@@ -395,12 +398,13 @@
                 <div id="home-search-results" class="mt-3 w-full bg-[var(--brand-card)] border border-[var(--brand-border)] rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
             </div>
 
-            <!-- SECCIÓN DE TARJETAS MEJORADAS (con número dinámico de skins) -->
+            <!-- SECCIÓN DE TARJETAS MEJORADAS (con gradientes dinámicos según el skin) -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
                 
                 <!-- Simulator Card -->
                 <div onclick="window.nclexApp.navigate('simulator')" 
-                    class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-indigo-500/30 bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-600">
+                    class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
+                    style="background: linear-gradient(135deg, ${primaryColor}, rgba(var(--brand-blue-rgb), 0.7) 70%, rgba(var(--brand-blue-rgb), 0.4));">
                     <div class="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 bg-gradient-to-tr from-white via-transparent to-transparent"></div>
                     <div class="relative z-10">
                         <h2 class="text-xl font-black mb-1 flex items-center gap-2">
@@ -414,7 +418,8 @@
                 
                 <!-- NGN Case: Sepsis Card -->
                 <div onclick="window.nclexApp.navigate('ngn-sepsis')" 
-                    class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-rose-500/30 bg-gradient-to-br from-rose-500 via-rose-500 to-orange-600">
+                    class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
+                    style="background: linear-gradient(135deg, rgba(var(--brand-blue-rgb), 0.9), rgba(var(--brand-blue-rgb), 0.6) 80%, rgba(var(--brand-blue-rgb), 0.3));">
                     <div class="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 bg-gradient-to-tr from-white via-transparent to-transparent"></div>
                     <div class="relative z-10">
                         <h2 class="text-xl font-black mb-1 flex items-center gap-2">
@@ -426,9 +431,10 @@
                     </div>
                 </div>
                 
-                <!-- Apariencia (Skins) Card - con número actualizado -->
+                <!-- Apariencia (Skins) Card -->
                 <div onclick="window.nclexApp.navigate('skins')" 
-                    class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-500/30 bg-gradient-to-br from-purple-500 via-purple-500 to-pink-500">
+                    class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
+                    style="background: linear-gradient(135deg, rgba(var(--brand-blue-rgb), 0.8), rgba(var(--brand-blue-rgb), 0.5) 60%, rgba(var(--brand-blue-rgb), 0.2));">
                     <div class="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 bg-gradient-to-tr from-white via-transparent to-transparent"></div>
                     <div class="relative z-10">
                         <h2 class="text-xl font-black mb-1 flex items-center gap-2">
@@ -446,7 +452,8 @@
                 
                 <!-- Library Card -->
                 <div onclick="window.Library?.open()" 
-                    class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-blue-500/30 bg-gradient-to-br from-blue-600 via-blue-600 to-cyan-600">
+                    class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
+                    style="background: linear-gradient(135deg, rgba(var(--brand-blue-rgb), 0.7), rgba(var(--brand-blue-rgb), 0.4) 50%, rgba(var(--brand-blue-rgb), 0.1));">
                     <div class="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 bg-gradient-to-tr from-white via-transparent to-transparent"></div>
                     <div class="relative z-10">
                         <h2 class="text-xl font-black mb-1 flex items-center gap-2">
@@ -528,7 +535,7 @@
                                     <p class="text-[var(--brand-text-muted)] mb-4">The topic "${topicId}" doesn't exist or hasn't loaded yet.</p>
                                     <button onclick="window.nclexApp.navigate('home')" 
                                         class="px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                                        style="background-color: rgb(var(--brand-blue-rgb));">
+                                        style="background-color: ${primaryColor};">
                                         Back to Home
                                     </button>
                                 </div>
@@ -673,7 +680,7 @@
     }
 
     function init() {
-        console.log('🚀 NCLEX App v3.4 initializing...');
+        console.log('🚀 NCLEX App v3.5 initializing...');
         
         loadPersistedState();
         updateStreak(); // Actualizar racha al iniciar
