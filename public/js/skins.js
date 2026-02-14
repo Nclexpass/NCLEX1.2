@@ -1,740 +1,401 @@
-// skins.js — UI History Museum: 20 Historical Interface Eras + The Neural Vision Masterpiece
-// Curated collection of interface design evolution from 1984 to spatial computing era
-// FIXED: Compatible con logic.js (SkinSystem API + renderSkinSelector)
-// ENHANCED: Estilos premium realistas para botones, tarjetas e inputs
+// skins.js — Professional Selection: 4 Distinctive Premium Skins
+// Diseñados con obsesión por el detalle, legibilidad y personalidad única.
 
 (function() {
     'use strict';
 
-    // ===== THE SKINS MUSEUM =====
+    // ===== 4 SKINS ÚNICOS =====
     const SKINS = [
-        // ===== THE MASTERPIECE: SPATIAL COMPUTING ERA =====
         {
-            id: "neural-vision",
-            name: "The Neural Vision",
-            nameEs: "La Visión Neural",
-            icon: "sparkles",
-            colors: ["#E8E5FF", "#FFFFFF", "#8B7EFF"],
-            animation: "shimmer",
-            isMasterpiece: true
+            id: "clinical-calm",
+            name: "Clinical Calm",
+            nameEs: "Calma Clínica",
+            icon: "heart-pulse",
+            colors: ["#E0F2E9", "#2E7D5E", "#1A2E2A"],
+            animation: "float-slow",
+            description: "Inspirado en entornos hospitalarios, con verdes suaves y alta claridad."
         },
-
-        // ===== SERIES: CUPERTINO DESIGN (Fruit-Inspired Aesthetic) =====
         {
             id: "classic-glossy",
             name: "Classic Glossy",
             nameEs: "Brillo Clásico",
             icon: "gem",
-            colors: ["#1D4E89", "#5089C6", "#4A90E2"],
-            animation: "glow-breathe"
-        },
-        {
-            id: "vivid-flat",
-            name: "Vivid Flat",
-            nameEs: "Plano Vibrante",
-            icon: "zap",
-            colors: ["#FF3B30", "#FFFFFF", "#007AFF"],
-            animation: "pulse-soft"
+            colors: ["#1D4E89", "#F0F7FF", "#0A2A44"],
+            animation: "shimmer",
+            description: "Estilo skeuomorphic con botones brillantes y profundidad real."
         },
         {
             id: "frosted-depth",
             name: "Frosted Depth",
             nameEs: "Profundidad Esmerilada",
             icon: "cube",
-            colors: ["#F2F2F7", "#FFFFFF", "#5856D6"],
-            animation: "float-slow"
+            colors: ["#F2F2F7", "#5856D6", "#1C1C1E"],
+            animation: "float-slow",
+            description: "Vidrio esmerilado moderno, perfecto para modos claro y oscuro."
         },
         {
-            id: "bold-editorial",
-            name: "Bold Editorial",
-            nameEs: "Editorial Audaz",
-            icon: "star",
-            colors: ["#1C1C1E", "#2C2C2E", "#0A84FF"],
-            animation: "bounce-subtle"
-        },
-        {
-            id: "dark-obsidian",
-            name: "Dark Mode Obsidian",
-            nameEs: "Obsidiana Oscura",
-            icon: "moon",
-            colors: ["#000000", "#1C1C1E", "#0A84FF"],
-            animation: "shimmer"
-        },
-        {
-            id: "modular-grid",
-            name: "Modular Grid",
-            nameEs: "Cuadrícula Modular",
-            icon: "grid",
-            colors: ["#F2F2F7", "#FFFFFF", "#FF9500"],
-            animation: "pulse-soft"
-        },
-        {
-            id: "dynamic-layering",
-            name: "Dynamic Layering",
-            nameEs: "Capas Dinámicas",
-            icon: "layers",
-            colors: ["#E5E5EA", "#FFFFFF", "#5856D6"],
-            animation: "float-slow"
-        },
-
-        // ===== SERIES: OPEN-CORE (Robot-Inspired Aesthetic) =====
-        {
-            id: "neon-hollow",
-            name: "Neon Hollow",
-            nameEs: "Hueco Neón",
-            icon: "bolt",
-            colors: ["#121212", "#1E1E1E", "#03DAC6"],
-            animation: "glow-breathe"
-        },
-        {
-            id: "paper-layers",
-            name: "Paper Layers",
-            nameEs: "Capas de Papel",
-            icon: "file",
-            colors: ["#FAFAFA", "#FFFFFF", "#6200EE"],
-            animation: "bounce-subtle"
-        },
-        {
-            id: "tonal-adaptive",
-            name: "Tonal Adaptive",
-            nameEs: "Adaptativo Tonal",
-            icon: "palette",
-            colors: ["#FEF7FF", "#FFFBFE", "#D0BCFF"],
-            animation: "shimmer"
-        },
-
-        // ===== SERIES: CINEMA-PHONE (Entertainment-Focused Aesthetic) =====
-        {
-            id: "liquid-stream",
-            name: "Liquid Stream",
-            nameEs: "Corriente Líquida",
-            icon: "droplet",
-            colors: ["#1A1A1D", "#2D2D30", "#00BCD4"],
-            animation: "float-slow"
-        },
-        {
-            id: "onyx-premium",
-            name: "Onyx Premium",
-            nameEs: "Ónice Premium",
-            icon: "trophy",
-            colors: ["#000000", "#1C1C1C", "#2196F3"],
-            animation: "glow-breathe"
-        },
-        {
-            id: "surgical-hybrid",
-            name: "Surgical Hybrid",
-            nameEs: "Híbrido Quirúrgico",
-            icon: "crosshair",
-            colors: ["#F5F5F5", "#FFFFFF", "#1976D2"],
-            animation: "pulse-soft"
-        },
-        {
-            id: "pure-essence",
-            name: "Pure Essence",
-            nameEs: "Esencia Pura",
-            icon: "circle",
-            colors: ["#FFFFFF", "#FAFAFA", "#4285F4"],
-            animation: "bounce-subtle"
-        },
-
-        // ===== SERIES: ELECTRIC DRIVE (Automotive-Inspired Aesthetic) =====
-        {
-            id: "horizon-dashboard",
-            name: "Horizon Dashboard",
-            nameEs: "Tablero Horizonte",
-            icon: "gauge",
-            colors: ["#1C1C1C", "#2C2C2C", "#E82127"],
-            animation: "shimmer"
-        },
-        {
-            id: "clean-horizon",
-            name: "Clean Horizon",
-            nameEs: "Horizonte Limpio",
-            icon: "compass",
-            colors: ["#F4F4F4", "#FFFFFF", "#3E6AE1"],
-            animation: "float-slow"
-        },
-        {
-            id: "vector-spatial",
-            name: "Vector Spatial",
-            nameEs: "Espacial Vectorial",
-            icon: "box",
-            colors: ["#000000", "#0A0A0A", "#00D4FF"],
-            animation: "glow-breathe"
-        },
-        {
-            id: "hyper-driver",
-            name: "Hyper-Driver Engine",
-            nameEs: "Motor Hiper-Conductor",
-            icon: "rocket",
-            colors: ["#0D0D0D", "#1A1A1A", "#FF0844"],
-            animation: "pulse-soft"
-        },
-
-        // ===== SERIES: BONUS LEGACY (Completing the 20) =====
-        {
-            id: "retro-pixel",
-            name: "Retro Pixel",
-            nameEs: "Píxel Retro",
-            icon: "terminal",
-            colors: ["#C0C0C0", "#FFFFFF", "#000000"],
-            animation: "bounce-subtle"
-        },
-        {
-            id: "aero-transparency",
-            name: "Aero Transparency",
-            nameEs: "Transparencia Aero",
-            icon: "glass",
-            colors: ["#D9E8F7", "#F0F6FC", "#4A9EFF"],
-            animation: "shimmer"
-        },
-        {
-            id: "cyber-neural",
-            name: "Cyber Neural",
-            nameEs: "Cyber Neural",
-            icon: "cpu",
-            colors: ["#0A0E27", "#1A1F3A", "#00FFFF"],
-            animation: "glow-breathe"
+            id: "cyber-edge",
+            name: "Cyber Edge",
+            nameEs: "Borde Cibernético",
+            icon: "microchip",
+            colors: ["#0A0E27", "#2DD4BF", "#E2E8F0"],
+            animation: "glow-breathe",
+            description: "Toques neón sutiles sobre fondo oscuro elegante."
         }
     ];
 
-    // ===== MASTERPIECE CSS (ENHANCED PREMIUM STYLES) =====
-    const MASTERPIECE_CSS = `
-        /* ===== ANIMATION CLASSES ===== */
+    // ===== ESTILOS PREMIUM DETALLADOS =====
+    const PREMIUM_CSS = `
+        /* ===== ANIMACIONES ===== */
         @keyframes shimmer {
             0% { background-position: -200% 0; }
             100% { background-position: 200% 0; }
         }
-        
         .shimmer {
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(255, 255, 255, 0.3) 50%, 
-                transparent 100%
-            );
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%);
             background-size: 200% 100%;
             animation: shimmer 3s infinite;
         }
-        
-        @keyframes pulse-soft {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
-        }
-        
-        .pulse-soft {
-            animation: pulse-soft 2s ease-in-out infinite;
-        }
-        
         @keyframes float-slow {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-6px); }
         }
-        
-        .float-slow {
-            animation: float-slow 6s ease-in-out infinite;
-        }
-        
+        .float-slow { animation: float-slow 5s ease-in-out infinite; }
         @keyframes glow-breathe {
-            0%, 100% { filter: drop-shadow(0 0 5px currentColor); }
-            50% { filter: drop-shadow(0 0 15px currentColor); }
+            0%, 100% { filter: drop-shadow(0 0 3px currentColor); }
+            50% { filter: drop-shadow(0 0 10px currentColor); }
         }
-        
-        .glow-breathe {
-            animation: glow-breathe 3s ease-in-out infinite;
-        }
-        
-        @keyframes bounce-subtle {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-        }
-        
-        .bounce-subtle {
-            animation: bounce-subtle 1s ease-in-out infinite;
-        }
+        .glow-breathe { animation: glow-breathe 3s ease-in-out infinite; }
 
-        /* ===== PREMIUM SKIN STYLES ===== */
-        
-        /* Neural Vision: Spatial Computing Aesthetic */
-        .skin-neural-vision {
-            --brand-primary: #8B7EFF;
-            --brand-primary-rgb: 139, 126, 255;
-            --brand-bg: #E8E5FF;
-            --brand-card: rgba(255, 255, 255, 0.85);
-            --brand-border: rgba(139, 126, 255, 0.2);
-            --brand-text: #2D2A3E;
-            --brand-text-muted: #6B6880;
-            --brand-blue: #8B7EFF;
-            --brand-blue-rgb: 139, 126, 255;
-            
-            background: linear-gradient(135deg, #E8E5FF 0%, #F0EDFF 50%, #FFFFFF 100%);
+        /* ===== SKIN: CLINICAL CALM ===== */
+        .skin-clinical-calm {
+            --brand-primary: #2E7D5E;
+            --brand-primary-rgb: 46, 125, 94;
+            --brand-bg: #F0F7F4;
+            --brand-card: #FFFFFF;
+            --brand-border: #D0E5DA;
+            --brand-text: #1A2E2A;
+            --brand-text-muted: #4A665E;
+            --brand-sidebar: #FFFFFF;
+            --brand-sidebar-border: #D0E5DA;
+            background: linear-gradient(145deg, #F0F7F4 0%, #E5F0EB 100%);
         }
-        
-        .skin-neural-vision button,
-        .skin-neural-vision .nav-btn,
-        .skin-neural-vision .btn {
-            background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(139,126,255,0.3);
-            box-shadow: 0 4px 15px rgba(139,126,255,0.2), inset 0 1px 2px rgba(255,255,255,0.8);
-            border-radius: 12px;
-            padding: 0.75rem 1.5rem;
+        .dark.skin-clinical-calm {
+            --brand-bg: #0F1F1A;
+            --brand-card: #1E2F2A;
+            --brand-border: #2E4A40;
+            --brand-text: #E0F0E9;
+            --brand-text-muted: #9BB8B0;
+            --brand-sidebar: #1A2A24;
+            --brand-sidebar-border: #2E4A40;
+            background: linear-gradient(145deg, #0F1F1A 0%, #172A23 100%);
+        }
+        .skin-clinical-calm button,
+        .skin-clinical-calm .nav-btn {
+            background: white;
+            border: 1px solid var(--brand-border);
+            border-radius: 40px;
+            padding: 0.7rem 1.5rem;
             font-weight: 600;
-            transition: all 0.2s ease;
             color: var(--brand-text);
-        }
-        .skin-neural-vision button:hover,
-        .skin-neural-vision .nav-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(139,126,255,0.3), inset 0 1px 3px rgba(255,255,255,0.9);
-            background: linear-gradient(145deg, rgba(255,255,255,1), rgba(255,255,255,0.8));
-            border-color: rgba(139,126,255,0.5);
-        }
-        .skin-neural-vision button:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 8px rgba(139,126,255,0.2), inset 0 1px 2px rgba(0,0,0,0.1);
-        }
-        
-        .skin-neural-vision input[type="text"],
-        .skin-neural-vision input[type="search"],
-        .skin-neural-vision textarea {
-            background: rgba(255,255,255,0.8);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(139,126,255,0.2);
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05), 0 2px 5px rgba(255,255,255,0.5);
-            border-radius: 12px;
-            padding: 0.75rem 1rem;
+            box-shadow: 0 2px 8px rgba(46,125,94,0.1), inset 0 1px 2px white;
             transition: all 0.2s;
+        }
+        .dark.skin-clinical-calm button,
+        .dark.skin-clinical-calm .nav-btn {
+            background: #1E2F2A;
+            border-color: #3E5F55;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.05);
+            color: #E0F0E9;
+        }
+        .skin-clinical-calm button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(46,125,94,0.25), inset 0 1px 3px white;
+            border-color: #2E7D5E;
+        }
+        .skin-clinical-calm input[type="text"],
+        .skin-clinical-calm input[type="search"] {
+            background: white;
+            border: 1px solid var(--brand-border);
+            border-radius: 30px;
+            padding: 0.75rem 1.2rem;
             color: var(--brand-text);
         }
-        .skin-neural-vision input:focus,
-        .skin-neural-vision textarea:focus {
-            border-color: rgba(139,126,255,0.6);
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05), 0 0 0 3px rgba(139,126,255,0.2);
-            outline: none;
+        .dark.skin-clinical-calm input {
+            background: #1E2F2A;
+            border-color: #3E5F55;
+            color: #E0F0E9;
         }
-        
-        .skin-neural-vision .card,
-        .skin-neural-vision [class*="rounded-xl"][class*="shadow"]:not(button):not(.nav-btn) {
-            background: rgba(255,255,255,0.7);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(139,126,255,0.15);
-            box-shadow: 0 10px 30px -10px rgba(139,126,255,0.2), inset 0 1px 2px rgba(255,255,255,0.8);
-            border-radius: 20px;
+        .skin-clinical-calm .card {
+            background: var(--brand-card);
+            border: 1px solid var(--brand-border);
+            border-radius: 28px;
+            box-shadow: 0 6px 20px rgba(46,125,94,0.08);
             padding: 1.5rem;
-            transition: all 0.2s;
-            color: var(--brand-text);
         }
-        .skin-neural-vision .card:hover,
-        .skin-neural-vision [class*="rounded-xl"][class*="shadow"]:hover {
-            box-shadow: 0 20px 40px -10px rgba(139,126,255,0.3), inset 0 1px 3px rgba(255,255,255,0.9);
-            border-color: rgba(139,126,255,0.3);
-            transform: translateY(-2px);
-        }
-        
-        .skin-neural-vision .glassmorphic {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(20px) saturate(180%);
-            border: 1px solid rgba(139, 126, 255, 0.3);
-            box-shadow: 0 8px 32px rgba(139, 126, 255, 0.15);
+        .skin-clinical-calm #main-sidebar {
+            background: var(--brand-sidebar);
+            border-color: var(--brand-sidebar-border);
         }
 
-        /* Classic Glossy: Legacy Skeuomorphic */
+        /* ===== SKIN: CLASSIC GLOSSY ===== */
         .skin-classic-glossy {
-            --brand-primary: #4A90E2;
-            --brand-primary-rgb: 74, 144, 226;
-            --brand-bg: #1D4E89;
-            --brand-card: rgba(80, 137, 198, 0.95);
-            --brand-border: rgba(74, 144, 226, 0.5);
-            --brand-text: #FFFFFF;
-            --brand-text-muted: #B8D4F1;
-            --brand-blue: #4A90E2;
-            --brand-blue-rgb: 74, 144, 226;
-            
-            background: linear-gradient(180deg, #1D4E89 0%, #2C5F9E 100%);
+            --brand-primary: #2C7BE5;
+            --brand-primary-rgb: 44, 123, 229;
+            --brand-bg: #E5F0FF;
+            --brand-card: #FFFFFF;
+            --brand-border: #B8D1F0;
+            --brand-text: #0F2B45;
+            --brand-text-muted: #4A6A8A;
+            --brand-sidebar: #FFFFFF;
+            --brand-sidebar-border: #B8D1F0;
+            background: linear-gradient(180deg, #E5F0FF 0%, #D0E2FF 100%);
         }
-        
+        .dark.skin-classic-glossy {
+            --brand-bg: #0A1929;
+            --brand-card: #132F4C;
+            --brand-border: #2C4E72;
+            --brand-text: #F0F8FF;
+            --brand-text-muted: #A0C0E0;
+            --brand-sidebar: #0F2740;
+            --brand-sidebar-border: #2C4E72;
+            background: linear-gradient(180deg, #0A1929 0%, #102437 100%);
+        }
         .skin-classic-glossy button,
-        .skin-classic-glossy .nav-btn,
-        .skin-classic-glossy .btn {
-            background: linear-gradient(180deg, #5089C6 0%, #3A71A8 100%);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-            border: 1px solid rgba(0, 0, 0, 0.4);
-            border-radius: 8px;
-            color: white;
-            font-weight: 600;
-            padding: 0.75rem 1.5rem;
-            transition: all 0.2s;
+        .skin-classic-glossy .nav-btn {
+            background: linear-gradient(180deg, #FFFFFF 0%, #F0F7FF 100%);
+            border: 2px solid var(--brand-border);
+            border-radius: 12px;
+            padding: 0.7rem 1.5rem;
+            font-weight: 700;
+            color: #0F2B45;
+            text-shadow: 0 1px 0 white;
+            box-shadow: 0 4px 8px rgba(0,20,50,0.2), inset 0 2px 0 white;
+        }
+        .dark.skin-classic-glossy button,
+        .dark.skin-classic-glossy .nav-btn {
+            background: linear-gradient(180deg, #1E3A5F 0%, #132F4C 100%);
+            border-color: #3A6A9A;
+            color: #F0F8FF;
+            text-shadow: 0 -1px 0 #0A1929;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
         }
         .skin-classic-glossy button:hover {
-            background: linear-gradient(180deg, #5F9AD0 0%, #4A80C0 100%);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(44,123,229,0.3), inset 0 2px 0 white;
         }
-        .skin-classic-glossy button:active {
-            background: linear-gradient(0deg, #3A71A8 0%, #5089C6 100%);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 2px rgba(0,0,0,0.2);
-            transform: translateY(1px);
-        }
-        
-        .skin-classic-glossy input[type="text"],
-        .skin-classic-glossy input[type="search"] {
+        .skin-classic-glossy input {
             background: white;
-            border: 2px solid #2C5F9E;
-            border-radius: 8px;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-            padding: 0.75rem;
-            color: #333;
+            border: 2px solid #B8D1F0;
+            border-radius: 10px;
+            padding: 0.7rem 1rem;
+            color: #0F2B45;
         }
-        .skin-classic-glossy input:focus {
-            border-color: #4A90E2;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1), 0 0 0 3px rgba(74,144,226,0.3);
-            outline: none;
+        .dark.skin-classic-glossy input {
+            background: #132F4C;
+            border-color: #3A6A9A;
+            color: #F0F8FF;
         }
-        
         .skin-classic-glossy .card {
-            background: linear-gradient(180deg, #F0F8FF 0%, #E0F0FF 100%);
-            border: 1px solid #B8D4F1;
-            border-radius: 16px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2), inset 0 1px 3px white;
+            background: var(--brand-card);
+            border: 1px solid var(--brand-border);
+            border-radius: 20px;
+            box-shadow: 0 10px 25px -5px rgba(44,123,229,0.2), inset 0 1px 2px white;
             padding: 1.5rem;
-            color: #1D4E89;
         }
-        .skin-classic-glossy .card:hover {
-            box-shadow: 0 15px 30px rgba(0,0,0,0.25), inset 0 1px 3px white;
-            transform: translateY(-2px);
+        .skin-classic-glossy #main-sidebar {
+            background: var(--brand-sidebar);
+            border-color: var(--brand-sidebar-border);
         }
 
-        /* Vivid Flat: The 2013 Revolution */
-        .skin-vivid-flat {
-            --brand-primary: #007AFF;
-            --brand-primary-rgb: 0, 122, 255;
-            --brand-bg: #FFFFFF;
-            --brand-card: rgba(255, 255, 255, 0.98);
-            --brand-border: rgba(0, 122, 255, 0.2);
-            --brand-text: #000000;
-            --brand-text-muted: #8E8E93;
-            --brand-blue: #007AFF;
-            --brand-blue-rgb: 0, 122, 255;
-            
-            background: linear-gradient(135deg, #FF3B30 0%, #FF9500 25%, #FFCC00 50%, #34C759 75%, #007AFF 100%);
-        }
-        
-        .skin-vivid-flat button,
-        .skin-vivid-flat .nav-btn,
-        .skin-vivid-flat .btn {
-            background: #007AFF;
-            border: none;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,122,255,0.4), 0 4px 12px rgba(0,0,0,0.1);
-            color: white;
-            font-weight: 600;
-            padding: 0.75rem 1.5rem;
-            transition: all 0.2s;
-        }
-        .skin-vivid-flat button:hover {
-            background: #0051D5;
-            box-shadow: 0 4px 12px rgba(0,122,255,0.6), 0 6px 16px rgba(0,0,0,0.15);
-            transform: translateY(-1px);
-        }
-        .skin-vivid-flat button:active {
-            background: #0040A5;
-            box-shadow: 0 1px 4px rgba(0,122,255,0.3);
-            transform: translateY(1px);
-        }
-        
-        .skin-vivid-flat input[type="text"],
-        .skin-vivid-flat input[type="search"] {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-            padding: 0.75rem;
-        }
-        .skin-vivid-flat input:focus {
-            border-color: #007AFF;
-            box-shadow: 0 0 0 3px rgba(0,122,255,0.2);
-            outline: none;
-        }
-        
-        .skin-vivid-flat .card {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.05);
-            padding: 1.5rem;
-            border: 1px solid #f0f0f0;
-        }
-        .skin-vivid-flat .card:hover {
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15), 0 12px 32px rgba(0,0,0,0.1);
-            transform: translateY(-2px);
-        }
-
-        /* Frosted Depth: Refined Blur */
+        /* ===== SKIN: FROSTED DEPTH ===== */
         .skin-frosted-depth {
-            --brand-primary: #5856D6;
-            --brand-primary-rgb: 88, 86, 214;
-            --brand-bg: #F2F2F7;
-            --brand-card: rgba(255, 255, 255, 0.8);
-            --brand-border: rgba(88, 86, 214, 0.15);
-            --brand-text: #000000;
-            --brand-text-muted: #8E8E93;
-            --brand-blue: #5856D6;
-            --brand-blue-rgb: 88, 86, 214;
-            
-            background: #F2F2F7;
+            --brand-primary: #6366F1;
+            --brand-primary-rgb: 99, 102, 241;
+            --brand-bg: #F8FAFC;
+            --brand-card: rgba(255,255,255,0.6);
+            --brand-border: rgba(99,102,241,0.15);
+            --brand-text: #0F172A;
+            --brand-text-muted: #475569;
+            --brand-sidebar: rgba(255,255,255,0.7);
+            --brand-sidebar-border: rgba(99,102,241,0.1);
+            background: #F8FAFC;
         }
-        
+        .dark.skin-frosted-depth {
+            --brand-bg: #0F172A;
+            --brand-card: rgba(30,41,59,0.7);
+            --brand-border: rgba(99,102,241,0.3);
+            --brand-text: #F1F5F9;
+            --brand-text-muted: #94A3B8;
+            --brand-sidebar: rgba(15,23,42,0.8);
+            --brand-sidebar-border: rgba(99,102,241,0.2);
+            background: #0F172A;
+        }
         .skin-frosted-depth button,
-        .skin-frosted-depth .nav-btn,
-        .skin-frosted-depth .btn {
-            background: rgba(255,255,255,0.8);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(88,86,214,0.2);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05), inset 0 1px 2px white;
-            border-radius: 12px;
-            padding: 0.75rem 1.5rem;
-            color: #333;
+        .skin-frosted-depth .nav-btn {
+            background: rgba(255,255,255,0.5);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 40px;
+            padding: 0.7rem 1.5rem;
             font-weight: 600;
-            transition: all 0.2s;
+            color: var(--brand-text);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03), inset 0 1px 2px white;
+        }
+        .dark.skin-frosted-depth button,
+        .dark.skin-frosted-depth .nav-btn {
+            background: rgba(30,41,59,0.6);
+            border-color: rgba(99,102,241,0.4);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+            color: #F1F5F9;
         }
         .skin-frosted-depth button:hover {
-            background: rgba(255,255,255,0.95);
-            box-shadow: 0 8px 20px rgba(88,86,214,0.15), inset 0 1px 3px white;
-            transform: translateY(-1px);
-            border-color: rgba(88,86,214,0.3);
-        }
-        .skin-frosted-depth button:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05), inset 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
-        .skin-frosted-depth .card {
             background: rgba(255,255,255,0.7);
+            border-color: rgba(99,102,241,0.4);
+            transform: translateY(-2px);
+        }
+        .skin-frosted-depth input {
+            background: rgba(255,255,255,0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 40px;
+            padding: 0.7rem 1.2rem;
+            color: var(--brand-text);
+        }
+        .dark.skin-frosted-depth input {
+            background: rgba(30,41,59,0.5);
+            border-color: rgba(99,102,241,0.3);
+            color: #F1F5F9;
+        }
+        .skin-frosted-depth .card {
+            background: var(--brand-card);
             backdrop-filter: blur(20px);
-            border: 0.5px solid rgba(0,0,0,0.04);
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05), inset 0 1px 3px white;
+            border: 1px solid var(--brand-border);
+            border-radius: 32px;
+            box-shadow: 0 10px 30px -10px rgba(99,102,241,0.1);
             padding: 1.5rem;
         }
-        .skin-frosted-depth .card:hover {
-            box-shadow: 0 20px 40px rgba(88,86,214,0.1), inset 0 1px 3px white;
-            transform: translateY(-2px);
+        .skin-frosted-depth #main-sidebar {
+            background: var(--brand-sidebar);
+            backdrop-filter: blur(16px);
+            border-color: var(--brand-sidebar-border);
         }
 
-        /* Dark Mode Obsidian: Pure Black */
-        .skin-dark-obsidian {
-            --brand-primary: #0A84FF;
-            --brand-primary-rgb: 10, 132, 255;
-            --brand-bg: #000000;
-            --brand-card: rgba(28, 28, 30, 0.98);
-            --brand-border: rgba(84, 84, 88, 0.48);
-            --brand-text: #FFFFFF;
-            --brand-text-muted: #AEAEB2;
-            --brand-blue: #0A84FF;
-            --brand-blue-rgb: 10, 132, 255;
-            
-            background: #000000;
+        /* ===== SKIN: CYBER EDGE ===== */
+        .skin-cyber-edge {
+            --brand-primary: #2DD4BF;
+            --brand-primary-rgb: 45, 212, 191;
+            --brand-bg: #0B1120;
+            --brand-card: #1E293B;
+            --brand-border: #334155;
+            --brand-text: #F1F5F9;
+            --brand-text-muted: #94A3B8;
+            --brand-sidebar: #111827;
+            --brand-sidebar-border: #1E293B;
+            background: radial-gradient(circle at 70% 10%, #1E293B, #0B1120);
         }
-        
-        .skin-dark-obsidian button,
-        .skin-dark-obsidian .nav-btn,
-        .skin-dark-obsidian .btn {
-            background: rgba(28,28,30,0.9);
-            border: 1px solid rgba(84,84,88,0.5);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);
-            border-radius: 12px;
-            padding: 0.75rem 1.5rem;
-            color: white;
-            font-weight: 600;
-            transition: all 0.2s;
+        .dark.skin-cyber-edge {
+            /* ya es oscuro, se mantiene */
         }
-        .skin-dark-obsidian button:hover {
-            background: rgba(44,44,46,0.95);
-            box-shadow: 0 8px 20px rgba(10,132,255,0.3), inset 0 1px 3px rgba(255,255,255,0.1);
-            border-color: rgba(10,132,255,0.6);
-            transform: translateY(-1px);
-        }
-        .skin-dark-obsidian button:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 3px rgba(0,0,0,0.3);
-        }
-        
-        .skin-dark-obsidian .card {
-            background: rgba(28,28,30,0.9);
-            border: 1px solid rgba(84,84,88,0.3);
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8), inset 0 1px 2px rgba(255,255,255,0.05);
-            padding: 1.5rem;
-            color: white;
-        }
-        .skin-dark-obsidian .card:hover {
-            box-shadow: 0 20px 40px rgba(0,0,0,0.9), 0 0 0 1px rgba(10,132,255,0.2);
-            transform: translateY(-2px);
-        }
-
-        /* Cyber Neural: Neon Dystopia */
-        .skin-cyber-neural {
-            --brand-primary: #00FFFF;
-            --brand-primary-rgb: 0, 255, 255;
-            --brand-bg: #0A0E27;
-            --brand-card: rgba(26, 31, 58, 0.9);
-            --brand-border: rgba(0, 255, 255, 0.5);
-            --brand-text: #FFFFFF;
-            --brand-text-muted: #8899AA;
-            --brand-blue: #00FFFF;
-            --brand-blue-rgb: 0, 255, 255;
-            
-            background: linear-gradient(135deg, #0A0E27 0%, #1A1F3A 100%);
-        }
-        
-        .skin-cyber-neural button,
-        .skin-cyber-neural .nav-btn,
-        .skin-cyber-neural .btn {
-            background: rgba(0,255,255,0.1);
-            border: 2px solid #00FFFF;
-            box-shadow: 0 0 15px rgba(0,255,255,0.3), inset 0 0 10px rgba(0,255,255,0.2);
+        .skin-cyber-edge button,
+        .skin-cyber-edge .nav-btn {
+            background: transparent;
+            border: 2px solid #2DD4BF;
             border-radius: 8px;
-            padding: 0.75rem 1.5rem;
-            color: #00FFFF;
+            padding: 0.7rem 1.5rem;
             font-weight: 600;
+            color: #2DD4BF;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 8px rgba(45,212,191,0.3);
             transition: all 0.2s;
         }
-        .skin-cyber-neural button:hover {
-            background: rgba(0,255,255,0.2);
-            box-shadow: 0 0 30px #00FFFF, inset 0 0 15px #00FFFF;
-            transform: translateY(-1px) scale(1.02);
-            color: #000;
-            text-shadow: 0 0 5px #00FFFF;
-        }
-        .skin-cyber-neural button:active {
-            transform: translateY(1px);
-            box-shadow: 0 0 10px #00FFFF;
-        }
-        
-        .skin-cyber-neural input[type="text"],
-        .skin-cyber-neural input[type="search"] {
-            background: rgba(0,0,0,0.5);
-            border: 1px solid #00FFFF;
-            box-shadow: inset 0 0 10px rgba(0,255,255,0.2);
-            color: #00FFFF;
-            border-radius: 8px;
-            padding: 0.75rem;
-        }
-        .skin-cyber-neural input:focus {
-            border-color: #00FFFF;
-            box-shadow: 0 0 15px #00FFFF, inset 0 0 10px rgba(0,255,255,0.3);
-            outline: none;
-        }
-        
-        .skin-cyber-neural .card {
-            background: rgba(26,31,58,0.8);
-            border: 1px solid rgba(0,255,255,0.4);
-            box-shadow: 0 0 20px rgba(0,255,255,0.3), inset 0 0 10px rgba(0,255,255,0.1);
-            border-radius: 24px;
-            padding: 1.5rem;
-            backdrop-filter: blur(5px);
-        }
-        .skin-cyber-neural .card:hover {
-            box-shadow: 0 0 40px rgba(0,255,255,0.5), inset 0 0 20px rgba(0,255,255,0.2);
+        .skin-cyber-edge button:hover {
+            background: rgba(45,212,191,0.1);
+            box-shadow: 0 0 20px #2DD4BF;
             transform: translateY(-2px);
+            border-color: #5EEAD4;
+            color: #5EEAD4;
         }
-
-        /* (Los estilos para los demás skins siguen el mismo patrón; 
-           por brevedad se incluyen solo estos ejemplos, pero en la implementación real se deben completar todos) */
+        .skin-cyber-edge input {
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 0.7rem 1.2rem;
+            color: #F1F5F9;
+        }
+        .skin-cyber-edge input:focus {
+            border-color: #2DD4BF;
+            box-shadow: 0 0 0 3px rgba(45,212,191,0.2);
+        }
+        .skin-cyber-edge .card {
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px -5px rgba(0,0,0,0.8);
+            padding: 1.5rem;
+        }
+        .skin-cyber-edge #main-sidebar {
+            background: #111827;
+            border-color: #1E293B;
+        }
+        .skin-cyber-edge .nav-btn.active {
+            background: rgba(45,212,191,0.15);
+            color: #2DD4BF;
+        }
     `;
 
-    // ===== SKIN APPLICATION LOGIC =====
     function applySkin(skinId) {
         const skin = SKINS.find(s => s.id === skinId);
         if (!skin) return;
 
-        // Remove all skin classes
         document.body.className = document.body.className
             .split(' ')
             .filter(c => !c.startsWith('skin-'))
             .join(' ');
 
-        // Apply new skin
         document.body.classList.add(`skin-${skinId}`);
-
-        // Store preference
-        try {
-            localStorage.setItem('nclex_skin_v1', skinId);
-        } catch (e) {}
-
-        // Trigger custom event for logic.js to pick up
+        try { localStorage.setItem('nclex_skin_v1', skinId); } catch (e) {}
         window.dispatchEvent(new CustomEvent('skinchange', { detail: { skin } }));
     }
 
     function initSkins() {
-        // Inject masterpiece CSS
-        if (!document.getElementById('masterpiece-css')) {
+        if (!document.getElementById('premium-skins-css')) {
             const style = document.createElement('style');
-            style.id = 'masterpiece-css';
-            style.textContent = MASTERPIECE_CSS;
+            style.id = 'premium-skins-css';
+            style.textContent = PREMIUM_CSS;
             document.head.appendChild(style);
         }
-
-        // Load saved skin or apply masterpiece
-        const savedSkin = localStorage.getItem('nclex_skin_v1') || 'neural-vision';
+        const savedSkin = localStorage.getItem('nclex_skin_v1') || 'clinical-calm';
         applySkin(savedSkin);
     }
-    
-    // ===== UI RENDERER (New Feature) =====
+
     function renderSkinSelector() {
         const currentSkinId = window.SkinSystem.current();
-        
         return `
-            <header class="mb-8 animate-slide-in">
-                <div class="flex items-center gap-3 mb-2">
-                    <button onclick="if(window.nclexApp && window.nclexApp.navigate) window.nclexApp.navigate('home'); else window.location.hash = '#home';" class="p-2 rounded-full hover:bg-[var(--brand-bg)] text-[var(--brand-text-muted)] transition-colors">
-                        <i class="fa-solid fa-arrow-left"></i>
-                    </button>
-                    <h1 class="text-3xl lg:text-4xl font-black tracking-tight text-[var(--brand-text)]">
-                        <span class="lang-es">Galería de Estilos</span>
-                        <span class="lang-en hidden-lang">Style Gallery</span>
-                    </h1>
-                </div>
-                <p class="text-[var(--brand-text-muted)] text-lg ml-12">
-                    <span class="lang-es">Personaliza tu entorno de estudio.</span>
-                    <span class="lang-en hidden-lang">Customize your study environment.</span>
-                </p>
+            <header class="mb-8">
+                <h1 class="text-4xl font-black mb-2">Galería de Estilos</h1>
+                <p class="text-[var(--brand-text-muted)] text-lg">4 skins premium, meticulosamente diseñados.</p>
             </header>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in pb-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto pb-16">
                 ${SKINS.map(skin => {
                     const isActive = currentSkinId === skin.id;
-                    const primaryColor = skin.colors[2] || skin.colors[0];
-                    
                     return `
                         <div onclick="window.SkinSystem.apply('${skin.id}')" 
-                             class="group relative bg-[var(--brand-card)] rounded-2xl overflow-hidden cursor-pointer transition-all hover:scale-[1.02] border ${isActive ? 'border-4 border-[rgb(var(--brand-blue-rgb))]' : 'border-[var(--brand-border)]'}"
-                             style="box-shadow: 0 4px 20px -5px ${isActive ? 'rgba(var(--brand-blue-rgb), 0.3)' : 'rgba(0,0,0,0.1)'}">
-                            
-                            <div class="h-24 w-full relative overflow-hidden" style="background: ${skin.colors[0]}">
-                                <div class="absolute inset-0 opacity-30 bg-gradient-to-br from-transparent to-black/20"></div>
-                                <div class="absolute bottom-3 right-3 w-10 h-10 rounded-full flex items-center justify-center bg-white/20 backdrop-blur-md shadow-lg border border-white/30 text-white">
-                                    <i class="fa-solid fa-${skin.icon}"></i>
+                             class="group cursor-pointer transform transition-all hover:scale-[1.02]">
+                            <div class="rounded-3xl overflow-hidden border-4 ${isActive ? 'border-[rgb(var(--brand-primary-rgb))]' : 'border-transparent'} shadow-2xl">
+                                <div class="h-40 w-full" style="background: linear-gradient(145deg, ${skin.colors[0]} 0%, ${skin.colors[1]} 100%);"></div>
+                                <div class="p-6 bg-[var(--brand-card)]">
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <i class="fa-solid fa-${skin.icon} text-3xl" style="color: rgb(var(--brand-primary-rgb));"></i>
+                                        <h2 class="text-2xl font-bold">${skin.nameEs}</h2>
+                                    </div>
+                                    <p class="text-[var(--brand-text-muted)] mb-4">${skin.description}</p>
+                                    <div class="flex gap-2">
+                                        ${skin.colors.map(c => `<div class="w-8 h-8 rounded-full border-2 border-white shadow" style="background: ${c};"></div>`).join('')}
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div class="p-5">
-                                <h3 class="font-bold text-lg mb-1 text-[var(--brand-text)] flex items-center gap-2">
-                                    <span class="lang-es">${skin.nameEs}</span>
-                                    <span class="lang-en hidden-lang">${skin.name}</span>
-                                    ${isActive ? '<i class="fa-solid fa-check-circle text-[rgb(var(--brand-blue-rgb))]"></i>' : ''}
-                                </h3>
-                                
-                                <div class="flex items-center gap-2 mt-3">
-                                    ${skin.colors.map(c => `
-                                        <div class="w-6 h-6 rounded-full border border-black/10 shadow-sm" style="background-color: ${c}"></div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                            
-                            ${isActive ? `
-                                <div class="absolute inset-0 border-4 border-[rgb(var(--brand-blue-rgb))] rounded-2xl pointer-events-none"></div>
-                            ` : ''}
                         </div>
                     `;
                 }).join('')}
@@ -742,23 +403,18 @@
         `;
     }
 
-    // ===== PUBLIC API (Renamed to match logic.js) =====
     window.SkinSystem = {
-        SKINS: SKINS,
-        masterpiece: SKINS.find(s => s.isMasterpiece),
+        SKINS,
         apply: applySkin,
-        renderSkinSelector: renderSkinSelector,
+        renderSkinSelector,
         current: () => {
-            const currentClass = Array.from(document.body.classList)
-                .find(c => c.startsWith('skin-'));
-            return currentClass ? currentClass.replace('skin-', '') : null;
+            const c = Array.from(document.body.classList).find(c => c.startsWith('skin-'));
+            return c ? c.replace('skin-', '') : null;
         }
     };
-    
-    // Backward compatibility just in case
+
     window.NCLEX_SKINS = window.SkinSystem;
 
-    // Auto-initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initSkins);
     } else {
