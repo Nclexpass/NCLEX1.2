@@ -246,13 +246,17 @@
         console.log("🔥 Firebase initialized");
     </script>
 
-    <!-- Core Application Scripts (Order matters!) -->
+    <!-- Core Utilities (Must load FIRST) -->
     <script src="js/utils.js"></script>
     <script src="js/skins.js"></script>
-    <script src="js/sw.js"></script>
+    
+    <!-- Core Logic (Must load BEFORE clinical modules - defines window.NCLEX) -->
+    <script src="js/logic.js"></script>
+    
+    <!-- Auth System -->
     <script src="js/auth.js"></script>
     
-    <!-- Clinical Modules -->
+    <!-- Clinical Modules (Now NCLEX is defined) -->
     <script src="js/01_newborn.js"></script>
     <script src="js/02_maternity.js"></script>
     <script src="js/03_pediatrics_growth_development.js"></script>
@@ -287,13 +291,9 @@
     <!-- Additional Features -->
     <script src="js/31_search_service.js"></script>
     <script src="js/32_analytics_dashboard.js"></script>
-    <script src="js/fundamentals.js"></script>
     <script src="js/premium_books_library.js"></script>
     <script src="js/simulator.js"></script>
     <script src="js/ngn_engine.js"></script>
-    
-    <!-- Core Logic (Must load AFTER all modules) -->
-    <script src="js/logic.js"></script>
 
     <!-- Mobile Sidebar Toggle -->
     <script>
