@@ -224,28 +224,6 @@
         </main>
     </div>
 
-    <!-- Firebase SDK (Compat Mode) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
-    <!-- Firebase Initialization -->
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyC07GVdRw3IkVp230DTT1GyYS_gFFtPeHU",
-            authDomain: "nclex-masterclass.firebaseapp.com",
-            projectId: "nclex-masterclass",
-            storageBucket: "nclex-masterclass.firebasestorage.app",
-            messagingSenderId: "235534790151",
-            appId: "1:235534790151:web:7f52194c17f176654d44a2"
-        };
-        
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        console.log("🔥 Firebase initialized");
-    </script>
-
     <!-- Core Utilities (Must load FIRST) -->
     <script src="js/utils.js"></script>
     <script src="js/skins.js"></script>
@@ -253,8 +231,8 @@
     <!-- Core Logic (Must load BEFORE clinical modules - defines window.NCLEX) -->
     <script src="js/logic.js"></script>
     
-    <!-- Auth System -->
-    <script src="js/auth.js"></script>
+    <!-- Auth System (ES6 Module - Firebase loaded internally) -->
+    <script type="module" src="js/auth.js"></script>
     
     <!-- Clinical Modules (Now NCLEX is defined) -->
     <script src="js/01_newborn.js"></script>
