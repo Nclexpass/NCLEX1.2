@@ -200,15 +200,14 @@
     const MASTERPIECE_CSS = `
         /* Neural Vision: Spatial Computing Aesthetic */
         .skin-neural-vision {
-            --brand-primary: #8B7EFF;
-            --brand-primary-rgb: 139, 126, 255;
+            --brand-blue-rgb: 139, 126, 255;
             --brand-bg: #E8E5FF;
             --brand-card: rgba(255, 255, 255, 0.85);
             --brand-border: rgba(139, 126, 255, 0.2);
+            --brand-sidebar: rgba(255, 255, 255, 0.9);
+            --brand-sidebar-border: rgba(139, 126, 255, 0.25);
             --brand-text: #2D2A3E;
             --brand-text-muted: #6B6880;
-            --brand-blue: #8B7EFF;
-            --brand-blue-rgb: 139, 126, 255;
             
             background: linear-gradient(135deg, #E8E5FF 0%, #F0EDFF 50%, #FFFFFF 100%);
         }
@@ -220,400 +219,235 @@
             box-shadow: 0 8px 32px rgba(139, 126, 255, 0.15);
         }
         
-        .skin-neural-vision button:hover,
-        .skin-neural-vision .interactive:hover {
-            background: rgba(139, 126, 255, 0.1);
-            transform: translateY(-2px);
-        }
-        
         /* Classic Glossy: Legacy Skeuomorphic */
         .skin-classic-glossy {
-            --brand-primary: #4A90E2;
-            --brand-primary-rgb: 74, 144, 226;
+            --brand-blue-rgb: 74, 144, 226;
             --brand-bg: #1D4E89;
             --brand-card: rgba(80, 137, 198, 0.95);
             --brand-border: rgba(74, 144, 226, 0.5);
+            --brand-sidebar: rgba(29, 78, 137, 0.95);
+            --brand-sidebar-border: rgba(74, 144, 226, 0.4);
             --brand-text: #FFFFFF;
             --brand-text-muted: #B8D4F1;
-            --brand-blue: #4A90E2;
-            --brand-blue-rgb: 74, 144, 226;
             
             background: linear-gradient(180deg, #1D4E89 0%, #2C5F9E 100%);
         }
         
-        .skin-classic-glossy .btn,
-        .skin-classic-glossy button {
-            background: linear-gradient(180deg, #5089C6 0%, #3A71A8 100%);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-            border: 1px solid rgba(0, 0, 0, 0.4);
-        }
-        
-        /* Vivid Flat: The 2013 Revolution */
+        /* Vivid Flat */
         .skin-vivid-flat {
-            --brand-primary: #007AFF;
-            --brand-primary-rgb: 0, 122, 255;
-            --brand-bg: #FFFFFF;
-            --brand-card: rgba(255, 255, 255, 0.98);
-            --brand-border: rgba(0, 122, 255, 0.2);
-            --brand-text: #000000;
-            --brand-text-muted: #8E8E93;
-            --brand-blue: #007AFF;
             --brand-blue-rgb: 0, 122, 255;
-            
-            background: linear-gradient(135deg, #FF3B30 0%, #FF9500 25%, #FFCC00 50%, #34C759 75%, #007AFF 100%);
+            --brand-bg: #FFFFFF;
+            --brand-card: #FFFFFF;
+            --brand-border: #E5E5EA;
+            --brand-sidebar: #FAFAFA;
+            --brand-sidebar-border: #E5E5EA;
+            --brand-text: #000000;
+            --brand-text-muted: #86868B;
         }
         
-        .skin-vivid-flat .btn,
-        .skin-vivid-flat button {
-            background: #007AFF;
-            border: none;
-            border-radius: 8px;
-            box-shadow: none;
-        }
-        
-        /* Frosted Depth: Refined Blur */
+        /* Frosted Depth */
         .skin-frosted-depth {
-            --brand-primary: #5856D6;
-            --brand-primary-rgb: 88, 86, 214;
+            --brand-blue-rgb: 88, 86, 214;
             --brand-bg: #F2F2F7;
             --brand-card: rgba(255, 255, 255, 0.8);
-            --brand-border: rgba(88, 86, 214, 0.15);
-            --brand-text: #000000;
-            --brand-text-muted: #8E8E93;
-            --brand-blue: #5856D6;
-            --brand-blue-rgb: 88, 86, 214;
-            
-            background: #F2F2F7;
+            --brand-border: rgba(88, 86, 214, 0.2);
+            --brand-sidebar: rgba(255, 255, 255, 0.85);
+            --brand-sidebar-border: rgba(0, 0, 0, 0.08);
+            --brand-text: #1C1C1E;
+            --brand-text-muted: #636366;
         }
         
-        .skin-frosted-depth .glassmorphic {
-            background: rgba(255, 255, 255, 0.72);
-            backdrop-filter: blur(20px) saturate(180%);
-            border: 0.5px solid rgba(0, 0, 0, 0.04);
-        }
-        
-        /* Bold Editorial: Typography Focus */
+        /* Bold Editorial */
         .skin-bold-editorial {
-            --brand-primary: #0A84FF;
-            --brand-primary-rgb: 10, 132, 255;
+            --brand-blue-rgb: 10, 132, 255;
             --brand-bg: #1C1C1E;
-            --brand-card: rgba(44, 44, 46, 0.98);
-            --brand-border: rgba(84, 84, 88, 0.65);
+            --brand-card: #2C2C2E;
+            --brand-border: #3A3A3C;
+            --brand-sidebar: #1C1C1E;
+            --brand-sidebar-border: #2C2C2E;
             --brand-text: #FFFFFF;
             --brand-text-muted: #AEAEB2;
-            --brand-blue: #0A84FF;
-            --brand-blue-rgb: 10, 132, 255;
-            
-            background: #1C1C1E;
         }
         
-        .skin-bold-editorial h1,
-        .skin-bold-editorial h2 {
-            font-weight: 900;
-            font-size: 2.5em;
-            letter-spacing: -0.02em;
-        }
-        
-        /* Dark Mode Obsidian: Pure Black */
+        /* Dark Obsidian */
         .skin-dark-obsidian {
-            --brand-primary: #0A84FF;
-            --brand-primary-rgb: 10, 132, 255;
-            --brand-bg: #000000;
-            --brand-card: rgba(28, 28, 30, 0.98);
-            --brand-border: rgba(84, 84, 88, 0.48);
-            --brand-text: #FFFFFF;
-            --brand-text-muted: #AEAEB2;
-            --brand-blue: #0A84FF;
             --brand-blue-rgb: 10, 132, 255;
-            
-            background: #000000;
+            --brand-bg: #000000;
+            --brand-card: #1C1C1E;
+            --brand-border: #2C2C2E;
+            --brand-sidebar: #000000;
+            --brand-sidebar-border: #1C1C1E;
+            --brand-text: #FFFFFF;
+            --brand-text-muted: #8E8E93;
         }
         
-        .skin-dark-obsidian .card {
-            background: rgba(28, 28, 30, 0.9);
-            border: 1px solid rgba(84, 84, 88, 0.3);
-        }
-        
-        /* Modular Grid: Widget-Style Blocks */
+        /* Modular Grid */
         .skin-modular-grid {
-            --brand-primary: #FF9500;
-            --brand-primary-rgb: 255, 149, 0;
+            --brand-blue-rgb: 255, 149, 0;
             --brand-bg: #F2F2F7;
+            --brand-card: #FFFFFF;
+            --brand-border: #D1D1D6;
+            --brand-sidebar: #FFFFFF;
+            --brand-sidebar-border: #E5E5EA;
+            --brand-text: #000000;
+            --brand-text-muted: #636366;
+        }
+        
+        /* Dynamic Layering */
+        .skin-dynamic-layering {
+            --brand-blue-rgb: 88, 86, 214;
+            --brand-bg: #E5E5EA;
             --brand-card: rgba(255, 255, 255, 0.95);
             --brand-border: rgba(0, 0, 0, 0.1);
-            --brand-text: #000000;
-            --brand-text-muted: #8E8E93;
-            --brand-blue: #FF9500;
-            --brand-blue-rgb: 255, 149, 0;
-            
-            background: #F2F2F7;
+            --brand-sidebar: rgba(255, 255, 255, 0.9);
+            --brand-sidebar-border: rgba(0, 0, 0, 0.08);
+            --brand-text: #1C1C1E;
+            --brand-text-muted: #48484A;
         }
         
-        .skin-modular-grid .card {
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-        
-        /* Dynamic Layering: Depth Effects */
-        .skin-dynamic-layering {
-            --brand-primary: #5856D6;
-            --brand-primary-rgb: 88, 86, 214;
-            --brand-bg: #E5E5EA;
-            --brand-card: rgba(255, 255, 255, 0.92);
-            --brand-border: rgba(0, 0, 0, 0.08);
-            --brand-text: #000000;
-            --brand-text-muted: #8E8E93;
-            --brand-blue: #5856D6;
-            --brand-blue-rgb: 88, 86, 214;
-            
-            background: linear-gradient(180deg, #E5E5EA 0%, #D1D1D6 100%);
-        }
-        
-        .skin-dynamic-layering .card {
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
-            transform: translateZ(0);
-        }
-        
-        /* Neon Hollow: Tron-Blue Accents */
+        /* Neon Hollow */
         .skin-neon-hollow {
-            --brand-primary: #03DAC6;
-            --brand-primary-rgb: 3, 218, 198;
+            --brand-blue-rgb: 3, 218, 198;
             --brand-bg: #121212;
-            --brand-card: rgba(30, 30, 30, 0.95);
+            --brand-card: #1E1E1E;
             --brand-border: rgba(3, 218, 198, 0.3);
+            --brand-sidebar: #1E1E1E;
+            --brand-sidebar-border: #2C2C2C;
             --brand-text: #FFFFFF;
             --brand-text-muted: #B3B3B3;
-            --brand-blue: #03DAC6;
-            --brand-blue-rgb: 3, 218, 198;
-            
-            background: #121212;
         }
         
-        .skin-neon-hollow .btn {
-            border: 2px solid #03DAC6;
-            background: transparent;
-            color: #03DAC6;
-        }
-        
-        .skin-neon-hollow .btn:hover {
-            background: rgba(3, 218, 198, 0.1);
-            box-shadow: 0 0 20px rgba(3, 218, 198, 0.5);
-        }
-        
-        /* Paper Layers: Material Design Classic */
+        /* Paper Layers */
         .skin-paper-layers {
-            --brand-primary: #6200EE;
-            --brand-primary-rgb: 98, 0, 238;
-            --brand-bg: #FAFAFA;
-            --brand-card: rgba(255, 255, 255, 0.98);
-            --brand-border: rgba(0, 0, 0, 0.12);
-            --brand-text: #000000;
-            --brand-text-muted: #757575;
-            --brand-blue: #6200EE;
             --brand-blue-rgb: 98, 0, 238;
-            
-            background: #FAFAFA;
-        }
-        
-        .skin-paper-layers .card {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14), 0 4px 5px rgba(0, 0, 0, 0.12);
-            border-radius: 4px;
-        }
-        
-        /* Tonal Adaptive: Material You */
-        .skin-tonal-adaptive {
-            --brand-primary: #D0BCFF;
-            --brand-primary-rgb: 208, 188, 255;
-            --brand-bg: #FEF7FF;
-            --brand-card: rgba(255, 251, 254, 0.95);
-            --brand-border: rgba(208, 188, 255, 0.2);
-            --brand-text: #1C1B1F;
-            --brand-text-muted: #49454F;
-            --brand-blue: #D0BCFF;
-            --brand-blue-rgb: 208, 188, 255;
-            
-            background: linear-gradient(135deg, #FEF7FF 0%, #FFFBFE 100%);
-        }
-        
-        .skin-tonal-adaptive .card {
-            background: rgba(255, 251, 254, 0.9);
-            border-radius: 28px;
-        }
-        
-        /* Liquid Stream: Translucent Floating Panels */
-        .skin-liquid-stream {
-            --brand-primary: #00BCD4;
-            --brand-primary-rgb: 0, 188, 212;
-            --brand-bg: #1A1A1D;
-            --brand-card: rgba(45, 45, 48, 0.85);
-            --brand-border: rgba(0, 188, 212, 0.3);
-            --brand-text: #FFFFFF;
-            --brand-text-muted: #B0B0B0;
-            --brand-blue: #00BCD4;
-            --brand-blue-rgb: 0, 188, 212;
-            
-            background: linear-gradient(135deg, #1A1A1D 0%, #2D2D30 100%);
-        }
-        
-        .skin-liquid-stream .glassmorphic {
-            background: rgba(45, 45, 48, 0.7);
-            backdrop-filter: blur(24px) saturate(150%);
-            border: 1px solid rgba(0, 188, 212, 0.2);
-        }
-        
-        /* Onyx Premium: Cinematic Black */
-        .skin-onyx-premium {
-            --brand-primary: #2196F3;
-            --brand-primary-rgb: 33, 150, 243;
-            --brand-bg: #000000;
-            --brand-card: rgba(28, 28, 28, 0.98);
-            --brand-border: rgba(33, 150, 243, 0.25);
-            --brand-text: #FFFFFF;
-            --brand-text-muted: #AAAAAA;
-            --brand-blue: #2196F3;
-            --brand-blue-rgb: 33, 150, 243;
-            
-            background: #000000;
-        }
-        
-        .skin-onyx-premium .card {
-            background: rgba(28, 28, 28, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
-        }
-        
-        /* Surgical Hybrid: Clean Professional */
-        .skin-surgical-hybrid {
-            --brand-primary: #1976D2;
-            --brand-primary-rgb: 25, 118, 210;
-            --brand-bg: #F5F5F5;
-            --brand-card: rgba(255, 255, 255, 0.98);
-            --brand-border: rgba(0, 0, 0, 0.08);
+            --brand-bg: #FAFAFA;
+            --brand-card: #FFFFFF;
+            --brand-border: #E0E0E0;
+            --brand-sidebar: #FFFFFF;
+            --brand-sidebar-border: #E8E8E8;
             --brand-text: #212121;
             --brand-text-muted: #757575;
-            --brand-blue: #1976D2;
-            --brand-blue-rgb: 25, 118, 210;
-            
-            background: #F5F5F5;
         }
         
-        .skin-surgical-hybrid .btn {
-            border-radius: 2px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        /* Tonal Adaptive */
+        .skin-tonal-adaptive {
+            --brand-blue-rgb: 208, 188, 255;
+            --brand-bg: #FEF7FF;
+            --brand-card: #FFFBFE;
+            --brand-border: rgba(208, 188, 255, 0.4);
+            --brand-sidebar: #FFFBFE;
+            --brand-sidebar-border: #E8DEF8;
+            --brand-text: #1C1B1F;
+            --brand-text-muted: #49454F;
         }
         
-        /* Pure Essence: Stock Minimalism */
-        .skin-pure-essence {
-            --brand-primary: #4285F4;
-            --brand-primary-rgb: 66, 133, 244;
-            --brand-bg: #FFFFFF;
-            --brand-card: rgba(255, 255, 255, 0.98);
-            --brand-border: rgba(0, 0, 0, 0.06);
-            --brand-text: #202124;
-            --brand-text-muted: #5F6368;
-            --brand-blue: #4285F4;
-            --brand-blue-rgb: 66, 133, 244;
-            
-            background: #FFFFFF;
-        }
-        
-        .skin-pure-essence .card {
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-            border-radius: 8px;
-        }
-        
-        /* Horizon Dashboard: Automotive Minimalism */
-        .skin-horizon-dashboard {
-            --brand-primary: #E82127;
-            --brand-primary-rgb: 232, 33, 39;
-            --brand-bg: #1C1C1C;
-            --brand-card: rgba(44, 44, 44, 0.95);
-            --brand-border: rgba(232, 33, 39, 0.3);
+        /* Liquid Stream */
+        .skin-liquid-stream {
+            --brand-blue-rgb: 0, 188, 212;
+            --brand-bg: #1A1A1D;
+            --brand-card: #2D2D30;
+            --brand-border: rgba(0, 188, 212, 0.3);
+            --brand-sidebar: #2D2D30;
+            --brand-sidebar-border: #3D3D40;
             --brand-text: #FFFFFF;
             --brand-text-muted: #CCCCCC;
-            --brand-blue: #E82127;
-            --brand-blue-rgb: 232, 33, 39;
-            
-            background: linear-gradient(180deg, #1C1C1C 0%, #2C2C2C 100%);
         }
         
-        .skin-horizon-dashboard .gauge-icon {
-            filter: drop-shadow(0 0 8px rgba(232, 33, 39, 0.6));
-        }
-        
-        /* Clean Horizon: Wide Layout Precision */
-        .skin-clean-horizon {
-            --brand-primary: #3E6AE1;
-            --brand-primary-rgb: 62, 106, 225;
-            --brand-bg: #F4F4F4;
-            --brand-card: rgba(255, 255, 255, 0.98);
-            --brand-border: rgba(0, 0, 0, 0.08);
-            --brand-text: #1A1A1A;
-            --brand-text-muted: #666666;
-            --brand-blue: #3E6AE1;
-            --brand-blue-rgb: 62, 106, 225;
-            
-            background: #F4F4F4;
-        }
-        
-        .skin-clean-horizon .container {
-            max-width: 1400px;
-        }
-        
-        /* Vector Spatial: 3D Modular Control */
-        .skin-vector-spatial {
-            --brand-primary: #00D4FF;
-            --brand-primary-rgb: 0, 212, 255;
+        /* Onyx Premium */
+        .skin-onyx-premium {
+            --brand-blue-rgb: 33, 150, 243;
             --brand-bg: #000000;
-            --brand-card: rgba(10, 10, 10, 0.95);
-            --brand-border: rgba(0, 212, 255, 0.4);
+            --brand-card: #1C1C1C;
+            --brand-border: rgba(33, 150, 243, 0.4);
+            --brand-sidebar: #1C1C1C;
+            --brand-sidebar-border: #2C2C2C;
             --brand-text: #FFFFFF;
             --brand-text-muted: #AAAAAA;
-            --brand-blue: #00D4FF;
-            --brand-blue-rgb: 0, 212, 255;
-            
-            background: #000000;
         }
         
-        .skin-vector-spatial .card {
-            border: 2px solid rgba(0, 212, 255, 0.3);
-            transform: perspective(1000px) rotateX(2deg);
+        /* Surgical Hybrid */
+        .skin-surgical-hybrid {
+            --brand-blue-rgb: 25, 118, 210;
+            --brand-bg: #F5F5F5;
+            --brand-card: #FFFFFF;
+            --brand-border: rgba(0, 0, 0, 0.12);
+            --brand-sidebar: #FFFFFF;
+            --brand-sidebar-border: #E0E0E0;
+            --brand-text: #212121;
+            --brand-text-muted: #616161;
         }
         
-        /* Hyper-Driver Engine: Gaming Visualizer */
-        .skin-hyper-driver {
-            --brand-primary: #FF0844;
-            --brand-primary-rgb: 255, 8, 68;
-            --brand-bg: #0D0D0D;
-            --brand-card: rgba(26, 26, 26, 0.95);
-            --brand-border: rgba(255, 8, 68, 0.4);
+        /* Pure Essence */
+        .skin-pure-essence {
+            --brand-blue-rgb: 66, 133, 244;
+            --brand-bg: #FFFFFF;
+            --brand-card: #FAFAFA;
+            --brand-border: #DADCE0;
+            --brand-sidebar: #FAFAFA;
+            --brand-sidebar-border: #E8EAED;
+            --brand-text: #202124;
+            --brand-text-muted: #5F6368;
+        }
+        
+        /* Horizon Dashboard */
+        .skin-horizon-dashboard {
+            --brand-blue-rgb: 232, 33, 39;
+            --brand-bg: #1C1C1C;
+            --brand-card: #2C2C2C;
+            --brand-border: rgba(232, 33, 39, 0.4);
+            --brand-sidebar: #2C2C2C;
+            --brand-sidebar-border: #3C3C3C;
             --brand-text: #FFFFFF;
             --brand-text-muted: #CCCCCC;
-            --brand-blue: #FF0844;
+        }
+        
+        /* Clean Horizon */
+        .skin-clean-horizon {
+            --brand-blue-rgb: 62, 106, 225;
+            --brand-bg: #F4F4F4;
+            --brand-card: #FFFFFF;
+            --brand-border: rgba(0, 0, 0, 0.08);
+            --brand-sidebar: #FFFFFF;
+            --brand-sidebar-border: #E0E0E0;
+            --brand-text: #1A1A1A;
+            --brand-text-muted: #666666;
+        }
+        
+        /* Vector Spatial */
+        .skin-vector-spatial {
+            --brand-blue-rgb: 0, 212, 255;
+            --brand-bg: #000000;
+            --brand-card: #0A0A0A;
+            --brand-border: rgba(0, 212, 255, 0.4);
+            --brand-sidebar: #0A0A0A;
+            --brand-sidebar-border: rgba(0, 212, 255, 0.3);
+            --brand-text: #FFFFFF;
+            --brand-text-muted: #AAAAAA;
+        }
+        
+        /* Hyper-Driver Engine */
+        .skin-hyper-driver {
             --brand-blue-rgb: 255, 8, 68;
-            
-            background: radial-gradient(circle at center, #1A1A1A 0%, #0D0D0D 100%);
+            --brand-bg: #0D0D0D;
+            --brand-card: #1A1A1A;
+            --brand-border: rgba(255, 8, 68, 0.4);
+            --brand-sidebar: #1A1A1A;
+            --brand-sidebar-border: rgba(255, 8, 68, 0.3);
+            --brand-text: #FFFFFF;
+            --brand-text-muted: #CCCCCC;
         }
         
-        .skin-hyper-driver .btn:hover {
-            box-shadow: 0 0 30px rgba(255, 8, 68, 0.8);
-        }
-        
-        /* Retro Pixel: 1984 Monochrome */
+        /* Retro Pixel */
         .skin-retro-pixel {
-            --brand-primary: #000000;
-            --brand-primary-rgb: 0, 0, 0;
+            --brand-blue-rgb: 0, 0, 0;
             --brand-bg: #C0C0C0;
-            --brand-card: rgba(255, 255, 255, 0.98);
-            --brand-border: rgba(0, 0, 0, 0.8);
+            --brand-card: #FFFFFF;
+            --brand-border: #000000;
+            --brand-sidebar: #FFFFFF;
+            --brand-sidebar-border: #000000;
             --brand-text: #000000;
             --brand-text-muted: #666666;
-            --brand-blue: #000000;
-            --brand-blue-rgb: 0, 0, 0;
             
-            background: #C0C0C0;
             font-family: 'Courier New', monospace;
         }
         
@@ -623,17 +457,16 @@
             border-radius: 0;
         }
         
-        /* Aero Transparency: 2007 Glass Era */
+        /* Aero Transparency */
         .skin-aero-transparency {
-            --brand-primary: #4A9EFF;
-            --brand-primary-rgb: 74, 158, 255;
+            --brand-blue-rgb: 74, 158, 255;
             --brand-bg: #D9E8F7;
             --brand-card: rgba(240, 246, 252, 0.85);
             --brand-border: rgba(74, 158, 255, 0.4);
+            --brand-sidebar: rgba(240, 246, 252, 0.9);
+            --brand-sidebar-border: rgba(74, 158, 255, 0.3);
             --brand-text: #003D5C;
             --brand-text-muted: #4A7B9D;
-            --brand-blue: #4A9EFF;
-            --brand-blue-rgb: 74, 158, 255;
             
             background: linear-gradient(180deg, #D9E8F7 0%, #A8C8E8 100%);
         }
@@ -645,29 +478,23 @@
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 8px 32px rgba(0, 0, 0, 0.2);
         }
         
-        /* Cyber Neural: Neon Dystopia */
+        /* Cyber Neural */
         .skin-cyber-neural {
-            --brand-primary: #00FFFF;
-            --brand-primary-rgb: 0, 255, 255;
+            --brand-blue-rgb: 0, 255, 255;
             --brand-bg: #0A0E27;
             --brand-card: rgba(26, 31, 58, 0.9);
             --brand-border: rgba(0, 255, 255, 0.5);
+            --brand-sidebar: rgba(26, 31, 58, 0.95);
+            --brand-sidebar-border: rgba(0, 255, 255, 0.4);
             --brand-text: #FFFFFF;
             --brand-text-muted: #8899AA;
-            --brand-blue: #00FFFF;
-            --brand-blue-rgb: 0, 255, 255;
             
             background: linear-gradient(135deg, #0A0E27 0%, #1A1F3A 100%);
         }
         
         .skin-cyber-neural .card {
             border: 1px solid rgba(0, 255, 255, 0.4);
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3), inset 0 0 10px rgba(0, 255, 255, 0.1);
-        }
-        
-        .skin-cyber-neural .btn:hover {
-            background: rgba(0, 255, 255, 0.15);
-            text-shadow: 0 0 10px #00FFFF;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
         }
 
         /* ===== ANIMATION CLASSES ===== */
@@ -676,23 +503,9 @@
             100% { background-position: 200% 0; }
         }
         
-        .shimmer {
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                rgba(255, 255, 255, 0.3) 50%, 
-                transparent 100%
-            );
-            background-size: 200% 100%;
-            animation: shimmer 3s infinite;
-        }
-        
         @keyframes pulse-soft {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.8; }
-        }
-        
-        .pulse-soft {
-            animation: pulse-soft 2s ease-in-out infinite;
         }
         
         @keyframes float-slow {
@@ -700,26 +513,14 @@
             50% { transform: translateY(-10px); }
         }
         
-        .float-slow {
-            animation: float-slow 6s ease-in-out infinite;
-        }
-        
         @keyframes glow-breathe {
             0%, 100% { filter: drop-shadow(0 0 5px currentColor); }
             50% { filter: drop-shadow(0 0 15px currentColor); }
         }
         
-        .glow-breathe {
-            animation: glow-breathe 3s ease-in-out infinite;
-        }
-        
         @keyframes bounce-subtle {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-5px); }
-        }
-        
-        .bounce-subtle {
-            animation: bounce-subtle 1s ease-in-out infinite;
         }
     `;
 
@@ -743,7 +544,9 @@
         } catch (e) {}
 
         // Trigger custom event
-        window.dispatchEvent(new CustomEvent('skinChanged', { detail: { skin } }));
+        window.dispatchEvent(new CustomEvent('skinchange', { detail: { skin } }));
+        
+        console.log(`✨ Skin applied: ${skin.name}`);
     }
 
     function initSkins() {
@@ -760,17 +563,78 @@
         applySkin(savedSkin);
     }
 
+    // ===== RENDER SKIN SELECTOR UI =====
+    function renderSkinSelector() {
+        const currentSkin = window.SkinSystem.current();
+        const t = window.t || ((es, en) => es);
+        
+        return `
+            <div class="animate-fade-in">
+                <h1 class="text-3xl font-black text-[var(--brand-text)] mb-2">
+                    <span class="lang-es">Galería de Estilos</span>
+                    <span class="lang-en hidden-lang">Style Gallery</span>
+                </h1>
+                <p class="text-[var(--brand-text-muted)] mb-8">
+                    <span class="lang-es">20 estilos de interfaz históricos + La Obra Maestra Neural</span>
+                    <span class="lang-en hidden-lang">20 historical interface styles + The Neural Masterpiece</span>
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    ${SKINS.map(skin => {
+                        const isActive = currentSkin === skin.id;
+                        const isMasterpiece = skin.isMasterpiece;
+                        
+                        return `
+                            <div 
+                                onclick="window.SkinSystem.apply('${skin.id}')"
+                                class="group relative bg-[var(--brand-card)] border-2 rounded-2xl p-6 cursor-pointer transition-all hover:scale-105 ${
+                                    isActive 
+                                        ? 'border-[rgb(var(--brand-blue-rgb))] shadow-lg shadow-[rgb(var(--brand-blue-rgb))]/20' 
+                                        : 'border-[var(--brand-border)] hover:border-[rgb(var(--brand-blue-rgb))]/50'
+                                } ${isMasterpiece ? 'ring-4 ring-yellow-400/50' : ''}">
+                                
+                                ${isMasterpiece ? '<div class="absolute -top-3 -right-3 bg-yellow-400 text-black text-xs font-black px-3 py-1 rounded-full">✨ MASTERPIECE</div>' : ''}
+                                
+                                <div class="flex items-center gap-3 mb-4">
+                                    <div class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${skin.animation}" 
+                                         style="background: linear-gradient(135deg, ${skin.colors[0]}, ${skin.colors[2]});">
+                                        <i class="fa-solid fa-${skin.icon} text-white"></i>
+                                    </div>
+                                    ${isActive ? '<i class="fa-solid fa-check text-[rgb(var(--brand-blue-rgb))] text-xl"></i>' : ''}
+                                </div>
+                                
+                                <h3 class="font-bold text-[var(--brand-text)] mb-2">
+                                    <span class="lang-es">${skin.nameEs}</span>
+                                    <span class="lang-en hidden-lang">${skin.name}</span>
+                                </h3>
+                                
+                                <div class="flex gap-1">
+                                    ${skin.colors.map(color => `
+                                        <div class="w-8 h-8 rounded-lg border border-[var(--brand-border)]" style="background-color: ${color};"></div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     // ===== PUBLIC API =====
-    window.NCLEX_SKINS = {
-        all: SKINS,
-        masterpiece: SKINS.find(s => s.isMasterpiece),
+    window.SkinSystem = {
+        SKINS: SKINS,
         apply: applySkin,
         current: () => {
             const currentClass = Array.from(document.body.classList)
                 .find(c => c.startsWith('skin-'));
             return currentClass ? currentClass.replace('skin-', '') : null;
-        }
+        },
+        renderSkinSelector: renderSkinSelector
     };
+
+    // Backward compatibility
+    window.NCLEX_SKINS = window.SkinSystem;
 
     // Auto-initialize
     if (document.readyState === 'loading') {
@@ -778,4 +642,6 @@
     } else {
         initSkins();
     }
+    
+    console.log('🎨 Skin System loaded - 20 skins available');
 })();
