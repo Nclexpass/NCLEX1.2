@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN 3.5.0) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN 3.5.1) */
 
 (function () {
     'use strict';
@@ -34,7 +34,6 @@
         scrollPositions: {},
         updateQueue: [],
         lastUpdate: 0,
-        // Nuevos campos para racha
         streak: 0,
         lastVisit: null
     };
@@ -54,7 +53,6 @@
         state.currentTheme = safeStorageGet('nclex_theme', 'dark');
         state.currentLang = safeStorageGet('nclex_lang', 'es');
 
-        // Cargar racha
         try {
             const streakData = JSON.parse(localStorage.getItem('nclex_streak') || '{}');
             state.streak = streakData.streak || 0;
@@ -83,13 +81,11 @@
         }
     }
 
-    // Actualizar racha al iniciar sesión/cargar app
     function updateStreak() {
         const today = new Date();
         today.setHours(0,0,0,0);
         
         if (!state.lastVisit) {
-            // Primera visita
             state.streak = 1;
         } else {
             const last = new Date(state.lastVisit);
@@ -97,12 +93,10 @@
             const diffDays = Math.floor((today - last) / (1000 * 60 * 60 * 24));
             
             if (diffDays === 0) {
-                // Mismo día, no cambia
+                // mismo día, no cambia
             } else if (diffDays === 1) {
-                // Día consecutivo
                 state.streak += 1;
             } else if (diffDays > 1) {
-                // Se rompió la racha
                 state.streak = 1;
             }
         }
@@ -297,7 +291,6 @@
         const completed = state.completedTopics.length;
         const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
   
-        // Mensaje motivacional según porcentaje
         let motivationalMessage = '';
         if (percent === 0) motivationalMessage = t('¡Empieza hoy! Cada paso cuenta.', 'Start today! Every step counts.');
         else if (percent < 25) motivationalMessage = t('Buen comienzo. Sigue así.', 'Great start. Keep going.');
@@ -306,15 +299,10 @@
         else if (percent < 100) motivationalMessage = t('Casi listo para el examen.', 'Almost ready for the exam.');
         else motivationalMessage = t('¡Completaste todo! Eres un maestro.', 'You completed everything! You\'re a master.');
 
-        // Obtener temas no completados (para recomendaciones)
         const incompleteTopics = state.topics.filter(t => !state.completedTopics.includes(t.id));
-        // Tomar los primeros 3 (por orden)
         const nextTopics = incompleteTopics.slice(0, 3);
 
-        // Número de skins disponibles (desde SkinSystem)
         const skinCount = window.SkinSystem?.SKINS?.length || 18;
-
-        // Obtener color primario del skin actual para los gradientes
         const primaryColor = `rgb(var(--brand-blue-rgb))`;
 
         return `
@@ -505,6 +493,8 @@
         setTimeout(() => {
             try {
                 let content = '';
+                // Definir el color primario para usar en los botones de error
+                const brandBlueRgb = 'rgb(var(--brand-blue-rgb))';
                 
                 if (route === 'home') {
                     content = renderHome();
@@ -527,7 +517,7 @@
                                     <p class="text-[var(--brand-text-muted)] mb-4">The topic "${topicId}" doesn't exist or hasn't loaded yet.</p>
                                     <button onclick="window.nclexApp.navigate('home')" 
                                         class="px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                                        style="background-color: ${primaryColor};">
+                                        style="background-color: ${brandBlueRgb};">
                                         Back to Home
                                     </button>
                                 </div>
@@ -539,7 +529,8 @@
                             <div class="flex justify-end mb-6">
                                 <button 
                                     onclick="window.nclexApp.toggleTopicComplete('${topicId}')"
-                                    class="px-6 py-3 rounded-xl font-bold text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg ${isCompleted ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}">
+                                    class="px-6 py-3 rounded-xl font-bold text-white transition-all transform hover:scale-105 active:scale-95 shadow-lg ${isCompleted ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}"
+                                    style="background-color: ${isCompleted ? '' : brandBlueRgb};">
                                     <span class="lang-es">${isCompleted ? '✓ Completado' : 'Marcar como completado'}</span>
                                     <span class="lang-en hidden-lang">${isCompleted ? '✓ Completed' : 'Mark as completed'}</span>
                                 </button>
@@ -555,7 +546,7 @@
                                 <p class="text-[var(--brand-text-muted)] mb-4">The topic "${topicId}" doesn't exist or hasn't loaded yet.</p>
                                 <button onclick="window.nclexApp.navigate('home')" 
                                     class="px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                                    style="background-color: rgb(var(--brand-blue-rgb));">
+                                    style="background-color: ${brandBlueRgb};">
                                     Back to Home
                                 </button>
                             </div>
@@ -579,7 +570,7 @@
                             <p class="text-[var(--brand-text-muted)] mb-4">The "${route}" module is loading or not available.</p>
                             <button onclick="window.nclexApp.navigate('home')" 
                                 class="px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                                style="background-color: rgb(var(--brand-blue-rgb));">
+                                style="background-color: ${brandBlueRgb};">
                                 Back to Home
                             </button>
                         </div>
@@ -676,7 +667,7 @@
         console.log(`🚀 NCLEX App v${v} initializing...`);
         
         loadPersistedState();
-        updateStreak(); // Actualizar racha al iniciar
+        updateStreak();
         
         applyTheme();
         applyLanguageGlobal();
@@ -718,7 +709,6 @@
     window.applyGlobalLanguage = applyLanguageGlobal;
     window.safeStorageGet = safeStorageGet;
     window.safeStorageSet = safeStorageSet;
-    // Helper para traducción en otros módulos
     window.t = (es, en) => state.currentLang === 'es' ? es : en;
 
     if (document.readyState === 'loading') {
