@@ -1,7 +1,12 @@
-// sw.js — Service Worker para NCLEX Masterclass (VERSIÓN 4.0 - SYSTEM UPGRADE)
+// sw.js — Service Worker para NCLEX Masterclass (VERSIÓN 3.1)
 // Estrategia: Cache First, luego Network con actualización en background
+//
+// FIX CRÍTICO (Firebase):
+// - Evitar servir versiones viejas de /js/auth.js (Network First)
+// - Evitar cachear SDK de Firebase desde gstatic (bypass / no cache)
+// - Bump de versión de caches para forzar refresh
 
-const CACHE_NAME = 'nclex-v4'; // <--- CAMBIO CRÍTICO: Fuerza a los navegadores a borrar la v3
+const CACHE_NAME = 'nclex-v4';
 const STATIC_CACHE = 'nclex-static-v4';
 const DYNAMIC_CACHE = 'nclex-dynamic-v4';
 
@@ -9,8 +14,8 @@ const DYNAMIC_CACHE = 'nclex-dynamic-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/js/auth.js', // ✅ IMPORTANTE: aseguramos disponibilidad del auth en el shell
   '/js/utils.js',
-  '/js/auth.js', // <--- AGREGADO: Vital para el login
   '/js/logic.js',
   '/js/skins.js',
   '/js/31_search_service.js',
@@ -23,25 +28,22 @@ const STATIC_ASSETS = [
 
 // Instalación: Precachear assets estáticos
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing v4 System Upgrade...');
-  self.skipWaiting(); // Forzar activación inmediata
-  
+  console.log('[SW] Installing...');
+
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then(async (cache) => {
+      .then(cache => {
         console.log('[SW] Caching static assets');
-        const results = await Promise.allSettled(STATIC_ASSETS.map(a => cache.add(a)));
-        results.forEach((r, i) => {
-          if (r.status === 'rejected') console.warn('[SW] Precaching failed:', STATIC_ASSETS[i]);
-        });
+        return cache.addAll(STATIC_ASSETS);
       })
+      .then(() => self.skipWaiting())
   );
 });
 
-// Activación: Limpiar caches viejas (v3, v2, etc.)
+// Activación: Limpiar caches viejas
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating v4 & Cleaning old caches...');
-  
+  console.log('[SW] Activating...');
+
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
@@ -52,7 +54,7 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
       );
-    }).then(() => self.clients.claim()) // Tomar control inmediato
+    }).then(() => self.clients.claim())
   );
 });
 
@@ -67,21 +69,33 @@ self.addEventListener('fetch', (event) => {
   // Ignorar analytics y tracking
   if (url.pathname.includes('analytics') || url.pathname.includes('track')) return;
 
+  // ✅ FIX Firebase: NO cachear SDK desde gstatic (evita SDK viejo/rota)
+  if (url.hostname === 'www.gstatic.com' && url.pathname.includes('/firebasejs/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // ✅ FIX Firebase: /js/auth.js SIEMPRE Network First (evita auth viejo)
+  if (url.pathname === '/js/auth.js') {
+    event.respondWith(networkFirst(request, STATIC_CACHE));
+    return;
+  }
+
   // Estrategia 1: Cache First para assets estáticos (JS, CSS, HTML)
   if (isStaticAsset(url)) {
     event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
   }
 
-  // Estrategia 2: Stale While Revalidate para imágenes y fonts
-  if (isImageOrFont(url)) {
-    event.respondWith(staleWhileRevalidate(request, DYNAMIC_CACHE));
+  // Estrategia 2: Network First para datos dinámicos (APIs)
+  if (isAPIRequest(url)) {
+    event.respondWith(networkFirst(request, DYNAMIC_CACHE));
     return;
   }
 
-  // Estrategia 3: Network First para datos dinámicos (APIs)
-  if (isAPIRequest(url)) {
-    event.respondWith(networkFirst(request, DYNAMIC_CACHE));
+  // Estrategia 3: Stale While Revalidate para imágenes y fonts
+  if (isImageOrFont(url)) {
+    event.respondWith(staleWhileRevalidate(request, DYNAMIC_CACHE));
     return;
   }
 
@@ -92,40 +106,29 @@ self.addEventListener('fetch', (event) => {
 // ===== HELPERS DE ESTRATEGIA =====
 
 function isStaticAsset(url) {
-  // catalog.json debe ser dinámico (evita congelar el catálogo)
-  if (url.pathname === '/catalog.json') return false;
   return url.pathname.match(/\.(js|css|html|json)$/) ||
          STATIC_ASSETS.includes(url.pathname);
 }
 
 function isAPIRequest(url) {
-  const host = url.hostname;
-
-  // GitHub API (library)
-  if (host === 'api.github.com') return true;
-
-  // Firebase DB / Auth endpoints
-  if (host.endsWith('firebaseio.com') || host.endsWith('firebasedatabase.app')) return true;
-
-  // Google APIs (pero NO docs viewer / no firebasestorage como "api")
-  if (host.endsWith('googleapis.com') && host !== 'firebasestorage.googleapis.com') return true;
-
-  // Rutas con /api (si tu app expone endpoints propios)
-  if (url.pathname.includes('/api')) return true;
-
-  return false;
+  return url.hostname.includes('github') ||
+         url.hostname.includes('google') ||
+         url.pathname.includes('api');
 }
 
 function isImageOrFont(url) {
-  return url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|otf)$/);
+  return url.pathname.match(/\.(png|jpg|jpeg|gif|svg|woff|woff2|ttf)$/);
 }
 
 // Cache First: Sirve del cache, si no existe va a network
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
-  
-  if (cached) return cached;
+
+  if (cached) {
+    console.log('[SW] Cache hit:', request.url);
+    return cached;
+  }
 
   try {
     const response = await fetch(request);
@@ -134,6 +137,8 @@ async function cacheFirst(request, cacheName) {
     }
     return response;
   } catch (error) {
+    console.error('[SW] Fetch failed:', error);
+    // Fallback para navegación
     if (request.mode === 'navigate') {
       return cache.match('/index.html');
     }
@@ -144,27 +149,23 @@ async function cacheFirst(request, cacheName) {
 // Network First: Intenta network, fallback a cache
 async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
-  
+
   try {
     const networkResponse = await fetch(request);
-    if (networkResponse.ok) {
+    if (networkResponse && networkResponse.ok) {
       cache.put(request, networkResponse.clone());
     }
     return networkResponse;
   } catch (error) {
+    console.log('[SW] Network failed, trying cache:', request.url);
     const cached = await cache.match(request);
     if (cached) return cached;
 
-    // Solo devolver JSON si el cliente lo espera (evita romper PDFs/HTML/otros)
-    const accept = (request.headers && request.headers.get('accept')) ? request.headers.get('accept') : '';
-    if (accept && accept.includes('application/json')) {
-      return new Response(
-        JSON.stringify({ offline: true, error: 'No connection' }),
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    return Response.error();
+    // Respuesta offline para APIs
+    return new Response(
+      JSON.stringify({ offline: true, error: 'No connection' }),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
@@ -174,16 +175,16 @@ async function staleWhileRevalidate(request, cacheName) {
   const cached = await cache.match(request);
 
   const fetchPromise = fetch(request).then(response => {
-    if (response.ok) {
+    if (response && response.ok) {
       cache.put(request, response.clone());
     }
     return response;
-  }).catch(() => cached || Response.error());
+  }).catch(() => cached);
 
   return cached || fetchPromise;
 }
 
-// Network with Cache Fallback
+// Network with Cache Fallback: Intenta network, si falla usa cache
 async function networkWithCacheFallback(request) {
   try {
     return await fetch(request);
@@ -191,10 +192,52 @@ async function networkWithCacheFallback(request) {
     const cache = await caches.open(DYNAMIC_CACHE);
     const cached = await cache.match(request);
     if (cached) return cached;
-    return Response.error();
+    throw error;
   }
 }
 
+// ===== MENSAJES DESDE LA APP =====
+
 self.addEventListener('message', (event) => {
-  if (event.data === 'skipWaiting') self.skipWaiting();
+  // Compatibilidad: string simple
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
+  }
+
+  // Compatibilidad: payload estructurado
+  if (event.data && event.data.type === 'skipWaiting') {
+    self.skipWaiting();
+  }
+
+  if (event.data === 'getVersion') {
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage(CACHE_NAME);
+    }
+  }
+});
+
+// ===== SYNC EN BACKGROUND (para cuando vuelva la conexión) =====
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-quiz-results') {
+    event.waitUntil(syncQuizResults());
+  }
+});
+
+async function syncQuizResults() {
+  // Sincronizar resultados de quizzes pendientes
+  console.log('[SW] Syncing quiz results...');
+}
+
+// ===== PUSH NOTIFICATIONS (preparado para futuro) =====
+
+self.addEventListener('push', (event) => {
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/badge-72.png'
+    })
+  );
 });

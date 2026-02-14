@@ -1,18 +1,22 @@
 name: Deploy a NCLEX by Rey
 
 on:
-  push:
-    branches: [ "main" ]
+  pus:contentReference[oaicite:2]{index=2}in" ]
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy_hosting:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: 📥 Descargar Código
+        uses: actions/checkout@v4
+
+      - name: 🚀 Subir a Firebase
+        uses: w9jds/firebase-action@v15.5.1
         with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.NUEVO_FIREBASE_KEY }}'
-          projectId: 'nclexbyrey'
-          channelId: 'live'
+          args: deploy --only hosting
+        env:
+          # Aquí usamos la llave NUEVA que guardaste en Secrets (del proyecto nclex-masterclass)
+          GCP_SA_KEY: ${{ secrets.NUEVO_FIREBASE_KEY }}
+          # Proyecto CORRECTO
+          PROJECT_ID: nclex-masterclass

@@ -1,14 +1,5 @@
 {
   "projects": {
-    "default": "nclexbyrey"
-  },
-  "targets": {
-    "nclexbyrey": {
-      "hosting": {
-        "prod": [
-          "nclexbyrey"
-        ]
-      }
-    }
+    "default": "nclex-masterclass"
   }
 }
