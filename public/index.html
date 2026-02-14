@@ -38,7 +38,6 @@
     </script>
     
     <style>
-        /* ===== VARIABLES CSS GLOBALES - SISTEMA UNIFICADO ===== */
         :root {
             --brand-blue-rgb: 0, 122, 255;
             --brand-bg: #F5F5F7;
@@ -51,7 +50,6 @@
             --brand-text-muted: #64748B;
         }
 
-        /* Modo oscuro base - SIEMPRE después de :root */
         .dark {
             --brand-bg: #0F0F11;
             --brand-dark: #FFFFFF;
@@ -63,231 +61,164 @@
             --brand-text-muted: #94A3B8;
         }
 
-        /* ===== SKINS ===== */
         .skin-ocean { --brand-blue-rgb: 10, 132, 255; --brand-bg: #E9F2FA; --brand-dark: #001B36; --brand-border: #B8D4E3; }
         .dark.skin-ocean { --brand-bg: #001B36; --brand-card: #0A2E4A; --brand-border: #2C5F7A; --brand-sidebar: #0A1929; }
-
         .skin-forest { --brand-blue-rgb: 44, 110, 73; --brand-bg: #F4F9F4; --brand-dark: #1A2E1A; --brand-border: #D0DFD0; }
         .dark.skin-forest { --brand-bg: #1A2E1A; --brand-card: #253725; --brand-border: #3A543A; --brand-sidebar: #1F2F1F; }
-
         .skin-lavender { --brand-blue-rgb: 155, 135, 248; --brand-bg: #F8F7FF; --brand-dark: #2D2B55; --brand-border: #D6D0F0; }
         .dark.skin-lavender { --brand-bg: #2D2B55; --brand-card: #3A3866; --brand-border: #524F7A; --brand-sidebar: #2A2850; }
-
         .skin-midnight { --brand-blue-rgb: 255, 179, 71; --brand-bg: #F5F3F0; --brand-dark: #121212; --brand-border: #E0DCD0; }
         .dark.skin-midnight { --brand-bg: #0A0A0A; --brand-card: #141414; --brand-border: #2A2A2A; --brand-sidebar: #0F0F0F; --brand-blue-rgb: 255, 149, 0; }
 
-        /* ===== UTILIDADES ===== */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .hidden-lang { display: none !important; }
-        
-        /* Animaciones */
         @keyframes slideIn { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         .animate-slide-in { animation: slideIn 0.3s ease-out; }
-        
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-        
-        /* ===== ESTILOS GENERALES ===== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; overflow: hidden; }
         body { background-color: var(--brand-bg); color: var(--brand-text); transition: background-color 0.3s, color 0.3s; }
-        
         #app { display: flex; height: 100vh; }
-        
-        #sidebar {
-            background-color: var(--brand-sidebar);
-            border-right: 1px solid var(--brand-sidebar-border);
-            transition: all 0.3s;
-        }
-        
+        #sidebar { background-color: var(--brand-sidebar); border-right: 1px solid var(--brand-sidebar-border); transition: all 0.3s; }
         #main-content { background-color: var(--brand-bg); }
-        
-        #app-view {
-            opacity: 1;
-            transform: translateY(0);
-            transition: opacity 0.2s ease-out, transform 0.2s ease-out;
-        }
-        
-        /* Botones de navegación */
-        .nav-btn {
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .nav-btn.active {
-            background-color: rgba(var(--brand-blue-rgb), 0.1);
-            font-weight: 700;
-        }
-        
-        .nav-btn:hover {
-            background-color: rgba(var(--brand-blue-rgb), 0.05);
-        }
-        
-        /* Scroll personalizado */
+        #app-view { opacity: 1; transform: translateY(0); transition: opacity 0.2s ease-out, transform 0.2s ease-out; }
+        .nav-btn { position: relative; overflow: hidden; }
+        .nav-btn.active { background-color: rgba(var(--brand-blue-rgb), 0.1); font-weight: 700; }
+        .nav-btn:hover { background-color: rgba(var(--brand-blue-rgb), 0.05); }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--brand-border); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--brand-text-muted); }
-        
-        /* Loading animation */
-        .loading-spinner {
-            border: 3px solid var(--brand-border);
-            border-top-color: rgb(var(--brand-blue-rgb));
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 0.8s linear infinite;
-        }
-        
+        .loading-spinner { border: 3px solid var(--brand-border); border-top-color: rgb(var(--brand-blue-rgb)); border-radius: 50%; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* Responsive */
         @media (max-width: 1024px) {
-            #sidebar { transform: translateX(-100%); position: fixed; z-index: 50; height: 100%; }
-            #sidebar.open { transform: translateX(0); }
+            #sidebar { transform: translateX(-100%); position: fixed; z-index: 50; height: 100%; width: 280px; }
+            #sidebar.mobile-open { transform: translateX(0); }
         }
     </style>
 </head>
 <body>
-    <!-- App Container -->
     <div id="app">
-        
-        <!-- Sidebar -->
-        <aside id="sidebar" class="w-72 flex flex-col h-screen">
-            
-            <!-- Header -->
-            <div class="p-6 border-b border-[var(--brand-sidebar-border)]">
-                <div class="flex items-center justify-between mb-4">
+        <aside id="sidebar" class="w-[280px] lg:w-72 flex flex-col h-screen">
+            <div class="p-5 border-b border-[var(--brand-sidebar-border)]">
+                <div class="flex items-center justify-between mb-3">
                     <h1 class="text-xl font-black tracking-tight text-[var(--brand-text)]">NCLEX</h1>
-                    <button id="close-sidebar" class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--brand-border)] transition-colors">
+                    <button id="mobile-close-sidebar" class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--brand-bg)] transition-colors">
                         <i class="fa-solid fa-xmark text-[var(--brand-text)]"></i>
                     </button>
                 </div>
-                
-                <!-- Search -->
                 <div class="relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[var(--brand-text-muted)]"></i>
-                    <input 
-                        type="text" 
-                        id="global-search" 
-                        placeholder="Search topics..."
-                        class="w-full bg-[var(--brand-bg)] border border-[var(--brand-border)] rounded-xl pl-10 pr-4 py-2 text-sm text-[var(--brand-text)] placeholder-[var(--brand-text-muted)] outline-none focus:border-[rgb(var(--brand-blue-rgb))] transition-colors">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[var(--brand-text-muted)] text-sm"></i>
+                    <input type="text" id="global-search" placeholder="Search topics..." class="w-full bg-[var(--brand-bg)] border border-[var(--brand-border)] rounded-xl pl-9 pr-3 py-2 text-sm text-[var(--brand-text)] placeholder-[var(--brand-text-muted)] outline-none focus:border-[rgb(var(--brand-blue-rgb))] transition-colors">
                     <div id="sidebar-search-results" class="absolute top-full left-0 right-0 mt-2 bg-[var(--brand-card)] border border-[var(--brand-border)] rounded-xl shadow-xl max-h-96 overflow-y-auto hidden z-50"></div>
                 </div>
             </div>
-            
-            <!-- Navigation -->
-            <nav id="sidebar-nav" class="flex-1 overflow-y-auto p-4 space-y-1 no-scrollbar">
-                <!-- Populated by logic.js -->
-            </nav>
-            
-            <!-- Footer Controls -->
-            <div class="p-4 border-t border-[var(--brand-sidebar-border)] space-y-2">
-                <button 
-                    onclick="window.nclexApp?.toggleTheme()" 
-                    class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--brand-bg)] transition-colors text-[var(--brand-text-muted)] text-sm font-bold">
-                    <i class="fa-solid fa-moon w-6 text-center"></i>
-                    <span class="hidden lg:block">Theme</span>
+            <nav id="sidebar-nav" class="flex-1 overflow-y-auto p-3 space-y-1 no-scrollbar"></nav>
+            <div class="p-3 border-t border-[var(--brand-sidebar-border)] space-y-2">
+                <button id="notepad-sidebar-btn" onclick="window.BNotepad?.toggle()" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl border text-sm font-bold transition-colors bg-[var(--brand-card)] border-[var(--brand-border)] text-[var(--brand-text)] hover:bg-[var(--brand-bg)]">
+                    <i class="fa-solid fa-note-sticky text-lg" style="color: rgb(var(--brand-blue-rgb));"></i>
+                    <span class="hidden lg:inline lang-es">Notas</span>
+                    <span class="hidden lg:inline lang-en hidden-lang">Notes</span>
                 </button>
-                <button 
-                    onclick="window.nclexApp?.toggleLanguage()" 
-                    class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--brand-bg)] transition-colors text-[var(--brand-text-muted)] text-sm font-bold">
-                    <i class="fa-solid fa-language w-6 text-center"></i>
-                    <span class="hidden lg:block lang-es">English</span>
-                    <span class="hidden lg:block lang-en hidden-lang">Español</span>
+                <button onclick="window.nclexApp?.navigate('skins')" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl border text-sm font-bold transition-colors bg-[var(--brand-card)] border-[var(--brand-border)] text-[var(--brand-text)] hover:bg-[var(--brand-bg)]">
+                    <i class="fa-solid fa-palette text-lg" style="color: rgb(var(--brand-blue-rgb));"></i>
+                    <span class="hidden lg:inline">Skins</span>
                 </button>
-                <button 
-                    onclick="window.NCLEX_AUTH?.logout()" 
-                    class="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-500 text-sm font-bold">
-                    <i class="fa-solid fa-right-from-bracket w-6 text-center"></i>
-                    <span class="hidden lg:block">Logout</span>
+                <button onclick="window.nclexApp?.toggleLanguage()" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform text-white" style="background-color: rgb(var(--brand-blue-rgb));">
+                    <i class="fa-solid fa-language text-lg"></i>
+                    <span class="hidden lg:inline text-sm">EN / ES</span>
+                </button>
+                <button onclick="window.nclexApp.toggleTheme()" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl border text-sm font-bold transition-colors bg-[var(--brand-card)] border-[var(--brand-border)] text-[var(--brand-text)] hover:bg-[var(--brand-bg)]">
+                    <i class="fa-solid fa-circle-half-stroke text-lg" style="color: rgb(var(--brand-blue-rgb));"></i>
+                    <span class="hidden lg:inline lang-es">Tema</span>
+                    <span class="hidden lg:inline lang-en hidden-lang">Theme</span>
+                </button>
+                <button onclick="window.NCLEX_AUTH.logout()" class="w-full flex items-center justify-center gap-3 p-3 rounded-xl border text-sm font-bold transition-colors bg-red-50 border-red-100 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-900 dark:text-red-400">
+                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                    <span class="hidden lg:inline lang-es">Salir</span>
+                    <span class="hidden lg:inline lang-en hidden-lang">Logout</span>
                 </button>
             </div>
         </aside>
-        
-        <!-- Main Content -->
         <main id="main-content" role="main" class="flex-1 relative overflow-y-auto h-screen scroll-smooth transition-colors duration-300">
             <div id="app-view" class="p-6 lg:p-12 max-w-7xl mx-auto pb-32 min-h-screen"></div>
-            
-            <!-- Mobile Menu Button -->
-            <button id="open-sidebar" 
-                class="lg:hidden fixed bottom-6 left-6 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center z-40 transition-transform hover:scale-110 active:scale-95"
-                style="background-color: rgb(var(--brand-blue-rgb));">
-                <i class="fa-solid fa-bars text-white text-xl"></i>
-            </button>
-            
-            <!-- Back to Top -->
-            <button id="back-to-top" onclick="window.scrollToTop()" 
-                class="hidden fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl items-center justify-center z-40 transition-all hover:scale-110 active:scale-95"
-                style="background-color: rgb(var(--brand-blue-rgb));">
-                <i class="fa-solid fa-arrow-up text-white text-xl"></i>
-            </button>
+            <footer class="text-center py-6 text-xs text-[var(--brand-text-muted)] border-t border-[var(--brand-border)] mt-auto">
+                <span class="lang-es">created by Reynier Diaz Gerones</span>
+                <span class="lang-en hidden-lang">created by Reynier Diaz Gerones</span>
+            </footer>
         </main>
+        <button id="back-to-top" onclick="window.scrollToTop()" class="hidden fixed bottom-8 right-7 w-12 h-12 rounded-full shadow-lg z-[40] items-center justify-center text-white transition-all hover:scale-110 active:scale-95" style="background-color: rgb(var(--brand-blue-rgb));">
+            <i class="fa-solid fa-arrow-up text-lg"></i>
+        </button>
+        <button id="mobile-menu-btn" class="lg:hidden fixed bottom-6 left-6 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center z-40 transition-transform hover:scale-110 active:scale-95 text-white" style="background-color: rgb(var(--brand-blue-rgb));">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
     </div>
 
-    <!-- Core Utilities (Must load FIRST) -->
-    <script src="js/utils.js"></script>
-    <script src="js/skins.js"></script>
+    <script src="js/utils.js?v=3.0"></script>
+    <script src="js/logic.js?v=3.0"></script>
+    <script src="js/skins.js?v=3.0"></script>
+    <script src="js/31_search_service.js?v=3.0"></script>
+    <script src="js/32_analytics_dashboard.js?v=3.0"></script>
+    <script src="js/17_bnotepad.js?v=3.2"></script>
+    <script src="js/premium_books_library.js?v=3.1"></script>
+    <script src="js/simulator.js?v=3.0"></script>
+    <script src="js/ngn_engine.js?v=3.0"></script>
     
-    <!-- Core Logic (Must load BEFORE clinical modules - defines window.NCLEX) -->
-    <script src="js/logic.js"></script>
-    
-    <!-- Auth System (ES6 Module - Firebase loaded internally) -->
-    <script type="module" src="js/auth.js"></script>
-    
-    <!-- Clinical Modules (Now NCLEX is defined) -->
-    <script src="js/01_newborn.js"></script>
-    <script src="js/02_maternity.js"></script>
-    <script src="js/03_pediatrics_growth_development.js"></script>
-    <script src="js/04_med_surg_adult.js"></script>
-    <script src="js/05_cardiovascular.js"></script>
-    <script src="js/06_respiratory.js"></script>
-    <script src="js/07_pharmacology.js"></script>
-    <script src="js/08_endocrine.js"></script>
-    <script src="js/09_mental_health.js"></script>
-    <script src="js/10_neurological.js"></script>
-    <script src="js/11_musculoskeletal.js"></script>
-    <script src="js/12_fundamentals.js"></script>
-    <script src="js/13_hematology_oncology.js"></script>
-    <script src="js/14_gastrointestinal.js"></script>
-    <script src="js/15_genitourinary_renal.js"></script>
-    <script src="js/16_labs_values.js"></script>
-    <script src="js/17_bnotepad.js"></script>
-    <script src="js/18_leadership_management.js"></script>
-    <script src="js/19_prioritization_delegation.js"></script>
-    <script src="js/20_reproductive_women.js"></script>
-    <script src="js/21_infectious_immune.js"></script>
-    <script src="js/22_emergency_critical.js"></script>
-    <script src="js/23_fluids_electrolytes.js"></script>
-    <script src="js/24_clinical_nutrition.js"></script>
-    <script src="js/25_perioperative_care.js"></script>
-    <script src="js/26_high_risk_pharm.js"></script>
-    <script src="js/27_critical_thinking_ngn.js"></script>
-    <script src="js/28_ethics_legal.js"></script>
-    <script src="js/29_cultural_rationales.js"></script>
-    <script src="js/30_common_student_errors.js"></script>
-    
-    <!-- Additional Features -->
-    <script src="js/31_search_service.js"></script>
-    <script src="js/32_analytics_dashboard.js"></script>
-    <script src="js/premium_books_library.js"></script>
-    <script src="js/simulator.js"></script>
-    <script src="js/ngn_engine.js"></script>
+    <script defer src="js/01_newborn.js?v=3.0"></script>
+    <script defer src="js/02_maternity.js?v=3.0"></script>
+    <script defer src="js/03_pediatrics_growth_development.js?v=3.0"></script>
+    <script defer src="js/04_med_surg_adult.js?v=3.0"></script>
+    <script defer src="js/05_cardiovascular.js?v=3.0"></script>
+    <script defer src="js/06_respiratory.js?v=3.0"></script>
+    <script defer src="js/07_pharmacology.js?v=3.0"></script>
+    <script defer src="js/08_endocrine.js?v=3.0"></script>
+    <script defer src="js/09_mental_health.js?v=3.0"></script>
+    <script defer src="js/10_neurological.js?v=3.0"></script>
+    <script defer src="js/11_musculoskeletal.js?v=3.0"></script>
+    <script defer src="js/12_fundamentals.js?v=3.0"></script>
+    <script defer src="js/13_hematology_oncology.js?v=3.0"></script>
+    <script defer src="js/14_gastrointestinal.js?v=3.0"></script>
+    <script defer src="js/15_integumentary_burns.js?v=3.0"></script>
+    <script defer src="js/16_labs_values.js?v=3.0"></script>
+    <script defer src="js/18_leadership_management.js?v=3.0"></script>
+    <script defer src="js/19_prioritization_delegation.js?v=3.0"></script>
+    <script defer src="js/20_renal_genitourinary.js?v=3.0"></script>
+    <script defer src="js/21_infectious_immune.js?v=3.0"></script>
+    <script defer src="js/22_emergency_critical.js?v=3.0"></script>
+    <script defer src="js/23_fluids_electrolytes.js?v=3.0"></script>
+    <script defer src="js/24_clinical_nutrition.js?v=3.0"></script>
+    <script defer src="js/25_perioperative_care.js?v=3.0"></script>
+    <script defer src="js/26_high_risk_pharm.js?v=3.0"></script>
+    <script defer src="js/27_critical_thinking_ngn.js?v=3.0"></script>
+    <script defer src="js/28_ethics_legal.js?v=3.0"></script>
+    <script defer src="js/29_negative_rationales.js?v=3.0"></script>
+    <script defer src="js/30_common_student_errors.js?v=3.0"></script>
 
-    <!-- Mobile Sidebar Toggle -->
+    <script type="module" src="js/auth.js?v=3.0"></script>
+
     <script>
-        document.getElementById('open-sidebar')?.addEventListener('click', () => {
-            document.getElementById('sidebar').classList.add('open');
-        });
-        document.getElementById('close-sidebar')?.addEventListener('click', () => {
-            document.getElementById('sidebar').classList.remove('open');
-        });
-        
-        // Close sidebar when clicking navigation
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.nav-btn')) {
-                document.getElementById('sidebar').classList.remove('open');
-            }
-        });
+        (function() {
+            'use strict';
+            window.NCLEX_VERSION = '3.1.0';
+            window.__nclexReady = false;
+            window.hideLoader = function() {
+                const loader = document.getElementById('loading');
+                if (loader && !window.__nclexReady) {
+                    window.__nclexReady = true;
+                    loader.style.opacity = '0';
+                    setTimeout(() => { loader.classList.add('hidden'); loader.style.display = 'none'; }, 500);
+                }
+            };
+            setTimeout(window.hideLoader, 5000);
+            document.addEventListener('nclex:ready', window.hideLoader);
+            const mobileBtn = document.getElementById('mobile-menu-btn');
+            const sidebar = document.getElementById('sidebar');
+            const closeBtn = document.getElementById('mobile-close-sidebar');
+            if (mobileBtn) { mobileBtn.addEventListener('click', () => { sidebar?.classList.add('mobile-open'); }); }
+            if (closeBtn) { closeBtn.addEventListener('click', () => { sidebar?.classList.remove('mobile-open'); }); }
+            document.addEventListener('click', (e) => { if (e.target.closest('.nav-btn')) { sidebar?.classList.remove('mobile-open'); } });
+        })();
     </script>
 </body>
 </html>
