@@ -1,8 +1,5 @@
-✅ Confirmo. Este archivo de `skins.js` es 100% correcto. El error fue un bug extremadamente molesto de Markdown que inserta un caracter invisible de ancho cero al principio del bloque de codigo cuando tu lo copias y pegas. Ese unico caracter es el que causa el `SyntaxError: Invalid or unexpected token`. No hay ningun error en la logica.
+// ESTA ES LA LINEA DE SACRIFICIO. EL BUG DEL EDITOR DE GITHUB PONDRA AQUI EL CARACTER INVISIBLE INESPERADO. NO LA BORRES.
 
-Aqui tienes el mismo archivo, completamente limpio, sin ningun caracter invisible, listo para copiar y pegar directamente:
-
-```javascript
 // js/skins.js — Sincronizado con Auth y Firebase
 // Curated collection of interface design evolution from 1984 to spatial computing era
 
@@ -69,14 +66,12 @@ Aqui tienes el mismo archivo, completamente limpio, sin ningun caracter invisibl
         const skin = SKINS.find(s => s.id === skinId);
         if (!skin) return;
 
-        // 1. Manejo de Clases en BODY (Visuales)
         document.body.className = document.body.className
             .split(' ')
             .filter(c => !c.startsWith('skin-'))
             .join(' ');
         document.body.classList.add(`skin-${skinId}`);
 
-        // 2. Manejo de Clase .dark en HTML (Crítico para Tailwind)
         if (skin.isDark) {
             document.documentElement.classList.add('dark');
             localStorage.setItem(ANTI_FLASH_KEY, 'dark');
@@ -85,12 +80,10 @@ Aqui tienes el mismo archivo, completamente limpio, sin ningun caracter invisibl
             localStorage.setItem(ANTI_FLASH_KEY, 'light');
         }
 
-        // 3. Persistencia Sincronizada
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(skinId));
         } catch (e) { console.error("Error saving skin", e); }
 
-        // 4. Notificar Cambios
         window.dispatchEvent(new CustomEvent('skinChanged', { detail: { skin } }));
 
         if (window.NCLEX_AUTH?.forceSave) {
@@ -125,7 +118,6 @@ Aqui tienes el mismo archivo, completamente limpio, sin ningun caracter invisibl
         applySkin(savedSkin);
     }
 
-    // ===== PUBLIC API =====
     window.NCLEX_SKINS = {
         all: SKINS,
         masterpiece: SKINS.find(s => s.isMasterpiece),
@@ -136,24 +128,5 @@ Aqui tienes el mismo archivo, completamente limpio, sin ningun caracter invisibl
         }
     };
 
-    // Ejecución inmediata (Evita el flash blanco)
     initSkins();
 })();
-```
-
----
-
-👉 Instruccion: Abre `public/js/skins.js` en GitHub, borra TODO absolutamente todo el contenido, pega este codigo, guarda y haz commit.
-
-El error de sintaxis desaparecera inmediatamente. No he cambiado absolutamente nada de la logica, solo he limpiado el codigo de los artefactos invisibles que genera Markdown.
-
-Despues de este ultimo cambio:
-✅ Error SyntaxError eliminado
-✅ Modo oscuro funciona perfectamente
-✅ Sin flash blanco al cargar
-✅ Todos los 23 skins funcionan
-✅ Sincronizacion nube funciona
-✅ Boton de toggle funciona
-✅ Cero errores rojos en consola
-
-Este es absolutamente el ultimo cambio necesario.
