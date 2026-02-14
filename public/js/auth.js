@@ -1,4 +1,4 @@
-// js/auth.js — VERSIÓN ADMINISTRADOR (Tu control total)
+// js/auth.js — VERSIÓN SEGURA SHA-256
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -19,17 +19,37 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   try {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
-      console.log("🔥 Sistema de Cuentas Activo");
+      console.log("🔥 Sistema de Cuentas Activo (Secure Mode)");
   } catch (e) {
       console.error("Error Firebase:", e);
   }
 
-  // ===== 2. TU LLAVE MAESTRA (¡CÁMBIALA AQUÍ!) =====
-  const MASTER_KEY = "Guitarra89#"; // <--- Esta es la contraseña que solo TÚ debes saber
+  // ===== 2. SEGURIDAD (HASH SHA-256) =====
+  // Hash de 'Guitarra89#'
+  const MASTER_KEY_HASH = "612245dc8a2beb47bfe2011da7402ecee514ec795d47a665fa61d43863280ce0";
   
   const STORAGE_KEY = 'nclex_user_session_v5';
-  const KEYS_TO_SYNC = ['nclex_progress', 'nclex_quiz_history', 'nclex_time_spent', 'nclex_last_visit', 'sim_selected_cats'];
+  
+  // Claves sincronizadas con la nube (Incluye ahora TEMA y NOTAS)
+  const KEYS_TO_SYNC = [
+      'nclex_progress', 
+      'nclex_quiz_history', 
+      'nclex_time_spent', 
+      'nclex_last_visit', 
+      'sim_selected_cats',
+      'nclex_theme_prefs',  // <--- Nuevo: Sincroniza Modo Claro/Oscuro
+      'nclex_user_notes'    // <--- Nuevo: Sincroniza Notas del usuario
+  ];
+  
   let autoSaveInterval = null;
+
+  // Helper para generar SHA-256
+  async function digestMessage(message) {
+      const msgUint8 = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
 
   // ===== 3. SISTEMA DE DATOS (NUBE) =====
   
@@ -42,9 +62,11 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
               KEYS_TO_SYNC.forEach(key => {
                   if (data[key]) localStorage.setItem(key, JSON.stringify(data[key]));
               });
+              // Notificar a toda la app que llegaron datos nuevos (importante para Skins y Notas)
               window.dispatchEvent(new Event('nclex:dataLoaded'));
+              console.log("☁️ Datos sincronizados desde la nube");
           }
-      } catch (e) { console.error(e); }
+      } catch (e) { console.error("Error SyncDown:", e); }
   }
 
   async function syncUp() {
@@ -56,15 +78,25 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
       
       KEYS_TO_SYNC.forEach(key => {
           const item = localStorage.getItem(key);
-          if (item) { dataToSave[key] = JSON.parse(item); hasData = true; }
+          if (item) { 
+              try {
+                  dataToSave[key] = JSON.parse(item); 
+                  hasData = true; 
+              } catch(e) { console.warn("Error parseando clave:", key); }
+          }
       });
 
-      if (hasData) await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
+      if (hasData) {
+          try {
+              await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
+              // console.log("☁️ Datos guardados en nube");
+          } catch(e) { console.error("Error SyncUp:", e); }
+      }
   }
 
   function startAutoSave() {
       if (autoSaveInterval) clearInterval(autoSaveInterval);
-      autoSaveInterval = setInterval(syncUp, 60000); // Guardar cada minuto
+      autoSaveInterval = setInterval(syncUp, 30000); // Guardar cada 30 segundos
   }
 
   // ===== 4. PANTALLA DE LOGIN / REGISTRO =====
@@ -75,10 +107,11 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
 
   function renderAuthScreen() {
     if (document.getElementById('auth-overlay')) return;
+    if (!document.body) return; // Protección contra carga prematura
 
     const overlay = document.createElement('div');
     overlay.id = 'auth-overlay';
-    overlay.className = 'fixed inset-0 z-[100] bg-[#F5F5F7] flex items-center justify-center p-4';
+    overlay.className = 'fixed inset-0 z-[9999] bg-[#F5F5F7] flex items-center justify-center p-4'; // Z-index alto
     
     overlay.innerHTML = `
       <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-fade-in">
@@ -87,7 +120,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
             <i class="fa-solid fa-user-nurse text-3xl text-white"></i>
           </div>
           <h1 class="text-2xl font-black text-gray-900">NCLEX ESSENTIALS</h1>
-          <p class="text-gray-400 text-[10px] uppercase tracking-[0.2em] font-bold">Concise Study Suite</p>
+          <p class="text-gray-400 text-[10px] uppercase tracking-[0.2em] font-bold">Secure Study Suite</p>
         </div>
 
         <div class="px-8 pb-8 space-y-4">
@@ -115,7 +148,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
             <div id="view-register" class="space-y-4 hidden">
                 <div class="p-3 bg-yellow-50 border border-yellow-100 rounded-xl flex items-center gap-3">
                     <i class="fa-solid fa-lock text-yellow-600"></i>
-                    <p class="text-xs font-bold text-yellow-800">Modo Administrador</p>
+                    <p class="text-xs font-bold text-yellow-800">Modo Administrador Seguro</p>
                 </div>
 
                 <div>
@@ -126,7 +159,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
                 </div>
                 <div>
                     <label class="text-xs font-bold text-red-400 uppercase ml-1">Clave Maestra</label>
-                    <input type="password" id="reg-master" placeholder="Tu código secreto" class="w-full bg-red-50 border border-red-100 text-red-900 rounded-xl p-3 font-bold outline-none focus:border-red-500">
+                    <input type="password" id="reg-master" placeholder="Código Secreto" class="w-full bg-red-50 border border-red-100 text-red-900 rounded-xl p-3 font-bold outline-none focus:border-red-500">
                 </div>
                 
                 <button id="btn-register" class="w-full bg-gray-900 text-white font-bold rounded-xl py-3 shadow-lg hover:bg-gray-800 transition-transform active:scale-95">
@@ -177,7 +210,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
             const docSnap = await getDoc(docRef);
 
             if (docSnap.exists() && docSnap.data().password === pass) {
-                completeLogin(user);
+                await completeLogin(user);
             } else {
                 showMsg("Usuario o contraseña incorrectos", "text-red-500");
                 document.getElementById('btn-login').innerHTML = 'Entrar';
@@ -189,16 +222,20 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
         }
     };
 
-    // --- ACCIÓN: CREAR ESTUDIANTE (ADMIN) ---
+    // --- ACCIÓN: CREAR ESTUDIANTE (CON HASH CHECK) ---
     document.getElementById('btn-register').onclick = async () => {
         const user = document.getElementById('reg-user').value.trim();
         const pass = document.getElementById('reg-pass').value.trim();
-        const master = document.getElementById('reg-master').value.trim();
+        const masterInput = document.getElementById('reg-master').value.trim();
 
         if (!user || !pass) return showMsg("Faltan datos del estudiante", "text-red-500");
+        if (!masterInput) return showMsg("Ingresa la clave maestra", "text-red-500");
+
+        // Validar Hash
+        const inputHash = await digestMessage(masterInput);
         
-        // AQUÍ SE COMPRUEBA TU CLAVE MAESTRA
-        if (master !== MASTER_KEY) {
+        if (inputHash !== MASTER_KEY_HASH) {
+            console.warn("Intento de acceso fallido con clave:", masterInput);
             return showMsg("⛔ Clave Maestra Incorrecta", "text-red-600");
         }
 
@@ -209,7 +246,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
             if (docSnap.exists()) {
                 showMsg("Este usuario ya existe", "text-orange-500");
             } else {
-                // Crear el usuario en la base de datos
+                // Crear el usuario
                 await setDoc(docRef, {
                     password: pass,
                     created: new Date().toISOString(),
@@ -218,11 +255,10 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
                 
                 showMsg("✅ Estudiante creado con éxito", "text-green-600");
                 setTimeout(() => {
-                    // Volver al login automáticamente
                     viewRegister.classList.add('hidden');
                     viewLogin.classList.remove('hidden');
                     document.getElementById('login-user').value = user;
-                    msg.innerText = "Ya puedes entrar con la cuenta nueva";
+                    msg.innerText = "Cuenta creada. Ingresa ahora.";
                 }, 1500);
             }
         } catch (e) {
@@ -241,7 +277,11 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
         localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
         await syncDown(username);
         startAutoSave();
-        document.getElementById('auth-overlay').remove();
+        const overlay = document.getElementById('auth-overlay');
+        if(overlay) overlay.remove();
+        
+        // Recargar para aplicar cambios globales si es necesario
+        // location.reload(); // Opcional, pero a veces es mejor para limpiar estados
         if(window.nclexApp && window.nclexApp.refreshUI) window.nclexApp.refreshUI();
     }
   }
@@ -250,7 +290,8 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   function init() {
     const user = checkAuth();
     if (!user) {
-      setTimeout(renderAuthScreen, 1500);
+      // Pequeño delay para asegurar carga de estilos
+      setTimeout(renderAuthScreen, 500);
     } else {
       console.log("👤 Sesión activa:", user.name);
       syncDown(user.name); 
@@ -267,7 +308,8 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
               });
           }
       },
-      forceSave: syncUp
+      forceSave: syncUp,
+      getUser: checkAuth
   };
 
   if (document.readyState === 'loading') {

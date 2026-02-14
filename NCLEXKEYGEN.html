@@ -73,7 +73,7 @@
 
         <div class="p-8">
             <h1 class="text-2xl font-black text-center mb-10 text-cyan-400 tracking-tighter uppercase italic" style="text-shadow: 0 0 15px #00d4ff;">
-                Generador de Línea 27
+                Generador de Línea 29
             </h1>
 
             <div class="paso-box p-6 mb-6">
@@ -101,7 +101,7 @@
                 <div class="p-4 bg-cyan-950/30 border border-cyan-500/30 rounded-xl">
                     <p class="text-[10px] text-cyan-300 leading-relaxed font-bold">
                         <i class="fa-solid fa-triangle-exclamation text-yellow-400 mr-2"></i>
-                        PASO 3: Ve a GitHub (public/js/auth.js), busca la <span class="text-white underline">LÍNEA 27</span>, bórrala toda y pega lo que acabas de copiar.
+                        PASO 3: Ve a GitHub (public/js/auth.js), busca la <span class="text-white underline">LÍNEA 29</span>, bórrala toda y pega lo que acabas de copiar.
                     </p>
                 </div>
             </div>
@@ -116,7 +116,6 @@
     <script>
         let audioCtx = null, isPlaying = false;
         
-        // Melodía clásica de Keygen
         function playKeygenMelody() {
             const melody = [
                 {f: 440, d: 0.2}, {f: 523, d: 0.2}, {f: 659, d: 0.2}, {f: 783, d: 0.4},
@@ -153,7 +152,6 @@
             const pass = document.getElementById('palabraSecreta').value.trim();
             if (!pass) { alert("¡Escribe algo!"); return; }
 
-            // Efecto de sonido de clic
             if(audioCtx) {
                 const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
                 o.frequency.setValueAtTime(880, audioCtx.currentTime);
@@ -165,7 +163,7 @@
             const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass));
             const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
             
-            document.getElementById('lineaFinal').innerText = `const MASTER_HASH = "${hex}";`;
+            document.getElementById('lineaFinal').innerText = `const MASTER_KEY_HASH = "${hex}";`;
             document.getElementById('seccionResultado').classList.remove('hidden');
             
             if(!isPlaying) toggleMusic();
@@ -174,7 +172,7 @@
         function copiar() {
             const texto = document.getElementById('lineaFinal').innerText;
             navigator.clipboard.writeText(texto).then(() => {
-                alert("¡Línea 27 copiada! Ve a GitHub y actualiza tu archivo.");
+                alert("¡Línea 29 copiada! Ve a GitHub y actualiza tu archivo.");
             });
         }
     </script>
