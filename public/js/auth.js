@@ -1,4 +1,4 @@
-// js/auth.js — VERSIÓN ADMINISTRADOR con SHA-256 (v3.6 FIXED)
+// js/auth.js — VERSIÓN ADMINISTRADOR con SHA-256 (v3.7 FIXED - Safe JSON Parse)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -25,7 +25,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   }
 
   // ===== 2. SEGURIDAD CON SHA-256 =====
-  // Hash de tu clave maestra (generado con SHA-256)
   const MASTER_HASH = "612245dc8a2beb47bfe2011da7402ecee514ec795d47a665fa61d43863280ce0";
   
   async function verifyMasterKey(inputKey) {
@@ -39,7 +38,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   
   const STORAGE_KEY = 'nclex_user_session_v5';
   
-  // FIX #2: Añadidos 'nclex_streak', 'nclex_theme', 'nclex_lang' para sincronización
   const KEYS_TO_SYNC = [
     'nclex_progress', 
     'nclex_quiz_history', 
@@ -54,6 +52,17 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   let autoSaveInterval = null;
 
   // ===== 3. SISTEMA DE DATOS (NUBE) =====
+  
+  // FIX: Safe JSON parse - handles both JSON strings and plain strings
+  function safeJSONParse(value) {
+      if (!value) return null;
+      try {
+          return JSON.parse(value);
+      } catch {
+          // If it's not valid JSON, return the raw value
+          return value;
+      }
+  }
   
   async function syncDown(userId) {
       if (!db || !userId) return;
@@ -78,15 +87,25 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
       
       KEYS_TO_SYNC.forEach(key => {
           const item = localStorage.getItem(key);
-          if (item) { dataToSave[key] = JSON.parse(item); hasData = true; }
+          if (item) { 
+              // FIX: Use safe parser that handles both JSON and plain strings
+              dataToSave[key] = safeJSONParse(item); 
+              hasData = true; 
+          }
       });
 
-      if (hasData) await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
+      if (hasData) {
+          try {
+              await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
+          } catch (e) {
+              console.error("Error syncing data:", e);
+          }
+      }
   }
 
   function startAutoSave() {
       if (autoSaveInterval) clearInterval(autoSaveInterval);
-      autoSaveInterval = setInterval(syncUp, 60000); // Guardar cada minuto
+      autoSaveInterval = setInterval(syncUp, 60000);
   }
 
   // ===== 4. PANTALLA DE LOGIN / REGISTRO =====
@@ -168,12 +187,10 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
     `;
     document.body.appendChild(overlay);
 
-    // LÓGICA DE INTERFAZ
     const viewLogin = document.getElementById('view-login');
     const viewRegister = document.getElementById('view-register');
     const msg = document.getElementById('auth-msg');
 
-    // Cambiar entre pantallas
     document.getElementById('toggle-register').onclick = () => {
         viewLogin.classList.add('hidden');
         viewRegister.classList.remove('hidden');
@@ -185,7 +202,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
         msg.innerText = "";
     };
 
-    // --- ACCIÓN: LOGIN ---
     async function performLogin() {
         const user = document.getElementById('login-user').value.trim();
         const pass = document.getElementById('login-pass').value.trim();
@@ -217,7 +233,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
 
     document.getElementById('btn-login').onclick = performLogin;
 
-    // FIX #3: Enter key support for login
     document.getElementById('login-user').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') performLogin();
     });
@@ -225,7 +240,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
         if (e.key === 'Enter') performLogin();
     });
 
-    // --- ACCIÓN: CREAR ESTUDIANTE (ADMIN) ---
     async function performRegister() {
         const user = document.getElementById('reg-user').value.trim();
         const pass = document.getElementById('reg-pass').value.trim();
@@ -237,7 +251,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
         btnRegister.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
         btnRegister.disabled = true;
         
-        // AQUÍ SE COMPRUEBA TU CLAVE MAESTRA con SHA-256
         const isValid = await verifyMasterKey(master);
         if (!isValid) {
             showMsg("⛔ Clave Maestra Incorrecta", "text-red-600");
@@ -255,7 +268,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
                 btnRegister.innerHTML = 'Crear Estudiante';
                 btnRegister.disabled = false;
             } else {
-                // Crear el usuario en la base de datos
                 await setDoc(docRef, {
                     password: pass,
                     created: new Date().toISOString(),
@@ -264,7 +276,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
                 
                 showMsg("✅ Estudiante creado con éxito", "text-green-600");
                 setTimeout(() => {
-                    // Volver al login automáticamente
                     viewRegister.classList.add('hidden');
                     viewLogin.classList.remove('hidden');
                     document.getElementById('login-user').value = user;
@@ -283,7 +294,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
 
     document.getElementById('btn-register').onclick = performRegister;
 
-    // FIX #3: Enter key support for registration
     document.getElementById('reg-user').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') performRegister();
     });
@@ -309,12 +319,9 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
     }
   }
 
-  // ===== INICIALIZACIÓN =====
   function init() {
     const user = checkAuth();
     if (!user) {
-      // FIX #1: Render auth screen immediately (removed 1500ms delay)
-      // Check if DOM is ready first
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', renderAuthScreen);
       } else {
@@ -339,7 +346,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
       forceSave: syncUp
   };
 
-  // FIX #1: Initialize immediately (no delay)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
