@@ -1,15 +1,16 @@
-// sw.js — Service Worker para NCLEX Masterclass (VERSIÓN 3.0)
+// sw.js — Service Worker para NCLEX Masterclass (VERSIÓN 4.0 - SYSTEM UPGRADE)
 // Estrategia: Cache First, luego Network con actualización en background
 
-const CACHE_NAME = 'nclex-v3';
-const STATIC_CACHE = 'nclex-static-v3';
-const DYNAMIC_CACHE = 'nclex-dynamic-v3';
+const CACHE_NAME = 'nclex-v4'; // <--- CAMBIO CRÍTICO: Fuerza a los navegadores a borrar la v3
+const STATIC_CACHE = 'nclex-static-v4';
+const DYNAMIC_CACHE = 'nclex-dynamic-v4';
 
 // Assets esenciales para el "shell" de la app
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/js/utils.js',
+  '/js/auth.js', // <--- AGREGADO: Vital para el login
   '/js/logic.js',
   '/js/skins.js',
   '/js/31_search_service.js',
@@ -22,7 +23,8 @@ const STATIC_ASSETS = [
 
 // Instalación: Precachear assets estáticos
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing...');
+  console.log('[SW] Installing v4 System Upgrade...');
+  self.skipWaiting(); // Forzar activación inmediata
   
   event.waitUntil(
     caches.open(STATIC_CACHE)
@@ -30,13 +32,12 @@ self.addEventListener('install', (event) => {
         console.log('[SW] Caching static assets');
         return cache.addAll(STATIC_ASSETS);
       })
-      .then(() => self.skipWaiting())
   );
 });
 
-// Activación: Limpiar caches viejas
+// Activación: Limpiar caches viejas (v3, v2, etc.)
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating...');
+  console.log('[SW] Activating v4 & Cleaning old caches...');
   
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -48,7 +49,7 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()) // Tomar control inmediato
   );
 });
 
@@ -95,7 +96,8 @@ function isStaticAsset(url) {
 function isAPIRequest(url) {
   return url.hostname.includes('github') ||
          url.hostname.includes('google') ||
-         url.pathname.includes('api');
+         url.pathname.includes('api') ||
+         url.hostname.includes('firebase');
 }
 
 function isImageOrFont(url) {
@@ -107,10 +109,7 @@ async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   
-  if (cached) {
-    console.log('[SW] Cache hit:', request.url);
-    return cached;
-  }
+  if (cached) return cached;
 
   try {
     const response = await fetch(request);
@@ -119,8 +118,6 @@ async function cacheFirst(request, cacheName) {
     }
     return response;
   } catch (error) {
-    console.error('[SW] Fetch failed:', error);
-    // Fallback para navegación
     if (request.mode === 'navigate') {
       return cache.match('/index.html');
     }
@@ -139,11 +136,9 @@ async function networkFirst(request, cacheName) {
     }
     return networkResponse;
   } catch (error) {
-    console.log('[SW] Network failed, trying cache:', request.url);
     const cached = await cache.match(request);
     if (cached) return cached;
     
-    // Respuesta offline para APIs
     return new Response(
       JSON.stringify({ offline: true, error: 'No connection' }),
       { headers: { 'Content-Type': 'application/json' } }
@@ -166,7 +161,7 @@ async function staleWhileRevalidate(request, cacheName) {
   return cached || fetchPromise;
 }
 
-// Network with Cache Fallback: Intenta network, si falla usa cache
+// Network with Cache Fallback
 async function networkWithCacheFallback(request) {
   try {
     return await fetch(request);
@@ -178,40 +173,6 @@ async function networkWithCacheFallback(request) {
   }
 }
 
-// ===== MENSAJES DESDE LA APP =====
-
 self.addEventListener('message', (event) => {
-  if (event.data === 'skipWaiting') {
-    self.skipWaiting();
-  }
-  
-  if (event.data === 'getVersion') {
-    event.ports[0].postMessage(CACHE_NAME);
-  }
-});
-
-// ===== SYNC EN BACKGROUND (para cuando vuelva la conexión) =====
-
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-quiz-results') {
-    event.waitUntil(syncQuizResults());
-  }
-});
-
-async function syncQuizResults() {
-  // Sincronizar resultados de quizzes pendientes
-  console.log('[SW] Syncing quiz results...');
-}
-
-// ===== PUSH NOTIFICATIONS (preparado para futuro) =====
-
-self.addEventListener('push', (event) => {
-  const data = event.data.json();
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icon-192.png',
-      badge: '/badge-72.png'
-    })
-  );
+  if (event.data === 'skipWaiting') self.skipWaiting();
 });

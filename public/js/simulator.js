@@ -1,57 +1,29 @@
-/* simulator.js — Motor Cloud FINAL (PROD) v3.3
-   FIXED: Escucha el evento languagechange para actualizar la interfaz al cambiar idioma
-*/
+/* simulator.js — Motor Cloud FINAL (PROD) v3.4 (Integrated Auth & Skins) */
 
 (function () {
   'use strict';
 
-  // ===== DEPENDENCIAS - FIXED =====
+  // ===== DEPENDENCIAS =====
   const U = window.NCLEXUtils || (() => {
-    console.warn('NCLEXUtils no está cargado. Cargando fallback...');
-    const fallback = {
+    // Fallback mínimo si utils.js no ha cargado
+    return {
       $: (s) => document.querySelector(s),
       $$: (s) => Array.from(document.querySelectorAll(s)),
-      storageGet: (k, d) => { 
-        try { return JSON.parse(localStorage.getItem(k)) || d; } 
-        catch { return d; } 
-      },
-      storageSet: (k, v) => { 
-        try { localStorage.setItem(k, JSON.stringify(v)); return true; } 
-        catch { return false; } 
-      },
+      storageGet: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } },
+      storageSet: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
       debounce: (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; },
       escapeHtml: (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-      format: { 
-        truncate: (t, m) => t.length > m ? t.slice(0, m) + '...' : t,
-        formatFileSize: (b) => {
-          if (!b || b === 0) return '0 B';
-          const k = 1024;
-          const sizes = ['B', 'KB', 'MB', 'GB'];
-          const i = Math.floor(Math.log(b) / Math.log(k));
-          return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-        }
-      }
+      format: { truncate: (t, m) => t.length > m ? t.slice(0, m) + '...' : t }
     };
-    window.NCLEXUtils = fallback;
-    return fallback;
   })();
 
-  const { 
-    storageGet, 
-    storageSet, 
-    debounce, 
-    $, 
-    $$, 
-    escapeHtml, 
-    format: { truncate }
-  } = U;
+  const { storageGet, storageSet, debounce, $, $$, escapeHtml } = U;
 
   // ===== CONFIGURACIÓN =====
   const CONFIG = {
     SHEET_ID: "2PACX-1vTuJc6DOuIIYv9jOERaUMa8yoo0ZFJY9BiVrvFU7Qa2VMJHGfP_i5C8RZpmXo41jg49IUjDP8lT_ze0",
-    DEBUG: false,
     STORAGE_KEYS: {
-      lang: 'lang',
+      lang: 'nclex_lang', // Sincronizado con logic.js
       selectedCats: 'sim_selected_cats',
       limit: 'sim_limit',
       font: 'sim_font'
@@ -76,20 +48,11 @@
     lastSubmitted: null,
     selectedCategories: [],
     pendingShowQuestionIndex: null,
-    // Nuevo: historial de respuestas del usuario para el informe completo
-    userAnswers: [] // cada elemento: { question, selectedOptions, isCorrect, correctOptions, rationaleEs, rationaleEn }
+    userAnswers: [] 
   };
 
-  // ===== LOGS =====
-  const log = (...a) => { if (CONFIG.DEBUG) console.log(...a); };
-  const warn = (...a) => { if (CONFIG.DEBUG) console.warn(...a); };
-  const errLog = (...a) => { console.error(...a); };
-
   // ===== HELPERS =====
-
-  function getLang() {
-    return storageGet(CONFIG.STORAGE_KEYS.lang, 'es');
-  }
+  function getLang() { return storageGet(CONFIG.STORAGE_KEYS.lang, 'es'); }
 
   function bilingual(es, en) {
     const current = getLang();
@@ -102,349 +65,143 @@
     try {
       const currentLang = getLang();
       const isEs = currentLang === 'es';
-      
       const scope = root || document;
-      const langEs = $$('.lang-es', scope);
-      const langEn = $$('.lang-en', scope);
-      
-      langEs.forEach(el => el.classList.toggle('hidden-lang', !isEs));
-      langEn.forEach(el => el.classList.toggle('hidden-lang', isEs));
-      
-      document.documentElement.lang = currentLang;
+      scope.querySelectorAll('.lang-es').forEach(el => el.classList.toggle('hidden-lang', !isEs));
+      scope.querySelectorAll('.lang-en').forEach(el => el.classList.toggle('hidden-lang', isEs));
     } catch (_) {}
   }
 
-  function normalizeKey(s) {
-    return (s || '')
-      .toString()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, '');
-  }
-
   function escapeJsString(s) {
-    return (s || '').toString()
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/\r/g, '\\r')
-      .replace(/\n/g, '\\n')
-      .replace(/\u2028/g, '\\u2028')
-      .replace(/\u2029/g, '\\u2029');
+    return (s || '').toString().replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
   }
 
   function safeRichText(input) {
-    const raw = (input || '').toString();
-    const escaped = escapeHtml(raw).replace(/\n/g, '<br>');
-
-    return escaped
-      .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
-      .replace(/&lt;(\/?)strong&gt;/gi, '<$1strong>')
-      .replace(/&lt;(\/?)b&gt;/gi, '<$1b>')
-      .replace(/&lt;(\/?)em&gt;/gi, '<$1em>')
-      .replace(/&lt;(\/?)i&gt;/gi, '<$1i>')
-      .replace(/&lt;(\/?)u&gt;/gi, '<$1u>');
+    return escapeHtml((input || '').toString()).replace(/\n/g, '<br>');
   }
 
   function isOnSimulatorRoute() {
-    const btn = $('.nav-btn[data-route="simulator"]');
-    if (!btn) return false;
-    return btn.classList.contains('active') || 
-           btn.classList.contains('text-brand-blue') || 
-           btn.classList.contains('text-white');
+    return window.nclexApp?.getCurrentRoute() === 'simulator';
   }
 
   function scrollToTop() {
-    if (typeof window.scrollToTop === 'function') {
-      window.scrollToTop();
-    } else {
-      const main = $('#main-content');
-      if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    const main = $('#main-content');
+    if (main) main.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ===== CSV PARSER (sin cambios) =====
+  // ===== CSV PARSER =====
   function parseCSV(text) {
+    // Parser simple y robusto
     const rows = [];
     let row = [];
     let field = '';
     let inQuote = false;
-
     const src = (text || '').toString().replace(/\r/g, '');
 
     for (let i = 0; i < src.length; i++) {
       const ch = src[i];
-      const nx = src[i + 1];
-
       if (inQuote) {
         if (ch === '"') {
-          if (nx === '"') { field += '"'; i++; }
+          if (src[i + 1] === '"') { field += '"'; i++; }
           else { inQuote = false; }
-        } else {
-          field += ch;
-        }
+        } else { field += ch; }
       } else {
-        if (ch === '"') {
-          inQuote = true;
-        } else if (ch === ',') {
+        if (ch === '"') { inQuote = true; }
+        else if (ch === ',') { row.push(field.trim()); field = ''; }
+        else if (ch === '\n') {
           row.push(field.trim());
-          field = '';
-        } else if (ch === '\n') {
-          row.push(field.trim());
-          if (row.some(c => (c || '').toString().trim() !== '')) rows.push(row);
-          row = [];
-          field = '';
-        } else {
-          field += ch;
-        }
+          if (row.some(c => c)) rows.push(row);
+          row = []; field = '';
+        } else { field += ch; }
       }
     }
-
     row.push(field.trim());
-    if (row.some(c => (c || '').toString().trim() !== '')) rows.push(row);
-
+    if (row.some(c => c)) rows.push(row);
     return rows;
   }
 
-  // ===== CONEXIÓN (sin cambios) =====
+  // ===== LOAD DATA =====
   async function fetchWithFallback(url) {
-    const strategies = [
-      { name: "Direct", url },
-      { name: "Primary Proxy", url: `https://corsproxy.io/?${encodeURIComponent(url)}` },
-      { name: "Backup Proxy", url: `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` }
-    ];
-
-    let lastError = null;
-    for (const strategy of strategies) {
-      try {
-        log(`Attempting connection via ${strategy.name}...`);
-
-        const cacheBuster = strategy.url.includes('?') ? `&t=${Date.now()}` : `?t=${Date.now()}`;
-        const response = await fetch(strategy.url + cacheBuster, { cache: 'no-store' });
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const text = await response.text();
-        const trimmed = text.trim();
-        const low = trimmed.slice(0, 300).toLowerCase();
-
-        if (trimmed.startsWith('<') && (low.includes('<!doctype') || low.includes('<html'))) {
-          throw new Error("Invalid HTML response");
-        }
-        if (trimmed.length < 20) throw new Error("Response too short");
-
-        return text;
-      } catch (e) {
-        warn(`Strategy ${strategy.name} failed:`, e);
-        lastError = e;
-      }
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    } catch (e) {
+      console.warn("Direct fetch failed, trying proxy...");
+      const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxy);
+      if (!res.ok) throw new Error("Proxy failed");
+      return await res.text();
     }
-    throw lastError;
-  }
-
-  // ===== PARSER (sin cambios) =====
-  function findColumnIndex(headers, possibleNames) {
-    const possibles = (possibleNames || []).map(normalizeKey).filter(Boolean);
-
-    for (let i = 0; i < headers.length; i++) {
-      const h = normalizeKey(headers[i]);
-      if (!h) continue;
-
-      for (const p of possibles) {
-        if (h === p || h.includes(p) || p.includes(h)) return i;
-      }
-    }
-    return -1;
-  }
-
-  function looksLikeHeaderRow(headers, columnDefinitions) {
-    let matches = 0;
-    for (const def of columnDefinitions) {
-      const idx = findColumnIndex(headers, def.possible);
-      if (idx !== -1) matches++;
-    }
-    return matches >= 3;
-  }
-
-  function parseCorrectLetters(correctRaw) {
-    const raw = (correctRaw || '').toString().toLowerCase();
-
-    const cleaned = raw
-      .replace(/\b(and|y)\b/gi, ' ')
-      .replace(/[()\[\]\.]/g, ' ')
-      .replace(/[^a-d0-4,;|\/\s]/g, ' ');
-
-    const tokens = cleaned
-      .split(/[,;|\/\s]+/)
-      .map(t => t.trim())
-      .filter(Boolean);
-
-    const mapped = tokens
-      .map(t => {
-        if (['a', 'b', 'c', 'd'].includes(t)) return t;
-        if (['1', '2', '3', '4'].includes(t)) return ['a', 'b', 'c', 'd'][Number(t) - 1];
-        return null;
-      })
-      .filter(Boolean);
-
-    return Array.from(new Set(mapped));
-  }
-
-  function getValue(cols, idx) {
-    if (typeof idx !== 'number' || idx < 0 || idx >= cols.length) return '';
-    return (cols[idx] ?? '').toString();
-  }
-
-  function shuffle(arr) {
-    const result = [...arr];
-    for (let i = result.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [result[i], result[j]] = [result[j], result[i]];
-    }
-    return result;
   }
 
   function parseAndLoad(csvText) {
     try {
-      const table = parseCSV(csvText);
-      if (!table || table.length < 2) throw new Error("CSV vacío o insuficiente");
+      const rows = parseCSV(csvText);
+      if (rows.length < 2) throw new Error("CSV vacío");
 
-      const headers = table[0];
-
-      const columnDefinitions = [
-        { field: 'id', possible: ['id', 'questionid', 'code', 'codigo'], defaultIdx: 0, optional: false },
-        { field: 'category', possible: ['category', 'categoria', 'categoría', 'cat', 'tema', 'topic'], defaultIdx: 1, optional: false },
-        { field: 'textEs', possible: ['textEs','text_es','textoEs','texto_es','preguntaEs','pregunta_es','questionEs','question_es','question es','pregunta es','spanish'], defaultIdx: 2, optional: false },
-        { field: 'textEn', possible: ['textEn','text_en','textoEn','texto_en','preguntaEn','pregunta_en','questionEn','question_en','question en','english'], defaultIdx: 3, optional: true },
-        { field: 'optAEs', possible: ['optAEs','opt_a_es','aEs','a_es','optionAEs','option_a_es','option a es','opcion a es'], defaultIdx: 4, optional: false },
-        { field: 'optAEn', possible: ['optAEn','opt_a_en','aEn','a_en','optionAEn','option_a_en','option a en'], defaultIdx: 5, optional: true },
-        { field: 'optBEs', possible: ['optBEs','opt_b_es','bEs','b_es','optionBEs','option_b_es','option b es','opcion b es'], defaultIdx: 6, optional: false },
-        { field: 'optBEn', possible: ['optBEn','opt_b_en','bEn','b_en','optionBEn','option_b_en','option b en'], defaultIdx: 7, optional: true },
-        { field: 'optCEs', possible: ['optCEs','opt_c_es','cEs','c_es','optionCEs','option_c_es','option c es','opcion c es'], defaultIdx: 8, optional: false },
-        { field: 'optCEn', possible: ['optCEn','opt_c_en','cEn','c_en','optionCEn','option_c_en','option c en'], defaultIdx: 9, optional: true },
-        { field: 'optDEs', possible: ['optDEs','opt_d_es','dEs','d_es','optionDEs','option_d_es','option d es','opcion d es'], defaultIdx: 10, optional: true },
-        { field: 'optDEn', possible: ['optDEn','opt_d_en','dEn','d_en','optionDEn','option_d_en','option d en'], defaultIdx: 11, optional: true },
-        { field: 'correct', possible: ['correct','correcta','correctas','answer','answers','key','respuesta','respuestas','respuesta correcta'], defaultIdx: 12, optional: false },
-        { field: 'rationaleEs', possible: ['rationaleEs','rationale_es','explicacionEs','explicacion_es','explicación es','feedback es','rationale es','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 13, optional: true },
-        { field: 'rationaleEn', possible: ['rationaleEn','rationale_en','explicacionEn','explicacion_en','explicación en','feedback en','rationale en','rationale','explicacion','explicación','explanation','feedback'], defaultIdx: 14, optional: true },
-        { field: 'type', possible: ['type','tipo','format','formato','questiontype'], defaultIdx: 15, optional: true }
-      ];
-
-      const hasHeaders = looksLikeHeaderRow(headers, columnDefinitions);
-
-      const colMap = {};
-      let dataStartRow = 0;
-
-      if (hasHeaders) {
-        columnDefinitions.forEach(def => {
-          const idx = findColumnIndex(headers, def.possible);
-          colMap[def.field] = idx !== -1 ? idx : (def.optional ? -1 : def.defaultIdx);
-        });
-        dataStartRow = 1;
-      } else {
-        columnDefinitions.forEach(def => { colMap[def.field] = def.defaultIdx; });
-        dataStartRow = 0;
-      }
-
+      // Mapeo simple de columnas (Asumiendo orden estándar de Google Sheets)
+      // ID, Category, TextEs, TextEn, OptAEs, OptAEn, ..., Correct, RationaleEs, RationaleEn, Type
+      
       const parsed = [];
+      // Empezamos en 1 para saltar headers
+      for (let i = 1; i < rows.length; i++) {
+        const col = rows[i];
+        if (col.length < 13) continue;
 
-      for (let i = dataStartRow; i < table.length; i++) {
-        const cols = table[i];
-        if (!cols || cols.length === 0) continue;
+        const correctRaw = (col[12] || '').toLowerCase();
+        const correctLetters = correctRaw.match(/[a-d]/g) || [];
+        if (correctLetters.length === 0) continue;
 
-        try {
-          const id = (getValue(cols, colMap.id) || `q_${i}`).trim() || `q_${i}`;
-          const category = (getValue(cols, colMap.category) || 'General').trim() || 'General';
+        const options = [
+          { id: 'a', textEs: col[4], textEn: col[5] || col[4], correct: correctLetters.includes('a') },
+          { id: 'b', textEs: col[6], textEn: col[7] || col[6], correct: correctLetters.includes('b') },
+          { id: 'c', textEs: col[8], textEn: col[9] || col[8], correct: correctLetters.includes('c') },
+          { id: 'd', textEs: col[10], textEn: col[11] || col[10], correct: correctLetters.includes('d') }
+        ].filter(o => o.textEs);
 
-          const textEs = getValue(cols, colMap.textEs);
-          const textEn = getValue(cols, colMap.textEn) || textEs;
+        if (options.length < 2) continue;
 
-          const optAEs = getValue(cols, colMap.optAEs);
-          const optAEn = getValue(cols, colMap.optAEn) || optAEs;
+        const isSata = correctLetters.length > 1 || (col[15] || '').toLowerCase().includes('sata');
 
-          const optBEs = getValue(cols, colMap.optBEs);
-          const optBEn = getValue(cols, colMap.optBEn) || optBEs;
-
-          const optCEs = getValue(cols, colMap.optCEs);
-          const optCEn = getValue(cols, colMap.optCEn) || optCEs;
-
-          const optDEs = getValue(cols, colMap.optDEs);
-          const optDEn = getValue(cols, colMap.optDEn) || optDEs;
-
-          const correctRaw = getValue(cols, colMap.correct);
-          const rationaleEs = getValue(cols, colMap.rationaleEs);
-          const rationaleEn = getValue(cols, colMap.rationaleEn) || rationaleEs;
-          const typeRaw = getValue(cols, colMap.type);
-
-          const correctLetters = parseCorrectLetters(correctRaw);
-
-          if (correctLetters.length === 0) {
-            warn(`Pregunta ${id} omitida: no tiene respuestas correctas válidas.`);
-            continue;
-          }
-
-          const options = [
-            { id: 'a', textEs: optAEs, textEn: optAEn, correct: correctLetters.includes('a') },
-            { id: 'b', textEs: optBEs, textEn: optBEn, correct: correctLetters.includes('b') },
-            { id: 'c', textEs: optCEs, textEn: optCEn, correct: correctLetters.includes('c') },
-            { id: 'd', textEs: optDEs, textEn: optDEn, correct: correctLetters.includes('d') }
-          ].filter(o => ((o.textEs || o.textEn || '').trim() !== ''));
-
-          if ((!textEs && !textEn) || options.length < 2) continue;
-
-          const lowerType = (typeRaw || '').toLowerCase();
-          const inferredSata =
-            lowerType.includes('sata') ||
-            lowerType.includes('selectall') ||
-            lowerType.includes('select all') ||
-            correctLetters.length > 1 ||
-            ((textEs || '').toLowerCase().includes('selecciona todas') || (textEn || '').toLowerCase().includes('select all'));
-
-          parsed.push({
-            id,
-            category,
-            textEs,
-            textEn,
-            options,
-            rationaleEs,
-            rationaleEn,
-            type: inferredSata ? 'sata' : 'single',
-            tags: [category, typeRaw].filter(Boolean)
-          });
-        } catch (e) {
-          warn("Error parseando fila", i, e);
-        }
+        parsed.push({
+          id: col[0] || `q${i}`,
+          category: col[1] || 'General',
+          textEs: col[2],
+          textEn: col[3] || col[2],
+          options,
+          rationaleEs: col[13],
+          rationaleEn: col[14] || col[13],
+          type: isSata ? 'sata' : 'single'
+        });
       }
-
-      if (parsed.length === 0) throw new Error("No se pudo cargar ninguna pregunta válida.");
 
       state.allQuestions = parsed;
-
       state.categories = {};
       parsed.forEach(q => {
-        const cat = (q.category || 'General').trim() || 'General';
-        state.categories[cat] = (state.categories[cat] || 0) + 1;
+        const c = q.category.trim();
+        state.categories[c] = (state.categories[c] || 0) + 1;
       });
 
-      const existingCats = new Set(Object.keys(state.categories));
-      state.selectedCategories = (state.selectedCategories || []).filter(c => existingCats.has(c));
-
-      window.SIMULATOR_QUESTIONS = parsed;
       state.isLoading = false;
       state.error = null;
-
-      if (typeof state.pendingShowQuestionIndex === 'number') {
-        const idx = state.pendingShowQuestionIndex;
-        state.pendingShowQuestionIndex = null;
-        showQuestionByIndex(idx);
-        return;
-      }
-
       checkAndRender();
 
-    } catch (parseError) {
-      errLog("Error en parseAndLoad:", parseError);
-      state.error = "Error de formato en la base de datos. Verifica que las columnas sean correctas.";
+    } catch (e) {
+      console.error("Parse error:", e);
+      state.error = "Error procesando datos.";
+      state.isLoading = false;
+      checkAndRender();
+    }
+  }
+
+  async function loadQuestions() {
+    state.isLoading = true;
+    checkAndRender();
+    try {
+      const data = await fetchWithFallback(GOOGLE_CSV_URL);
+      parseAndLoad(data);
+    } catch (e) {
+      state.error = "No se pudo conectar con la base de datos.";
       state.isLoading = false;
       checkAndRender();
     }
@@ -455,11 +212,6 @@
     state.selectedCategories = storageGet(CONFIG.STORAGE_KEYS.selectedCats, []);
     state.limit = storageGet(CONFIG.STORAGE_KEYS.limit, 10);
     state.fontSize = storageGet(CONFIG.STORAGE_KEYS.font, 1);
-    
-    if (!Array.isArray(state.selectedCategories)) state.selectedCategories = [];
-    if (typeof state.limit !== 'number' || state.limit < 1) state.limit = 10;
-    if (typeof state.fontSize !== 'number') state.fontSize = 1;
-    state.fontSize = Math.max(0.8, Math.min(1.6, state.fontSize));
   }
 
   function savePrefs() {
@@ -468,842 +220,362 @@
     storageSet(CONFIG.STORAGE_KEYS.font, state.fontSize);
   }
 
-  // ===== CARGA =====
-  async function loadQuestions() {
-    state.isLoading = true;
-    state.error = null;
-    checkAndRender();
-    try {
-      const csvData = await fetchWithFallback(GOOGLE_CSV_URL);
-      parseAndLoad(csvData);
-    } catch (e) {
-      errLog("Simulator Critical Failure:", e);
-      state.error = `Error de conexión: no se pudo acceder a la base de datos.<br><span class="text-xs text-gray-400">${escapeHtml(e?.message || 'Unknown error')}</span>`;
-      state.isLoading = false;
-      checkAndRender();
-    }
-  }
-
-  // ===== ESTILOS =====
-  function getCategoryStyle(catName) {
-    const n = (catName || '').toLowerCase();
-    if (n.includes('newborn') || n.includes('neo')) return { i: 'baby', c: 'text-pink-400', badge: 'bg-pink-500/10 text-pink-600 dark:text-pink-200 dark:bg-pink-500/10' };
-    if (n.includes('matern') || n.includes('labor')) return { i: 'person-pregnant', c: 'text-rose-500', badge: 'bg-rose-500/10 text-rose-600 dark:text-rose-200 dark:bg-rose-500/10' };
-    if (n.includes('pediat')) return { i: 'child-reaching', c: 'text-yellow-500', badge: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-200 dark:bg-yellow-500/10' };
-    if (n.includes('cardio')) return { i: 'heart-pulse', c: 'text-red-500', badge: 'bg-red-500/10 text-red-600 dark:text-red-200 dark:bg-red-500/10' };
-    if (n.includes('respir')) return { i: 'lungs', c: 'text-blue-400', badge: 'bg-blue-500/10 text-blue-600 dark:text-blue-200 dark:bg-blue-500/10' };
-    if (n.includes('neuro') || n.includes('psych')) return { i: 'brain', c: 'text-purple-500', badge: 'bg-purple-500/10 text-purple-600 dark:text-purple-200 dark:bg-purple-500/10' };
-    if (n.includes('pharm')) return { i: 'pills', c: 'text-indigo-500', badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-200 dark:bg-indigo-500/10' };
-    if (n.includes('infect') || n.includes('safety')) return { i: 'shield-virus', c: 'text-green-500', badge: 'bg-green-500/10 text-green-600 dark:text-green-200 dark:bg-green-500/10' };
-    return { i: 'notes-medical', c: 'text-brand-blue', badge: 'bg-brand-blue/10 text-brand-blue dark:text-blue-200 dark:bg-blue-500/10' };
-  }
-
-  function getClinicalTip(category) {
-    const n = (category || '').toLowerCase();
-    if (n.includes('pharm')) return bilingual("💊 Tip: Contraindicaciones + niveles terapéuticos.", "💊 Tip: Contraindications + therapeutic levels.");
-    if (n.includes('priorit')) return bilingual("🚨 Tip: ¿Quién muere si no actúas AHORA?", "🚨 Tip: Who dies if you don't act NOW?");
-    if (n.includes('infect')) return bilingual("🦠 Tip: Contacto, Gotas o Aire → PPE.", "🦠 Tip: Contact, Droplet, Airborne → PPE.");
-    return bilingual("🧠 Estrategia: Lee la pregunta 2 veces.", "🧠 Strategy: Read the stem twice.");
-  }
-
-  // ===== MULTI SELECT =====
-  function isSelectedCategory(cat) {
-    return (state.selectedCategories || []).includes(cat);
-  }
-
-  function toggleSelectedCategory(cat) {
-    const list = state.selectedCategories || [];
-    if (list.includes(cat)) {
-      state.selectedCategories = list.filter(x => x !== cat);
-    } else {
-      state.selectedCategories = [...list, cat];
-    }
-    savePrefs();
-    renderNow();
-  }
-
-  function clearSelectedCategories() {
-    state.selectedCategories = [];
-    savePrefs();
-    renderNow();
-  }
-
-  function selectAllCategories() {
-    state.selectedCategories = Object.keys(state.categories || {}).sort();
-    savePrefs();
-    renderNow();
-  }
-
-  function startQuizWithCategories(catsArray) {
-    const cats = Array.isArray(catsArray) ? catsArray.filter(Boolean) : [];
-    const set = new Set(cats);
-
-    let pool = [];
-    if (set.size === 0) {
-      pool = [...state.allQuestions];
-    } else {
-      pool = state.allQuestions.filter(q => set.has(q.category));
+  // ===== SIMULATOR LOGIC =====
+  function startQuiz(cats = []) {
+    let pool = state.allQuestions;
+    if (cats.length > 0) pool = pool.filter(q => cats.includes(q.category));
+    
+    // Shuffle
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
     }
 
-    pool = shuffle(pool);
-    if (state.limit < pool.length) pool = pool.slice(0, state.limit);
-
-    state.activeSession = pool;
+    state.activeSession = pool.slice(0, state.limit);
     state.currentIndex = 0;
     state.score = 0;
     state.userSelection = [];
     state.isRationaleMode = false;
-    state.lastSubmitted = null;
-    // Reiniciar historial de respuestas
     state.userAnswers = [];
-
     renderNow();
   }
 
-  // ===== RENDERIZADO =====
+  function submitAnswer() {
+    const q = state.activeSession[state.currentIndex];
+    if (!q || state.userSelection.length === 0) return;
+
+    const correctIds = q.options.filter(o => o.correct).map(o => o.id);
+    const selected = state.userSelection;
+    
+    // Check correctness
+    let isCorrect = false;
+    if (q.type === 'single') {
+      isCorrect = correctIds.includes(selected[0]);
+    } else {
+      isCorrect = correctIds.length === selected.length &&
+                  correctIds.every(id => selected.includes(id));
+    }
+
+    if (isCorrect) state.score++;
+
+    state.userAnswers.push({
+      question: q,
+      selected,
+      isCorrect,
+      correctIds,
+      rationaleEs: q.rationaleEs,
+      rationaleEn: q.rationaleEn
+    });
+
+    state.isRationaleMode = true;
+    renderNow();
+  }
+
+  function nextQuestion() {
+    if (state.currentIndex < state.activeSession.length - 1) {
+      state.currentIndex++;
+      state.userSelection = [];
+      state.isRationaleMode = false;
+      renderNow();
+    } else {
+      finishQuiz();
+    }
+  }
+
+  async function finishQuiz() {
+    // Guardar historial en la nube si está logueado
+    if (window.NCLEX_AUTH) {
+        try {
+            const history = JSON.parse(localStorage.getItem('nclex_quiz_history') || '[]');
+            history.push({
+                date: new Date().toISOString(),
+                score: state.score,
+                total: state.activeSession.length,
+                mode: 'simulator'
+            });
+            localStorage.setItem('nclex_quiz_history', JSON.stringify(history));
+            // Forzar subida
+            if(window.NCLEX_AUTH.forceSave) window.NCLEX_AUTH.forceSave();
+        } catch(e) { console.error("Error saving history", e); }
+    }
+    
+    // Renderizar resultados
+    const view = $('#app-view');
+    if (view) {
+        view.innerHTML = renderResults();
+        applyGlobalLanguage(view);
+    }
+  }
+
+  // ===== RENDERERS =====
   function checkAndRender() {
     if (isOnSimulatorRoute()) renderNow();
   }
 
   const renderNow = debounce(() => {
     const view = $('#app-view');
+    if (!view) return;
     scrollToTop();
-
-    if (view && typeof window.renderSimulatorPage === 'function') {
-      view.innerHTML = window.renderSimulatorPage();
-      applyGlobalLanguage(view);
-    }
+    view.innerHTML = window.renderSimulatorPage();
+    applyGlobalLanguage(view);
   }, 50);
 
+  // --- PAGES ---
   function renderLoading() {
-    return `
-      <div class="p-6 max-w-5xl mx-auto">
-        <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-          <div class="p-6 bg-gradient-to-r from-[rgba(var(--brand-blue-rgb),0.1)] to-purple-500/10 border-b border-[var(--brand-border)]">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-[var(--brand-bg)] animate-pulse"></div>
-              <div class="flex-1">
-                <div class="h-4 w-56 bg-[var(--brand-bg)] rounded animate-pulse mb-2"></div>
-                <div class="h-3 w-80 bg-[var(--brand-bg)] rounded animate-pulse"></div>
-              </div>
-            </div>
-          </div>
-          <div class="p-6 space-y-3">
-            <div class="h-12 bg-[var(--brand-bg)] rounded-2xl animate-pulse"></div>
-            <div class="h-12 bg-[var(--brand-bg)] rounded-2xl animate-pulse"></div>
-            <div class="h-12 bg-[var(--brand-bg)] rounded-2xl animate-pulse"></div>
-            <div class="mt-3 text-sm text-[var(--brand-text-muted)]">${bilingual("Cargando preguntas...", "Loading questions...")}</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderError() {
-    return `
-      <div class="p-6 max-w-5xl mx-auto">
-        <div class="rounded-3xl overflow-hidden shadow-xl border border-red-200 dark:border-red-900/30 bg-[var(--brand-card)]">
-          <div class="p-6 bg-red-50 dark:bg-red-900/10 border-b border-red-200 dark:border-red-900/30">
-            <h2 class="text-2xl font-black text-red-600 dark:text-red-300">${bilingual("Error", "Error")}</h2>
-            <div class="text-sm text-[var(--brand-text)] mt-2">${state.error || ''}</div>
-          </div>
-          <div class="p-6 flex flex-wrap gap-2">
-            <button onclick="window.simController.forceReload()" 
-              class="px-5 py-2.5 rounded-2xl font-black shadow hover:shadow-lg transition text-white"
-              style="background-color: rgb(var(--brand-blue-rgb));">
-              ${bilingual("Reintentar", "Retry")}
-            </button>
-            <button onclick="window.simController.quit()" 
-              class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)] font-black">
-              ${bilingual("Volver", "Back")}
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
+    return `<div class="p-10 text-center"><i class="fa-solid fa-circle-notch fa-spin text-4xl text-[var(--brand-blue)]"></i><p class="mt-4 text-[var(--brand-text-muted)]">${bilingual("Cargando base de datos...", "Loading database...")}</p></div>`;
   }
 
   function renderLobby() {
-    const cats = Object.keys(state.categories || {}).sort((a, b) => (state.categories[b] || 0) - (state.categories[a] || 0));
-    const total = state.allQuestions.length;
+    const cats = Object.keys(state.categories).sort();
+    const selectedCount = state.selectedCategories.length;
+    
+    return `
+      <div class="max-w-4xl mx-auto animate-fade-in">
+        <header class="mb-8 text-center">
+          <h1 class="text-3xl font-black text-[var(--brand-text)] mb-2">${bilingual("Simulador NCLEX", "NCLEX Simulator")}</h1>
+          <p class="text-[var(--brand-text-muted)]">${bilingual("Personaliza tu sesión de práctica.", "Customize your practice session.")}</p>
+        </header>
 
-    const selectedCount = (state.selectedCategories || []).length;
-    const selectedLabel = selectedCount === 0
-      ? bilingual("Ninguno seleccionado", "None selected")
-      : bilingual(selectedCount + " seleccionados", selectedCount + " selected");
-
-    const limitOptions = [10, 20, 30, 40, 50, 75, 100].map(n => {
-      const active = state.limit === n;
-      return `<button onclick="window.simController.setLimit(${n})" 
-        class="px-3 py-1.5 rounded-full text-xs font-black transition ${active ? 'text-white shadow' : 'bg-[var(--brand-bg)] text-[var(--brand-text)] hover:opacity-90'}" 
-        ${active ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''}>${n}</button>`;
-    }).join('');
-
-    const selectedChips = (state.selectedCategories || []).slice(0, 8).map(cat => {
-      const style = getCategoryStyle(cat);
-      return `<button onclick="window.simController.toggleCategory('${escapeJsString(cat)}')" 
-        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black ${style.badge} border border-[var(--brand-border)] hover:opacity-90 transition">
-        <i class="fa-solid fa-${style.i}"></i>
-        ${escapeHtml(cat)}
-        <span class="opacity-70">✕</span></button>`;
-    }).join('');
-
-    const moreChip = (state.selectedCategories || []).length > 8
-      ? `<span class="text-xs font-bold text-[var(--brand-text-muted)]">+${(state.selectedCategories.length - 8)} más</span>`
-      : '';
-
-    const categoryCards = cats.map(cat => {
-      const style = getCategoryStyle(cat);
-      const count = state.categories[cat] || 0;
-      const selected = isSelectedCategory(cat);
-
-      const ring = selected ? 'ring-2 ring-[rgb(var(--brand-blue-rgb))] ring-offset-2 ring-offset-[var(--brand-card)]' : '';
-      const bg = selected ? 'bg-[rgba(var(--brand-blue-rgb),0.05)] border-[rgb(var(--brand-blue-rgb))]' : 'bg-[var(--brand-card)] border-[var(--brand-border)]';
-      const check = selected
-        ? `<span class="w-6 h-6 rounded-xl text-white inline-flex items-center justify-center text-xs font-black shadow" style="background-color: rgb(var(--brand-blue-rgb));">✓</span>`
-        : `<span class="w-6 h-6 rounded-xl bg-[var(--brand-bg)] text-[var(--brand-text)] inline-flex items-center justify-center text-xs font-black">+</span>`;
-
-      return `<div class="rounded-3xl border ${bg} ${ring} shadow-sm hover:shadow-lg transition">
-        <button onclick="window.simController.toggleCategory('${escapeJsString(cat)}')" class="w-full text-left p-5">
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-2xl bg-[var(--brand-bg)] flex items-center justify-center">
-                <i class="fa-solid fa-${style.i} ${style.c}"></i>
-              </div>
-              <div>
-                <div class="font-black text-[var(--brand-text)] leading-tight">${escapeHtml(cat)}</div>
-                <div class="mt-1 text-xs text-[var(--brand-text-muted)]">${getClinicalTip(cat)}</div>
-              </div>
-            </div>
-            <div class="flex flex-col items-end gap-2">
-              ${check}
-              <span class="text-xs font-black px-3 py-1 rounded-full bg-[var(--brand-bg)] text-[var(--brand-text-muted)]">${count}</span>
-            </div>
+        <div class="bg-[var(--brand-card)] rounded-3xl p-6 shadow-lg border border-[var(--brand-border)] mb-6">
+          <div class="flex justify-between items-center mb-4">
+             <h2 class="font-bold text-[var(--brand-text)]">${bilingual("Categorías", "Categories")}</h2>
+             <div class="space-x-2">
+                <button onclick="window.simController.selectAll()" class="text-xs px-3 py-1 rounded-full bg-[var(--brand-bg)] text-[var(--brand-text)] font-bold">All</button>
+                <button onclick="window.simController.clearSelected()" class="text-xs px-3 py-1 rounded-full bg-[var(--brand-bg)] text-[var(--brand-text)] font-bold">None</button>
+             </div>
           </div>
-        </button>
-        <div class="px-5 pb-5 -mt-2 flex items-center justify-between gap-2">
-          <span class="text-[11px] font-bold text-[var(--brand-text-muted)]">
-            ${selected ? bilingual("Incluido en mezcla", "Included in mix") : bilingual("Toca para agregar", "Tap to add")}
-          </span>
-          <button onclick="window.simController.startQuiz('${escapeJsString(cat)}')" 
-            class="px-4 py-2 rounded-2xl text-xs font-black bg-[var(--brand-bg)] text-[var(--brand-text)] hover:opacity-90 transition">
-            ${bilingual("Solo", "Only")}
-          </button>
-        </div>
-      </div>`;
-    }).join('');
-
-    const canStartSelected = selectedCount > 0;
-
-    return `<div class="p-6 max-w-6xl mx-auto">
-      <header class="mb-6">
-        <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-          <div class="p-6 bg-gradient-to-r from-[rgba(var(--brand-blue-rgb),0.1)] via-purple-500/10 to-emerald-500/10">
-            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-              <div>
-                <h1 class="text-3xl md:text-4xl font-black text-[var(--brand-text)]">${bilingual("Simulador NCLEX", "NCLEX Simulator")}</h1>
-                <p class="text-[var(--brand-text-muted)] mt-1">${bilingual("Selecciona varios temas y mezcla preguntas.", "Select multiple topics and mix questions.")}</p>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                <button onclick="window.simController.startQuiz('ALL')" 
-                  class="px-5 py-2.5 rounded-2xl bg-slate-900 text-white font-black shadow hover:shadow-lg transition">
-                  ${bilingual("Mixto total", "Full mix")}
-                </button>
-                <button onclick="window.simController.startSelected()" 
-                  class="px-5 py-2.5 rounded-2xl font-black transition ${canStartSelected ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}" 
-                  ${canStartSelected ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''} 
-                  ${canStartSelected ? '' : 'disabled'}>
-                  ${bilingual("Iniciar selección", "Start selection")}
-                </button>
-              </div>
-            </div>
-            <div class="mt-4 flex flex-wrap items-center gap-2">
-              <span class="text-xs font-black px-3 py-1.5 rounded-full bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)]">
-                ${bilingual("Seleccionados:", "Selected:")} ${selectedLabel}
-              </span>
-              <button onclick="window.simController.selectAll()" 
-                class="px-3 py-1.5 rounded-full text-xs font-black bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:opacity-90 transition">
-                ${bilingual("Seleccionar todo", "Select all")}
-              </button>
-              <button onclick="window.simController.clearSelected()" 
-                class="px-3 py-1.5 rounded-full text-xs font-black bg-[var(--brand-bg)] border border-[var(--brand-border)] text-[var(--brand-text)] hover:opacity-90 transition">
-                ${bilingual("Limpiar", "Clear")}
-              </button>
-              <span class="ml-auto text-xs font-bold text-[var(--brand-text-muted)]">
-                ${bilingual("Preguntas cargadas:", "Loaded questions:")} <span class="font-black text-[var(--brand-text)]">${total}</span>
-              </span>
-            </div>
-            ${selectedCount > 0
-              ? `<div class="mt-3 flex flex-wrap items-center gap-2">${selectedChips}${moreChip}</div>`
-              : `<div class="mt-3 text-xs text-[var(--brand-text-muted)]">${bilingual("Tip: toca varias tarjetas para mezclar temas.", "Tip: tap multiple cards to mix topics.")}</div>`
-            }
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+             ${cats.map(c => {
+                 const isSel = state.selectedCategories.includes(c);
+                 return `<button onclick="window.simController.toggleCategory('${escapeJsString(c)}')" 
+                    class="text-left px-4 py-3 rounded-xl border transition-all flex justify-between items-center ${isSel ? 'border-[var(--brand-blue)] bg-[var(--brand-blue)]/10' : 'border-[var(--brand-border)] hover:bg-[var(--brand-bg)]'}">
+                    <span class="text-sm font-medium text-[var(--brand-text)] truncate">${c}</span>
+                    ${isSel ? '<i class="fa-solid fa-check text-[var(--brand-blue)] text-xs"></i>' : ''}
+                 </button>`;
+             }).join('')}
           </div>
         </div>
-      </header>
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div class="lg:col-span-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            ${categoryCards}
-          </div>
-        </div>
-        <aside class="space-y-4 lg:sticky lg:top-4 h-fit">
-          <div class="rounded-3xl shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)] overflow-hidden">
-            <div class="p-5 border-b border-[var(--brand-border)] bg-[var(--brand-bg)]">
-              <div class="font-black text-[var(--brand-text)]">${bilingual("Configuración", "Settings")}</div>
-              <div class="text-xs text-[var(--brand-text-muted)] mt-1">${bilingual("Ajusta tu práctica.", "Tune your practice.")}</div>
-            </div>
-            <div class="p-5">
-              <div class="text-xs font-black text-[var(--brand-text-muted)] mb-2">${bilingual("Número de preguntas", "Questions count")}</div>
-              <div class="flex flex-wrap gap-2">${limitOptions}</div>
-              <div class="mt-5 text-xs font-black text-[var(--brand-text-muted)] mb-2">${bilingual("Tamaño de letra", "Font size")}</div>
-              <div class="flex gap-2">
-                <button onclick="window.simController.adjustFont(-0.1)" 
-                  class="px-4 py-2 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">A-</button>
-                <button onclick="window.simController.adjustFont(0.1)" 
-                  class="px-4 py-2 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">A+</button>
-              </div>
-              <div class="mt-5 p-4 rounded-2xl text-white shadow-inner" style="background-color: rgb(var(--brand-blue-rgb));">
-                <div class="font-black">${bilingual("Modo mezcla", "Mix mode")}</div>
-                <div class="text-xs text-white/80 mt-1">
-                  ${bilingual("Selecciona temas y luego 'Iniciar selección'.", "Select topics then 'Start selection'.")}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-[var(--brand-card)] rounded-3xl p-6 shadow-lg border border-[var(--brand-border)]">
+                <h2 class="font-bold text-[var(--brand-text)] mb-3">${bilingual("Preguntas", "Questions")}</h2>
+                <div class="flex flex-wrap gap-2">
+                    ${[10, 20, 50, 75].map(n => `
+                        <button onclick="window.simController.setLimit(${n})" 
+                            class="px-4 py-2 rounded-xl font-bold text-sm transition-colors ${state.limit === n ? 'bg-[var(--brand-blue)] text-white' : 'bg-[var(--brand-bg)] text-[var(--brand-text)]'}">
+                            ${n}
+                        </button>
+                    `).join('')}
                 </div>
-              </div>
             </div>
-          </div>
-          <div class="rounded-3xl shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)] overflow-hidden">
-            <div class="p-5">
-              <div class="font-black text-[var(--brand-text)]">${bilingual("Acciones rápidas", "Quick actions")}</div>
-              <div class="mt-3 grid grid-cols-1 gap-2">
-                <button onclick="window.simController.startQuiz('ALL')" 
-                  class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:opacity-90 transition">
-                  ${bilingual("Mixto total", "Full mix")}
-                </button>
-                <button onclick="window.simController.startSelected()"
-                  class="px-5 py-3 rounded-2xl font-black transition ${((state.selectedCategories || []).length > 0) ? 'text-white' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}" 
-                  ${((state.selectedCategories || []).length > 0) ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''} 
-                  ${((state.selectedCategories || []).length > 0) ? '' : 'disabled'}>
-                  ${bilingual("Iniciar selección", "Start selection")}
-                </button>
-                <button onclick="window.simController.clearSelected()" 
-                  class="px-5 py-3 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
-                  ${bilingual("Limpiar selección", "Clear selection")}
-                </button>
-              </div>
+            
+            <div class="bg-[var(--brand-card)] rounded-3xl p-6 shadow-lg border border-[var(--brand-border)] flex flex-col justify-center">
+                 <button onclick="window.simController.startSelected()" 
+                    ${selectedCount === 0 ? 'disabled' : ''}
+                    class="w-full py-4 rounded-xl font-black text-white text-lg shadow-lg transition-transform active:scale-95 ${selectedCount > 0 ? 'bg-[var(--brand-blue)] hover:brightness-110' : 'bg-gray-400 cursor-not-allowed'}">
+                    ${bilingual("COMENZAR EXAMEN", "START QUIZ")} (${selectedCount || '0'})
+                 </button>
             </div>
-          </div>
-        </aside>
+        </div>
       </div>
-    </div>`;
+    `;
   }
 
   function renderActiveQuiz() {
     const q = state.activeSession[state.currentIndex];
-    if (!q) return renderLobby();
-
     const current = state.currentIndex + 1;
     const total = state.activeSession.length;
-    const progress = Math.round((current / Math.max(1, total)) * 100);
-
+    const pct = Math.round((current / total) * 100);
     const isSata = q.type === 'sata';
-    const selected = new Set(state.userSelection || []);
 
-    const optionButtons = q.options.map(opt => {
-      const isSelected = selected.has(opt.id);
-
-      const base = `w-full text-left p-4 rounded-3xl border transition`;
-      const classes = isSelected
-        ? `${base} border-[rgb(var(--brand-blue-rgb))] bg-[rgba(var(--brand-blue-rgb),0.1)] shadow-sm`
-        : `${base} border-[var(--brand-border)] bg-[var(--brand-card)] hover:border-[var(--brand-text-muted)] hover:shadow-sm`;
-
-      const badge = isSata
-        ? `<span class="inline-flex items-center justify-center w-6 h-6 rounded-2xl border ${isSelected ? 'text-white shadow' : 'border-[var(--brand-border)] text-[var(--brand-text-muted)]'} text-xs font-black" style="${isSelected ? `background-color: rgb(var(--brand-blue-rgb)); border-color: rgb(var(--brand-blue-rgb));` : ''}">${isSelected ? '✓' : ''}</span>`
-        : `<span class="inline-flex items-center justify-center w-8 h-8 rounded-2xl ${isSelected ? 'text-white shadow' : 'bg-[var(--brand-bg)] text-[var(--brand-text)]'} text-xs font-black" style="${isSelected ? `background-color: rgb(var(--brand-blue-rgb));` : ''}">${opt.id.toUpperCase()}</span>`;
-
-      return `<button onclick="window.simController.selectOption('${opt.id}')" class="${classes}">
-        <div class="flex items-start gap-3">
-          ${badge}
-          <div class="flex-1" style="font-size:${state.fontSize}rem">
-            ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
-          </div>
-        </div>
-      </button>`;
-    }).join('');
-
-    const canSubmit = (state.userSelection || []).length > 0;
-
-    return `<div class="p-6 max-w-5xl mx-auto">
-      <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-        <div class="p-6 bg-gradient-to-r from-[rgba(var(--brand-blue-rgb),0.1)] to-purple-500/10 border-b border-[var(--brand-border)]">
-          <div class="flex items-center justify-between gap-3">
-            <div class="text-sm font-black text-[var(--brand-text-muted)]">
-              ${bilingual("Pregunta", "Question")} ${current} / ${total}
-              <span class="ml-2 text-xs px-3 py-1 rounded-full bg-[var(--brand-bg)] border border-[var(--brand-border)]">${escapeHtml(q.category)}</span>
-              <span class="ml-2 text-xs px-3 py-1 rounded-full ${isSata ? 'bg-purple-500/15 text-purple-700 dark:text-purple-200' : 'bg-blue-500/15 text-blue-700 dark:text-blue-200'}">
-                ${isSata ? bilingual("SATA", "SATA") : bilingual("Single", "Single")}
-              </span>
+    return `
+      <div class="max-w-4xl mx-auto animate-fade-in pb-20">
+        <div class="flex items-center justify-between mb-6">
+            <button onclick="window.simController.quit()" class="text-sm font-bold text-[var(--brand-text-muted)] hover:text-red-500">
+                <i class="fa-solid fa-xmark mr-1"></i> ${bilingual("Salir", "Quit")}
+            </button>
+            <div class="flex flex-col items-center">
+                <span class="text-xs font-bold text-[var(--brand-text-muted)] uppercase tracking-widest">${bilingual("Pregunta", "Question")} ${current} / ${total}</span>
             </div>
-            <div class="text-xs font-black text-[var(--brand-text-muted)]">${progress}%</div>
-          </div>
-          <div class="mt-3 h-2.5 rounded-full bg-[var(--brand-bg)] overflow-hidden">
-            <div class="h-full transition-all duration-300" style="width:${progress}%; background-color: rgb(var(--brand-blue-rgb));"></div>
-          </div>
+            <div class="text-sm font-bold text-[var(--brand-text)]">${q.category}</div>
         </div>
-        <div class="p-6">
-          <div class="text-xl md:text-2xl font-black text-[var(--brand-text)] mb-5" style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
-            ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
-          </div>
-          <div class="space-y-3">
-            ${optionButtons}
-          </div>
-          <div class="mt-6 flex flex-wrap gap-2">
-            <button onclick="window.simController.quit()" 
-              class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
-              ${bilingual("Salir", "Quit")}
+
+        <div class="w-full h-1 bg-[var(--brand-bg)] rounded-full mb-8 overflow-hidden">
+            <div class="h-full bg-[var(--brand-blue)] transition-all duration-500" style="width: ${pct}%"></div>
+        </div>
+
+        <div class="bg-[var(--brand-card)] rounded-3xl p-8 shadow-xl border border-[var(--brand-border)] mb-6">
+             <div class="flex items-start gap-3 mb-6">
+                ${isSata ? '<span class="px-2 py-1 rounded-md bg-purple-100 text-purple-700 text-xs font-black">SATA</span>' : ''}
+                <h2 class="text-xl md:text-2xl font-bold text-[var(--brand-text)] leading-relaxed" style="font-size: ${1.2 * state.fontSize}rem">
+                    ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
+                </h2>
+             </div>
+
+             <div class="space-y-3">
+                ${q.options.map(opt => {
+                    const isSel = state.userSelection.includes(opt.id);
+                    return `
+                        <button onclick="window.simController.selectOption('${opt.id}')" 
+                            class="w-full text-left p-4 rounded-xl border-2 transition-all flex items-start gap-4 ${isSel ? 'border-[var(--brand-blue)] bg-[var(--brand-blue)]/5' : 'border-[var(--brand-border)] hover:border-[var(--brand-text-muted)]'}">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-black shrink-0 transition-colors ${isSel ? 'bg-[var(--brand-blue)] text-white' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)]'}">
+                                ${opt.id.toUpperCase()}
+                            </div>
+                            <div class="pt-1 text-[var(--brand-text)]" style="font-size: ${state.fontSize}rem">
+                                ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
+                            </div>
+                        </button>
+                    `;
+                }).join('')}
+             </div>
+        </div>
+
+        <div class="flex justify-end">
+            <button onclick="window.simController.submit()" 
+                ${state.userSelection.length === 0 ? 'disabled' : ''}
+                class="px-8 py-4 rounded-2xl font-black text-white shadow-lg transition-transform active:scale-95 ${state.userSelection.length > 0 ? 'bg-[var(--brand-blue)]' : 'bg-gray-300 cursor-not-allowed'}">
+                ${bilingual("ENVIAR RESPUESTA", "SUBMIT ANSWER")}
             </button>
-            <button onclick="window.simController.submit()"
-              class="px-5 py-2.5 rounded-2xl font-black transition ${canSubmit ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}" 
-              ${canSubmit ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''} 
-              ${canSubmit ? '' : 'disabled'}>
-              ${bilingual("Enviar", "Submit")}
-            </button>
-          </div>
-          <div class="mt-4 text-xs text-[var(--brand-text-muted)]">
-            ${isSata ? bilingual("Selecciona TODAS las correctas.", "Select ALL that apply.") : bilingual("Selecciona UNA respuesta.", "Select ONE answer.")}
-          </div>
         </div>
       </div>
-    </div>`;
+    `;
   }
 
   function renderRationale() {
     const q = state.activeSession[state.currentIndex];
-    if (!q) return renderLobby();
-
     const correctIds = q.options.filter(o => o.correct).map(o => o.id);
-    const selected = state.userSelection || [];
+    const selected = state.userSelection;
+    // Lógica correcta Sata/Single
+    const isCorrect = q.type === 'single' 
+        ? correctIds.includes(selected[0]) 
+        : (correctIds.length === selected.length && correctIds.every(id => selected.includes(id)));
 
-    const isCorrect = (q.type === 'single')
-      ? correctIds.includes(selected[0])
-      : (correctIds.length === selected.length &&
-         correctIds.every(i => selected.includes(i)) &&
-         selected.every(i => correctIds.includes(i)));
-
-    const optionCards = q.options.map(opt => {
-      const picked = selected.includes(opt.id);
-      const right = opt.correct;
-
-      const border = right ? 'border-green-400 dark:border-green-700' :
-        picked && !right ? 'border-red-400 dark:border-red-700' :
-        'border-[var(--brand-border)]';
-
-      const bg = right ? 'bg-green-50 dark:bg-green-900/10' :
-        picked && !right ? 'bg-red-50 dark:bg-red-900/10' :
-        'bg-[var(--brand-card)]';
-
-      const tag = right 
-        ? `<span class="text-xs font-black px-3 py-1 rounded-full bg-green-600 text-white shadow">${bilingual("Correcta", "Correct")}</span>`
-        : picked && !right 
-          ? `<span class="text-xs font-black px-3 py-1 rounded-full bg-red-600 text-white shadow">${bilingual("Tu elección", "Your pick")}</span>`
-          : `<span class="text-xs font-black px-3 py-1 rounded-full bg-[var(--brand-bg)] text-[var(--brand-text-muted)]">${opt.id.toUpperCase()}</span>`;
-
-      return `<div class="p-4 rounded-3xl border ${border} ${bg} shadow-sm">
-        <div class="flex items-start gap-3">
-          <div class="shrink-0">${tag}</div>
-          <div class="flex-1" style="font-size:${state.fontSize}rem">
-            ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-
-    const headerBadge = isCorrect
-      ? `<div class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-green-600 text-white text-sm font-black shadow">
-          <i class="fa-solid fa-check"></i> ${bilingual("Correcto", "Correct")}
-         </div>`
-      : `<div class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-red-600 text-white text-sm font-black shadow">
-          <i class="fa-solid fa-xmark"></i> ${bilingual("Incorrecto", "Incorrect")}
-         </div>`;
-
-    const rationaleBlock = (q.rationaleEs || q.rationaleEn)
-      ? `<div class="mt-5 p-5 rounded-3xl text-white shadow-inner" style="background-color: #1e293b;">
-          <div class="font-black text-lg mb-2">${bilingual("Razonamiento", "Rationale")}</div>
-          <div class="text-sm text-slate-200" style="font-size:${Math.max(0.95, state.fontSize)}rem">
-            ${bilingual(safeRichText(q.rationaleEs), safeRichText(q.rationaleEn))}
-          </div>
-        </div>`
-      : '';
-
-    return `<div class="p-6 max-w-5xl mx-auto">
-      <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-        <div class="p-6 bg-gradient-to-r from-slate-900/5 to-[rgba(var(--brand-blue-rgb),0.1)] border-b border-[var(--brand-border)]">
-          <div class="flex items-center justify-between gap-3">
-            <div class="text-sm font-black text-[var(--brand-text-muted)]">
-              ${bilingual("Revisión", "Review")} • ${escapeHtml(q.category)} • ${q.type === 'sata' ? 'SATA' : 'Single'}
+    return `
+      <div class="max-w-4xl mx-auto animate-fade-in pb-20">
+         <div class="bg-[var(--brand-card)] rounded-3xl p-8 shadow-xl border-t-8 ${isCorrect ? 'border-green-500' : 'border-red-500'} mb-6">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center text-white text-2xl ${isCorrect ? 'bg-green-500' : 'bg-red-500'}">
+                    <i class="fa-solid fa-${isCorrect ? 'check' : 'xmark'}"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-black text-[var(--brand-text)]">${isCorrect ? bilingual("¡Correcto!", "Correct!") : bilingual("Incorrecto", "Incorrect")}</h2>
+                    <p class="text-sm text-[var(--brand-text-muted)]">${bilingual("Revisa el razonamiento abajo.", "Review the rationale below.")}</p>
+                </div>
             </div>
-            ${headerBadge}
-          </div>
-        </div>
-        <div class="p-6">
-          <div class="text-xl md:text-2xl font-black text-[var(--brand-text)] mb-5" style="font-size:${Math.max(1.15, state.fontSize + 0.15)}rem">
-            ${bilingual(safeRichText(q.textEs), safeRichText(q.textEn))}
-          </div>
-          <div class="space-y-3">
-            ${optionCards}
-          </div>
-          ${rationaleBlock}
-          <div class="mt-6 flex flex-wrap gap-2">
-            <button onclick="window.simController.quit()" 
-              class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
-              ${bilingual("Salir", "Quit")}
-            </button>
+
+            <div class="space-y-3 mb-8">
+                ${q.options.map(opt => {
+                    const isSel = selected.includes(opt.id);
+                    const isRight = opt.correct;
+                    let styleClass = "border-[var(--brand-border)] opacity-50"; // Default dim
+                    let icon = "";
+
+                    if (isRight) {
+                        styleClass = "border-green-500 bg-green-50 dark:bg-green-900/20 opacity-100";
+                        icon = '<i class="fa-solid fa-check text-green-600"></i>';
+                    } else if (isSel && !isRight) {
+                        styleClass = "border-red-500 bg-red-50 dark:bg-red-900/20 opacity-100";
+                        icon = '<i class="fa-solid fa-xmark text-red-600"></i>';
+                    }
+
+                    return `
+                        <div class="w-full text-left p-4 rounded-xl border-2 flex items-start gap-4 ${styleClass}">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-black shrink-0 bg-white/50 text-[var(--brand-text)]">
+                                ${opt.id.toUpperCase()}
+                            </div>
+                            <div class="pt-1 flex-1 text-[var(--brand-text)]">
+                                ${bilingual(safeRichText(opt.textEs), safeRichText(opt.textEn))}
+                            </div>
+                            <div class="pt-1">${icon}</div>
+                        </div>
+                    `;
+                }).join('')}
+             </div>
+
+             <div class="p-6 rounded-2xl bg-[var(--brand-bg)] border border-[var(--brand-border)]">
+                <h3 class="font-bold text-[var(--brand-text)] mb-2 uppercase text-xs tracking-wider">Rationale</h3>
+                <div class="text-[var(--brand-text)] leading-relaxed">
+                    ${bilingual(safeRichText(q.rationaleEs), safeRichText(q.rationaleEn))}
+                </div>
+             </div>
+         </div>
+
+         <div class="flex justify-end">
             <button onclick="window.simController.next()" 
-              class="px-5 py-2.5 rounded-2xl text-white font-black shadow hover:shadow-lg transition" style="background-color: rgb(var(--brand-blue-rgb));">
-              ${bilingual("Siguiente", "Next")}
+                class="px-8 py-4 rounded-2xl font-black text-white shadow-lg transition-transform active:scale-95 bg-[var(--brand-blue)]">
+                ${bilingual("SIGUIENTE", "NEXT QUESTION")} <i class="fa-solid fa-arrow-right ml-2"></i>
             </button>
-          </div>
         </div>
       </div>
-    </div>`;
-  }
-
-  // ===== GENERADOR DE INFORME PDF =====
-  function generatePDFReport() {
-    const total = state.activeSession.length;
-    const score = state.score;
-    const pct = total ? Math.round((score / total) * 100) : 0;
-    const date = new Date().toLocaleString();
-    const lang = getLang();
-    const isEs = lang === 'es';
-
-    // Construir contenido HTML para impresión
-    let html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>NCLEX Simulator Report</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 2cm; line-height: 1.4; color: #333; }
-          h1 { color: #2563eb; font-size: 24px; margin-bottom: 5px; }
-          .header { border-bottom: 2px solid #2563eb; padding-bottom: 10px; margin-bottom: 20px; }
-          .score { font-size: 18px; margin-bottom: 20px; }
-          .question { page-break-inside: avoid; margin-bottom: 30px; }
-          .question-text { font-weight: bold; margin-bottom: 10px; }
-          .options { margin-left: 20px; margin-bottom: 10px; }
-          .option { margin-bottom: 5px; }
-          .correct { color: #16a34a; font-weight: bold; }
-          .incorrect { color: #dc2626; font-weight: bold; }
-          .selected { background-color: #e0f2fe; padding: 2px 4px; border-radius: 4px; }
-          .rationale { margin-top: 10px; padding: 10px; background-color: #f1f5f9; border-left: 4px solid #2563eb; }
-          .rationale-title { font-weight: bold; }
-          .footer { margin-top: 40px; font-size: 12px; color: #666; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>NCLEX Simulator - ${isEs ? 'Informe de resultados' : 'Results Report'}</h1>
-          <p>${date}</p>
-        </div>
-        <div class="score">
-          <p><strong>${isEs ? 'Puntaje' : 'Score'}:</strong> ${score} / ${total} (${pct}%)</p>
-        </div>
     `;
-
-    // Recorrer historial de respuestas
-    state.userAnswers.forEach((ans, idx) => {
-      const q = ans.question;
-      const userSelected = ans.selectedOptions || [];
-      const correctIds = ans.correctOptions || [];
-      const isCorrect = ans.isCorrect;
-
-      html += `<div class="question">`;
-      html += `<div class="question-text">${idx + 1}. ${isEs ? q.textEs : q.textEn}</div>`;
-      html += `<div class="options">`;
-
-      q.options.forEach(opt => {
-        const optText = isEs ? opt.textEs : opt.textEn;
-        const isUser = userSelected.includes(opt.id);
-        const isRight = opt.correct;
-        let className = '';
-        if (isRight) className += ' correct';
-        if (isUser) className += ' selected';
-
-        html += `<div class="option ${className}">${opt.id.toUpperCase()}) ${optText}`;
-        if (isUser && isRight) html += ' ✓';
-        if (isUser && !isRight) html += ' ✗';
-        html += `</div>`;
-      });
-
-      html += `</div>`; // close options
-
-      // Rationale
-      if (ans.rationaleEs || ans.rationaleEn) {
-        const rationaleText = isEs ? ans.rationaleEs : ans.rationaleEn;
-        html += `<div class="rationale"><span class="rationale-title">${isEs ? 'Razonamiento:' : 'Rationale:'}</span> ${rationaleText}</div>`;
-      }
-
-      html += `</div>`; // close question
-    });
-
-    html += `<div class="footer">${isEs ? 'Generado por NCLEX Essentials' : 'Generated by NCLEX Essentials'}</div>`;
-    html += `</body></html>`;
-
-    // Abrir ventana de impresión
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
   }
 
   function renderResults() {
-    const total = state.activeSession.length || 0;
-    const score = state.score || 0;
-    const pct = total ? Math.round((score / total) * 100) : 0;
+    const total = state.activeSession.length;
+    const score = state.score;
+    const pct = Math.round((score / total) * 100);
 
-    const msg = pct >= 80
-      ? bilingual("Excelente. Estás listo.", "Excellent. You're ready.")
-      : pct >= 65
-        ? bilingual("Vas bien. Refuerza tus debilidades.", "Good progress. Reinforce weaknesses.")
-        : bilingual("Necesitas más práctica. Sigue entrenando.", "You need more practice. Keep training.");
-
-    if (window.Dashboard && typeof window.Dashboard.recordQuiz === 'function' && total > 0) {
-      const category = state.activeSession[0]?.category || 'Mixed';
-      window.Dashboard.recordQuiz(category, score, total);
-    }
-
-    return `<div class="p-6 max-w-4xl mx-auto">
-      <div class="rounded-3xl overflow-hidden shadow-xl border border-[var(--brand-border)] bg-[var(--brand-card)]">
-        <div class="p-6 bg-gradient-to-r from-emerald-500/10 to-[rgba(var(--brand-blue-rgb),0.1)] border-b border-[var(--brand-border)]">
-          <h2 class="text-3xl font-black text-[var(--brand-text)]">${bilingual("Resultados", "Results")}</h2>
-          <p class="text-[var(--brand-text-muted)] mt-1">${msg}</p>
-        </div>
-        <div class="p-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="p-5 rounded-3xl bg-[var(--brand-bg)]">
-            <div class="text-xs font-black text-[var(--brand-text-muted)]">${bilingual("Puntaje", "Score")}</div>
-            <div class="text-3xl font-black text-[var(--brand-text)]">${score} / ${total}</div>
-          </div>
-          <div class="p-5 rounded-3xl bg-[var(--brand-bg)]">
-            <div class="text-xs font-black text-[var(--brand-text-muted)]">${bilingual("Porcentaje", "Percent")}</div>
-            <div class="text-3xl font-black text-[var(--brand-text)]">${pct}%</div>
-          </div>
-          <div class="p-5 rounded-3xl text-white" style="background-color: #1e293b;">
-            <div class="text-xs font-black text-white/70">${bilingual("Siguiente paso", "Next step")}</div>
-            <div class="text-sm font-bold mt-1">
-              ${bilingual("Mezcla temas y sube tu límite para más dificultad.", "Mix topics and increase your limit for more challenge.")}
+    return `
+        <div class="max-w-2xl mx-auto text-center animate-fade-in pt-10">
+            <div class="w-32 h-32 mx-auto rounded-full flex items-center justify-center text-4xl font-black mb-6 text-white shadow-xl ${pct >= 75 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500'}">
+                ${pct}%
             </div>
-          </div>
+            <h1 class="text-3xl font-black text-[var(--brand-text)] mb-2">${bilingual("Sesión Finalizada", "Session Completed")}</h1>
+            <p class="text-[var(--brand-text-muted)] mb-8">${bilingual(`Obtuviste ${score} de ${total} preguntas correctas.`, `You got ${score} out of ${total} questions right.`)}</p>
+            
+            <div class="flex justify-center gap-4">
+                <button onclick="window.simController.quit()" class="px-6 py-3 rounded-xl bg-[var(--brand-card)] border border-[var(--brand-border)] text-[var(--brand-text)] font-bold shadow-sm hover:bg-[var(--brand-bg)]">
+                    ${bilingual("Volver al Inicio", "Back to Home")}
+                </button>
+                <button onclick="window.simController.startSelected()" class="px-6 py-3 rounded-xl bg-[var(--brand-blue)] text-white font-bold shadow-lg hover:brightness-110">
+                    ${bilingual("Nueva Práctica", "New Practice")}
+                </button>
+            </div>
         </div>
-        <div class="p-6 pt-0 flex flex-wrap gap-2">
-          <button onclick="window.simController.quit()" 
-            class="px-5 py-2.5 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] font-black hover:opacity-90 transition">
-            ${bilingual("Volver al lobby", "Back to lobby")}
-          </button>
-          <button onclick="window.simController.startQuiz('ALL')" 
-            class="px-5 py-2.5 rounded-2xl bg-slate-900 text-white font-black shadow hover:shadow-lg transition">
-            ${bilingual("Repetir mixto total", "Retry full mix")}
-          </button>
-          <button onclick="window.simController.startSelected()"
-            class="px-5 py-2.5 rounded-2xl font-black transition ${((state.selectedCategories || []).length > 0) ? 'text-white shadow hover:shadow-lg' : 'bg-[var(--brand-bg)] text-[var(--brand-text-muted)] cursor-not-allowed'}" 
-            ${((state.selectedCategories || []).length > 0) ? 'style="background-color: rgb(var(--brand-blue-rgb));"' : ''} 
-            ${((state.selectedCategories || []).length > 0) ? '' : 'disabled'}>
-            ${bilingual("Repetir selección", "Retry selection")}
-          </button>
-          <!-- Nuevo botón para descargar PDF -->
-          <button onclick="window.simController.downloadPDF()" 
-            class="px-5 py-2.5 rounded-2xl bg-amber-600 text-white font-black shadow hover:shadow-lg transition flex items-center gap-2">
-            <i class="fa-solid fa-file-pdf"></i> ${bilingual("Descargar PDF", "Download PDF")}
-          </button>
-        </div>
-      </div>
-    </div>`;
+    `;
   }
 
-  // ===== FUNCIÓN DE RENDER EXPORTADA =====
-  window.renderSimulatorPage = function () {
+  // ===== API PÚBLICA =====
+  window.renderSimulatorPage = function() {
     if (state.isLoading) return renderLoading();
-    if (state.error) return renderError();
-    if (state.activeSession.length > 0 && state.isRationaleMode) return renderRationale();
-    if (state.activeSession.length > 0) return renderActiveQuiz();
-    return renderLobby();
+    if (state.error) return `<div class="p-10 text-center text-red-500">${state.error} <br><button onclick="window.simController.forceReload()" class="mt-4 underline">Retry</button></div>`;
+    if (state.activeSession.length === 0) return renderLobby();
+    if (state.isRationaleMode) return renderRationale();
+    return renderActiveQuiz();
   };
 
-  // ===== FLOW HELPERS =====
-  function showQuestionByIndex(index) {
-    const q = state.allQuestions[index];
-    if (!q) return;
-
-    state.activeSession = [q];
-    state.currentIndex = 0;
-    state.score = 0;
-    state.userSelection = [];
-    state.isRationaleMode = false;
-    state.lastSubmitted = null;
-    state.userAnswers = [];
-
-    renderNow();
-  }
-
-  // ===== CONTROLADOR GLOBAL =====
   window.simController = {
-    setLimit(n) {
-      state.limit = Math.max(1, Number(n) || 10);
-      savePrefs();
-      renderNow();
+    setLimit: (n) => { state.limit = n; savePrefs(); renderNow(); },
+    toggleCategory: (c) => { 
+        if(state.selectedCategories.includes(c)) state.selectedCategories = state.selectedCategories.filter(x => x!==c);
+        else state.selectedCategories.push(c);
+        savePrefs(); renderNow();
     },
-    
-    adjustFont(delta) {
-      state.fontSize = Math.max(0.8, Math.min(1.6, state.fontSize + (Number(delta) || 0)));
-      savePrefs();
-      renderNow();
-    },
-
-    startQuiz(c) {
-      if (c === 'ALL') startQuizWithCategories([]);
-      else startQuizWithCategories([c]);
-    },
-
-    toggleCategory(cat) { 
-      toggleSelectedCategory(cat); 
-    },
-    
-    clearSelected() { 
-      clearSelectedCategories(); 
-    },
-    
-    selectAll() { 
-      selectAllCategories(); 
-    },
-    
-    startSelected() { 
-      startQuizWithCategories(state.selectedCategories || []); 
-    },
-
-    selectOption(id) {
-      const q = state.activeSession[state.currentIndex];
-      if (!q) return;
-
-      if (q.type === 'single') {
-        state.userSelection = [id];
-      } else {
-        if (state.userSelection.includes(id)) {
-          state.userSelection = state.userSelection.filter(x => x !== id);
-        } else {
-          state.userSelection.push(id);
+    selectAll: () => { state.selectedCategories = Object.keys(state.categories); savePrefs(); renderNow(); },
+    clearSelected: () => { state.selectedCategories = []; savePrefs(); renderNow(); },
+    startSelected: () => startQuiz(state.selectedCategories),
+    startQuiz: (cat) => startQuiz(cat === 'ALL' ? [] : [cat]),
+    selectOption: (id) => {
+        const q = state.activeSession[state.currentIndex];
+        if(q.type === 'single') state.userSelection = [id];
+        else {
+            if(state.userSelection.includes(id)) state.userSelection = state.userSelection.filter(x => x!==id);
+            else state.userSelection.push(id);
         }
-      }
-      renderNow();
-    },
-
-    submit() {
-      const q = state.activeSession[state.currentIndex];
-      if (!q) return;
-      if (!state.userSelection || state.userSelection.length === 0) return;
-
-      const correctIds = q.options.filter(o => o.correct).map(o => o.id);
-      const isCorrect = (q.type === 'single')
-        ? correctIds.includes(state.userSelection[0])
-        : (correctIds.length === state.userSelection.length &&
-           correctIds.every(i => state.userSelection.includes(i)) &&
-           state.userSelection.every(i => correctIds.includes(i)));
-
-      if (isCorrect) state.score++;
-
-      // Guardar respuesta en el historial
-      state.userAnswers.push({
-        question: q,
-        selectedOptions: [...state.userSelection],
-        isCorrect,
-        correctOptions: correctIds,
-        rationaleEs: q.rationaleEs,
-        rationaleEn: q.rationaleEn
-      });
-
-      state.isRationaleMode = true;
-      state.lastSubmitted = { isCorrect, correctIds, selected: [...state.userSelection] };
-
-      renderNow();
-    },
-
-    next() {
-      state.currentIndex++;
-      state.userSelection = [];
-      state.isRationaleMode = false;
-      state.lastSubmitted = null;
-
-      if (state.currentIndex >= state.activeSession.length) {
-        const view = $('#app-view');
-        if (view) {
-          view.innerHTML = renderResults();
-          applyGlobalLanguage(view);
-        }
-      } else {
         renderNow();
-      }
     },
-
-    quit() {
-      state.activeSession = [];
-      state.userSelection = [];
-      state.isRationaleMode = false;
-      state.lastSubmitted = null;
-      state.userAnswers = [];
-      renderNow();
-    },
-
-    forceReload() {
-      state.allQuestions = [];
-      state.activeSession = [];
-      state.currentIndex = 0;
-      state.score = 0;
-      state.userSelection = [];
-      state.isLoading = true;
-      state.categories = {};
-      state.error = null;
-      state.isRationaleMode = false;
-      state.lastSubmitted = null;
-      state.userAnswers = [];
-      loadQuestions();
-    },
-
-    // Nueva función para descargar PDF
-    downloadPDF() {
-      if (!state.userAnswers || state.userAnswers.length === 0) {
-        alert(bilingual("No hay datos para descargar.", "No data to download."));
-        return;
-      }
-      generatePDFReport();
-    }
+    submit: submitAnswer,
+    next: nextQuestion,
+    quit: () => { state.activeSession = []; renderNow(); },
+    forceReload: loadQuestions
   };
 
-  window.showSimulatorQuestion = function (index) {
-    const idx = Number(index);
-    if (!Number.isFinite(idx) || idx < 0) return;
-
-    if (!state.allQuestions || state.allQuestions.length === 0) {
-      state.pendingShowQuestionIndex = idx;
-      if (!state.isLoading) loadQuestions();
-      return;
-    }
-
-    showQuestionByIndex(idx);
-  };
-
-  // ===== INICIALIZACIÓN =====
+  // ===== INIT =====
   loadPrefs();
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadQuestions);
-  } else {
-    loadQuestions();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadQuestions);
+  else loadQuestions();
 
-  // ===== ESCUCHAR CAMBIOS DE IDIOMA =====
-  window.addEventListener('languagechange', () => {
-    // Si el simulador está activo, forzar re-renderizado para actualizar textos
-    if (isOnSimulatorRoute()) {
-      renderNow();
-    }
-  });
+  // Escuchar cambio de idioma global
+  window.addEventListener('languagechange', renderNow);
 
 })();

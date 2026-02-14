@@ -1,8 +1,10 @@
-// skins.js — UI History Museum: 20 Historical Interface Eras + The Neural Vision Masterpiece
+// js/skins.js — Sincronizado con Auth y Firebase
 // Curated collection of interface design evolution from 1984 to spatial computing era
 
 (function() {
     'use strict';
+
+    const STORAGE_KEY = 'nclex_theme_prefs'; // Clave sincronizada con auth.js
 
     // ===== THE SKINS MUSEUM =====
     const SKINS = [
@@ -725,6 +727,7 @@
 
     // ===== SKIN APPLICATION LOGIC =====
     function applySkin(skinId) {
+        if (!skinId) return;
         const skin = SKINS.find(s => s.id === skinId);
         if (!skin) return;
 
@@ -737,13 +740,19 @@
         // Apply new skin
         document.body.classList.add(`skin-${skinId}`);
 
-        // Store preference
+        // Store preference LOCAL (JSON valid)
         try {
-            localStorage.setItem('nclex_skin_v1', skinId);
-        } catch (e) {}
+            // Guardamos comillas dobles para que sea JSON válido si es necesario
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(skinId));
+        } catch (e) { console.error("Error saving skin local", e); }
 
         // Trigger custom event
         window.dispatchEvent(new CustomEvent('skinChanged', { detail: { skin } }));
+
+        // FORCE CLOUD SYNC
+        if (window.NCLEX_AUTH && window.NCLEX_AUTH.forceSave) {
+            window.NCLEX_AUTH.forceSave();
+        }
     }
 
     function initSkins() {
@@ -755,8 +764,27 @@
             document.head.appendChild(style);
         }
 
-        // Load saved skin or apply masterpiece
-        const savedSkin = localStorage.getItem('nclex_skin_v1') || 'neural-vision';
+        // Load saved skin logic
+        loadAndApply();
+
+        // Listen for Cloud Sync (Auth)
+        window.addEventListener('nclex:dataLoaded', () => {
+            console.log("🎨 Skin Sync: Datos de nube detectados");
+            loadAndApply();
+        });
+    }
+
+    function loadAndApply() {
+        let savedSkin = 'neural-vision'; // Default
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                // Maneja si se guardó como JSON string o string plano
+                if (stored.startsWith('"')) savedSkin = JSON.parse(stored);
+                else savedSkin = stored;
+            }
+        } catch (e) { console.warn("Skin parse error, using default"); }
+        
         applySkin(savedSkin);
     }
 

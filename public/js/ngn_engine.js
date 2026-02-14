@@ -13,8 +13,7 @@
     };
   })();
 
-  // ===== CONFIGURACIÓN DE CASOS (ÁREA EDITABLE) =====
-  // Para agregar un nuevo caso, copia todo el bloque entre { ... } y pégalo después de la coma.
+  // ===== CONFIGURACIÓN DE CASOS (CLINICAL CASES DATABASE) =====
   const NGN_CASES = [
     {
       id: 'sepsis',
@@ -25,7 +24,7 @@
         en: 'A 78-year-old male client is brought to the ED by his daughter due to increasing confusion, fever, and lethargy.',
         es: 'Paciente masculino de 78 años es traído a Urgencias por su hija debido a confusión creciente, fiebre y letargo.'
       },
-      // Pestañas de Información Clínica
+      // Pestañas de Información Clínica (Electronic Health Record simulation)
       tabs: {
         notes: {
           label: { en: 'Nurses Notes', es: 'Notas Enfermería' },
@@ -42,18 +41,18 @@
           icon: 'fa-heart-pulse',
           content: {
             en: `<div class="grid grid-cols-2 gap-2 text-sm">
-                  <div class="p-2 bg-red-50 border border-red-200 rounded"><strong>Temp:</strong> 38.9°C (102°F)</div>
-                  <div class="p-2 bg-red-50 border border-red-200 rounded"><strong>HR:</strong> 118 bpm</div>
-                  <div class="p-2 bg-yellow-50 border border-yellow-200 rounded"><strong>RR:</strong> 24 /min</div>
-                  <div class="p-2 bg-red-50 border border-red-200 rounded"><strong>BP:</strong> 88/54 mmHg</div>
-                  <div class="col-span-2 p-2 bg-yellow-50 border border-yellow-200 rounded"><strong>O2 Sat:</strong> 91% (Room Air)</div>
+                  <div class="p-2 bg-red-50 border border-red-200 rounded text-red-900"><strong>Temp:</strong> 38.9°C (102°F)</div>
+                  <div class="p-2 bg-red-50 border border-red-200 rounded text-red-900"><strong>HR:</strong> 118 bpm</div>
+                  <div class="p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-900"><strong>RR:</strong> 24 /min</div>
+                  <div class="p-2 bg-red-50 border border-red-200 rounded text-red-900"><strong>BP:</strong> 88/54 mmHg</div>
+                  <div class="col-span-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-900"><strong>O2 Sat:</strong> 91% (Room Air)</div>
                  </div>`,
             es: `<div class="grid grid-cols-2 gap-2 text-sm">
-                  <div class="p-2 bg-red-50 border border-red-200 rounded"><strong>Temp:</strong> 38.9°C (Fiebre)</div>
-                  <div class="p-2 bg-red-50 border border-red-200 rounded"><strong>FC:</strong> 118 lpm</div>
-                  <div class="p-2 bg-yellow-50 border border-yellow-200 rounded"><strong>FR:</strong> 24 rpm</div>
-                  <div class="p-2 bg-red-50 border border-red-200 rounded"><strong>PA:</strong> 88/54 mmHg</div>
-                  <div class="col-span-2 p-2 bg-yellow-50 border border-yellow-200 rounded"><strong>SatO2:</strong> 91% (Aire Ambiente)</div>
+                  <div class="p-2 bg-red-50 border border-red-200 rounded text-red-900"><strong>Temp:</strong> 38.9°C (Fiebre)</div>
+                  <div class="p-2 bg-red-50 border border-red-200 rounded text-red-900"><strong>FC:</strong> 118 lpm</div>
+                  <div class="p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-900"><strong>FR:</strong> 24 rpm</div>
+                  <div class="p-2 bg-red-50 border border-red-200 rounded text-red-900"><strong>PA:</strong> 88/54 mmHg</div>
+                  <div class="col-span-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-900"><strong>SatO2:</strong> 91% (Aire Ambiente)</div>
                  </div>`
           }
         },
@@ -76,7 +75,7 @@
           }
         }
       },
-      // Preguntas Secuenciales (Step 1, 2, 3...)
+      // Preguntas Secuenciales (NGN Step 1, 2, 3...)
       questions: [
         {
           step: 1,
@@ -129,8 +128,8 @@
     activeCase: null,
     currentTab: 'notes',
     currentQIndex: 0,
-    answers: {}, // Mapa de respuestas { step: [ids] }
-    history: [], // Historial para el reporte PDF
+    answers: {}, 
+    history: [], 
     score: 0,
     showRationale: false,
     isComplete: false
@@ -138,10 +137,7 @@
 
   // ===== HELPERS =====
   function getLang() {
-    if (window.nclexApp && typeof window.nclexApp.getCurrentLang === 'function') {
-      return window.nclexApp.getCurrentLang();
-    }
-    return U.storageGet('nclex_lang', 'es');
+    return window.safeStorageGet ? window.safeStorageGet('nclex_lang', 'es') : 'es';
   }
 
   function t(obj) {
@@ -171,8 +167,8 @@
           .q-text { font-weight: bold; font-size: 16px; margin: 5px 0 15px 0; }
           .opt { padding: 8px; font-size: 14px; border-bottom: 1px solid #f1f5f9; }
           .opt:last-child { border-bottom: none; }
-          .status-correct { color: #166534; font-weight: bold; }
-          .status-wrong { color: #991b1b; font-weight: bold; }
+          .status-correct { color: #166534; font-weight: bold; background: #dcfce7; }
+          .status-wrong { color: #991b1b; font-weight: bold; background: #fee2e2; }
           .rationale { margin-top: 15px; background: #f8fafc; padding: 12px; font-size: 13px; font-style: italic; border-left: 3px solid #3b82f6; }
           .score-box { text-align: center; margin-top: 40px; padding: 20px; background: #f1f5f9; border-radius: 12px; font-weight: bold; font-size: 18px; }
         </style>
@@ -194,13 +190,7 @@
     state.history.forEach((h, idx) => {
       const q = h.question;
       const userAns = h.selected; // Array of IDs
-      const correctAns = q.options.filter(o => o.correct).map(o => o.id);
       
-      // Lógica de corrección simple para el reporte
-      const isStepCorrect = (q.type === 'highlight')
-        ? (correctAns.length === userAns.length && correctAns.every(id => userAns.includes(id)))
-        : (correctAns[0] === userAns[0]);
-
       html += `<div class="q-block">
         <div class="q-step">${isEs ? 'PASO' : 'STEP'} ${q.step}</div>
         <div class="q-text">${t(q.text)}</div>`;
@@ -212,10 +202,10 @@
         let marker = '⚪';
         let style = '';
         
-        if (isCorrect) { marker = '✅'; style = 'status-correct'; }
-        else if (isSelected) { marker = '❌'; style = 'status-wrong'; }
+        if (isCorrect && isSelected) { marker = '✅'; style = 'status-correct'; }
+        else if (isCorrect && !isSelected) { marker = '⚠️ (Missed)'; }
+        else if (isSelected && !isCorrect) { marker = '❌'; style = 'status-wrong'; }
         
-        // Solo mostrar opciones relevantes (seleccionadas o correctas) para ahorrar espacio
         if (isSelected || isCorrect) {
              html += `<div class="opt ${style}">${marker} ${t(opt.text)}</div>`;
         }
@@ -444,7 +434,7 @@
     submit() {
         const q = state.activeCase.questions[state.currentQIndex];
         const ans = state.answers[q.step] || [];
-        if (ans.length === 0) return; // No answer
+        if (ans.length === 0) return; 
 
         // Save history for PDF
         state.history.push({ question: q, selected: [...ans] });
@@ -476,7 +466,6 @@
     refresh() {
         const view = document.getElementById('app-view');
         if (view && !state.isComplete) {
-            // Guardar scroll position si es necesario
             view.innerHTML = this.renderLayout(state.activeCase.id);
         }
     }

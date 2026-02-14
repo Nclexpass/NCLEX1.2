@@ -1,77 +1,95 @@
-/* 32_analytics_dashboard.js — Student Performance Analytics v4.1 
-   UPDATES: Fixed icon layout, Didactic Breakdown, NCLEX Pass Probability
+/* 32_analytics_dashboard.js — Student Performance Analytics v4.2 
+   INTEGRATED: Conectado a nclex_quiz_history y Skins
 */
 
 (function () {
     'use strict';
 
     // ===== DEPENDENCIAS =====
-    const $ = (sel) => document.querySelector(sel);
     const U = window.NCLEXUtils || { storageGet: (k,d)=>JSON.parse(localStorage.getItem(k))||d };
 
     // ===== RENDERIZADOR PRINCIPAL =====
     function renderDashboard() {
-        // 1. Obtener Datos Reales
-        const progress = U.storageGet('nclex_progress', []);
-        // Simulamos stats del QBank si no hay suficientes datos
-        const qbankStats = U.storageGet('sim_stats', { 
-            totalQuestions: 0, 
-            correct: 0, 
-            weakness: ['Pharmacology', 'Physiological Adaptation'], 
-            strength: ['Safety', 'Basic Care'] 
+        // 1. Obtener Datos Reales (Sincronizados por Auth.js)
+        const progress = U.storageGet('nclex_progress', []); // Array de IDs de temas completados
+        const history = U.storageGet('nclex_quiz_history', []); // Array de resultados de exámenes
+
+        // 2. Cálculos de Simulador
+        let totalQuestions = 0;
+        let totalCorrect = 0;
+        
+        history.forEach(session => {
+            totalQuestions += (session.total || 0);
+            totalCorrect += (session.score || 0);
         });
 
-        // Calculos
-        const totalModules = 30; // Aproximado
+        const quizAverage = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+        
+        // 3. Cálculos de Progreso Teórico
+        const totalModules = 30; // Total aproximado de módulos en logic.js
         const completionRate = Math.round((progress.length / totalModules) * 100);
-        const qbankScore = qbankStats.totalQuestions > 0 
-            ? Math.round((qbankStats.correct / qbankStats.totalQuestions) * 100) 
-            : 0;
 
-        // Probabilidad de Aprobar (Algoritmo simple)
-        let passProb = Math.min(99, (completionRate * 0.4) + (qbankScore * 0.6));
-        if (qbankStats.totalQuestions < 50) passProb = passProb * 0.5; // Penalización por poca data
-        passProb = Math.round(passProb);
+        // 4. Algoritmo de Probabilidad de Aprobar (Weighted)
+        // 40% Teoría + 60% Práctica (con penalización si hay pocas preguntas)
+        let passProb = 0;
+        if (totalQuestions > 0) {
+            passProb = (completionRate * 0.4) + (quizAverage * 0.6);
+            // Penalización por falta de datos (confianza baja)
+            if (totalQuestions < 50) passProb *= 0.8; 
+            if (totalQuestions < 20) passProb *= 0.5;
+        } else {
+            // Si solo estudia teoría pero no practica
+            passProb = completionRate * 0.2; 
+        }
+        passProb = Math.min(99, Math.round(passProb));
 
-        // Colores dinámicos para la probabilidad
-        const probColor = passProb > 75 ? 'text-green-500' : (passProb > 40 ? 'text-yellow-500' : 'text-red-500');
+        // Colores dinámicos
+        const probColorClass = passProb >= 75 ? 'text-green-500' : (passProb >= 50 ? 'text-yellow-500' : 'text-red-500');
+        const probBarColor = passProb >= 75 ? 'bg-green-500' : (passProb >= 50 ? 'bg-yellow-500' : 'bg-red-500');
 
         return `
-            <div class="animate-fade-in pb-20">
-                <header class="mb-8">
-                    <h1 class="text-3xl font-black text-[var(--brand-text)] mb-2">Panel de Rendimiento</h1>
-                    <p class="text-[var(--brand-text-muted)]">Análisis de preparación para el NCLEX-RN</p>
+            <div class="animate-fade-in pb-20 max-w-6xl mx-auto">
+                <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                    <div>
+                        <h1 class="text-3xl font-black text-[var(--brand-text)] mb-1">Panel de Rendimiento</h1>
+                        <p class="text-[var(--brand-text-muted)]">Análisis en tiempo real de tu preparación NCLEX.</p>
+                    </div>
+                    <div class="text-right hidden md:block">
+                        <div class="text-xs font-bold text-[var(--brand-text-muted)] uppercase">Última Sincronización</div>
+                        <div class="text-sm font-bold text-[var(--brand-text)]">${new Date().toLocaleDateString()}</div>
+                    </div>
                 </header>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     
-                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg relative overflow-hidden">
-                        <div class="absolute top-0 right-0 p-4 opacity-5">
-                            <i class="fa-solid fa-chart-pie text-9xl"></i>
+                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <i class="fa-solid fa-chart-line text-9xl"></i>
                         </div>
-                        <h3 class="text-sm font-bold text-[var(--brand-text-muted)] uppercase tracking-wider mb-2">Probabilidad de Aprobar</h3>
-                        <div class="flex items-end gap-2">
-                            <span class="text-5xl font-black ${probColor}">${passProb}%</span>
-                            <span class="text-sm mb-2 text-[var(--brand-text-muted)]">Calculado</span>
+                        <h3 class="text-xs font-black text-[var(--brand-text-muted)] uppercase tracking-widest mb-2">Probabilidad de Aprobar</h3>
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-5xl font-black ${probColorClass}">${passProb}%</span>
+                            <span class="text-xs font-bold text-[var(--brand-text-muted)]">Calculado</span>
                         </div>
-                        <div class="mt-4 w-full bg-[var(--brand-bg)] h-2 rounded-full overflow-hidden">
-                            <div class="h-full bg-current ${probColor}" style="width: ${passProb}%"></div>
+                        <div class="mt-4 w-full bg-[var(--brand-bg)] h-3 rounded-full overflow-hidden border border-[var(--brand-border)]">
+                            <div class="h-full ${probBarColor} transition-all duration-1000" style="width: ${passProb}%"></div>
                         </div>
-                        <p class="text-xs mt-3 opacity-70 text-[var(--brand-text)]">Basado en módulos completados y puntaje del QBank.</p>
+                        <p class="text-xs mt-3 opacity-70 text-[var(--brand-text)]">
+                            ${totalQuestions < 50 ? 'Simula más exámenes para aumentar la precisión.' : 'Basado en tu rendimiento histórico.'}
+                        </p>
                     </div>
 
                     <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="text-sm font-bold text-[var(--brand-text-muted)] uppercase tracking-wider">Temario</h3>
-                                <div class="text-3xl font-black text-[var(--brand-text)] mt-1">${progress.length} / ${totalModules}</div>
-                                <div class="text-xs text-green-600 font-bold mt-1">Módulos Completados</div>
-                            </div>
-                            <div class="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 text-blue-500 flex items-center justify-center text-xl">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-xs font-black text-[var(--brand-text-muted)] uppercase tracking-widest">Progreso Teórico</h3>
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
                                 <i class="fa-solid fa-book-open"></i>
                             </div>
                         </div>
-                        <div class="flex gap-1 h-3 mt-4">
+                        <div class="text-3xl font-black text-[var(--brand-text)]">${progress.length} <span class="text-lg text-[var(--brand-text-muted)] font-medium">/ ${totalModules}</span></div>
+                        <div class="text-xs font-bold text-[var(--brand-text-muted)] mt-1">Módulos Completados</div>
+                        
+                        <div class="flex gap-1 h-2 mt-4">
                             ${Array(10).fill(0).map((_, i) => {
                                 const active = (i * 10) < completionRate;
                                 return `<div class="flex-1 rounded-full ${active ? 'bg-blue-500' : 'bg-[var(--brand-bg)]'}"></div>`;
@@ -80,51 +98,84 @@
                     </div>
 
                     <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="text-sm font-bold text-[var(--brand-text-muted)] uppercase tracking-wider">QBank Score</h3>
-                                <div class="text-3xl font-black text-[var(--brand-text)] mt-1">${qbankScore}%</div>
-                                <div class="text-xs text-[var(--brand-text-muted)] mt-1">${qbankStats.totalQuestions} preguntas respondidas</div>
-                            </div>
-                            <div class="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/20 text-purple-500 flex items-center justify-center text-xl">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-xs font-black text-[var(--brand-text-muted)] uppercase tracking-widest">Precisión QBank</h3>
+                            <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
                                 <i class="fa-solid fa-brain"></i>
                             </div>
                         </div>
-                         <button onclick="window.nclexApp.navigate('simulator')" class="w-full py-2 rounded-lg bg-[var(--brand-bg)] text-xs font-bold text-[var(--brand-text)] hover:bg-[var(--brand-border)] transition">
-                            Ir al Banco de Preguntas
-                        </button>
+                        <div class="text-3xl font-black text-[var(--brand-text)]">${quizAverage}%</div>
+                        <div class="text-xs font-bold text-[var(--brand-text-muted)] mt-1">Promedio General</div>
+                        
+                        <div class="mt-4 flex items-center justify-between text-xs font-bold text-[var(--brand-text-muted)] border-t border-[var(--brand-border)] pt-3">
+                            <span>Preguntas: ${totalQuestions}</span>
+                            <span>Correctas: ${totalCorrect}</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     
-                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)]">
+                    <div class="lg:col-span-2 bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)]">
                         <h3 class="font-bold text-[var(--brand-text)] mb-4 flex items-center gap-2">
-                            <i class="fa-solid fa-triangle-exclamation text-orange-500"></i> Áreas a Mejorar
+                            <i class="fa-solid fa-clock-rotate-left text-[var(--brand-blue)]"></i> Historial Reciente
                         </h3>
-                        <div class="space-y-3">
-                            ${qbankStats.weakness.map(topic => `
-                                <div class="flex items-center justify-between p-3 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/30">
-                                    <span class="text-sm font-medium text-orange-800 dark:text-orange-200">${topic}</span>
-                                    <button class="text-xs bg-white dark:bg-black/20 px-3 py-1 rounded-lg font-bold text-orange-600 hover:scale-105 transition">Repasar</button>
-                                </div>
-                            `).join('')}
-                            ${qbankStats.weakness.length === 0 ? '<p class="text-sm text-[var(--brand-text-muted)]">No hay datos suficientes aún.</p>' : ''}
-                        </div>
+                        
+                        ${history.length === 0 ? `
+                            <div class="text-center py-10 bg-[var(--brand-bg)] rounded-2xl border border-dashed border-[var(--brand-border)]">
+                                <div class="text-4xl mb-3 opacity-20">📭</div>
+                                <p class="text-sm font-bold text-[var(--brand-text-muted)]">No hay exámenes registrados.</p>
+                                <button onclick="window.nclexApp.navigate('simulator')" class="mt-4 px-4 py-2 bg-[var(--brand-blue)] text-white text-xs font-bold rounded-xl hover:opacity-90 transition">
+                                    Iniciar Simulador
+                                </button>
+                            </div>
+                        ` : `
+                            <div class="space-y-3">
+                                ${history.slice().reverse().slice(0, 5).map(h => {
+                                    const scorePct = Math.round((h.score / h.total) * 100);
+                                    const isPass = scorePct >= 60;
+                                    return `
+                                        <div class="flex items-center justify-between p-4 rounded-2xl bg-[var(--brand-bg)] border border-[var(--brand-border)]">
+                                            <div class="flex items-center gap-4">
+                                                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white ${isPass ? 'bg-green-500' : 'bg-red-500'}">
+                                                    ${scorePct}%
+                                                </div>
+                                                <div>
+                                                    <div class="text-sm font-bold text-[var(--brand-text)]">${h.mode === 'simulator' ? 'Simulador Práctico' : 'Examen Rápido'}</div>
+                                                    <div class="text-xs text-[var(--brand-text-muted)]">${new Date(h.date).toLocaleDateString()} • ${h.total} preguntas</div>
+                                                </div>
+                                            </div>
+                                            <div class="text-xs font-black ${isPass ? 'text-green-500' : 'text-red-500'}">
+                                                ${isPass ? 'APROBADO' : 'REPASAR'}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                            <div class="mt-4 text-center">
+                                <p class="text-xs text-[var(--brand-text-muted)]">Mostrando los últimos 5 intentos</p>
+                            </div>
+                        `}
                     </div>
 
-                    <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)]">
-                        <h3 class="font-bold text-[var(--brand-text)] mb-4 flex items-center gap-2">
-                            <i class="fa-solid fa-medal text-green-500"></i> Tus Fortalezas
-                        </h3>
-                        <div class="space-y-3">
-                            ${qbankStats.strength.map(topic => `
-                                <div class="flex items-center justify-between p-3 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800/30">
-                                    <span class="text-sm font-medium text-green-800 dark:text-green-200">${topic}</span>
-                                    <i class="fa-solid fa-check-circle text-green-500"></i>
-                                </div>
-                            `).join('')}
-                             ${qbankStats.strength.length === 0 ? '<p class="text-sm text-[var(--brand-text-muted)]">No hay datos suficientes aún.</p>' : ''}
+                    <div class="space-y-6">
+                        <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)]">
+                            <h3 class="font-bold text-[var(--brand-text)] mb-4">Siguientes Pasos</h3>
+                            <button onclick="window.nclexApp.navigate('simulator')" class="w-full flex items-center justify-between p-4 mb-3 rounded-2xl bg-[rgb(var(--brand-blue-rgb))] text-white shadow-lg hover:shadow-xl hover:translate-y-[-2px] transition-all">
+                                <span class="text-sm font-bold">Practicar en Simulador</span>
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                            <button onclick="window.BNotepad.open()" class="w-full flex items-center justify-between p-4 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand-text)] border border-[var(--brand-border)] hover:border-[var(--brand-blue)] transition-colors">
+                                <span class="text-sm font-bold">Revisar Mis Notas</span>
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-slate-800 to-black p-6 rounded-3xl text-white shadow-lg">
+                            <h3 class="font-bold text-sm uppercase tracking-widest text-white/70 mb-2">Consejo del Día</h3>
+                            <p class="text-sm font-medium leading-relaxed">
+                                "La seguridad del paciente es siempre la prioridad #1. En preguntas de priorización, busca qué paciente morirá primero si no actúas."
+                            </p>
                         </div>
                     </div>
 
@@ -133,7 +184,7 @@
         `;
     }
 
-    // Exponer
+    // Exponer a Logic.js
     window.renderAnalyticsPage = renderDashboard;
 
 })();

@@ -1,4 +1,4 @@
-// 31_search_service.js — Deep Search Engine (VERSIÓN CORREGIDA 3.0)
+// 31_search_service.js — Deep Search Engine (VERSIÓN PROD 3.0)
 // SMART SEARCH: Highlight en contenido de módulos
 // SIDEBAR SEARCH: Solo navegación a módulos (sin highlight)
 
@@ -116,8 +116,6 @@
 
       this.isReady = true;
       console.log(`✅ Search Service: ${this.modulesIndex.length} módulos indexados`);
-      console.log(`   - Sidebar: títulos only`);
-      console.log(`   - Smart Search: contenido completo con highlight`);
     },
 
     /**

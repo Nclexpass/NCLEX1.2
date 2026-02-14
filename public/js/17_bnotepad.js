@@ -1,14 +1,14 @@
-// 17_bnotepad.js — Gestor de Notas Profesional (Multi‑nota, Nube por Usuario)
-// Dependencias: auth.js (window.NCLEX_AUTH, Firebase), utils.js
+// 17_bnotepad.js — Gestor de Notas Profesional (Integrated with Auth & Skins)
+// Version 3.2.0 - Event Driven Architecture
 
 (function() {
     'use strict';
 
     // ===== CONFIGURACIÓN =====
     const CONFIG = {
-        STORAGE_KEY: 'nclex_notes_ui_v1',   // solo para UI (posición, nota activa)
-        COLLECTION: 'notes',                 // subcolección dentro de cada usuario
-        Z_INDEX: 9990,
+        STORAGE_KEY: 'nclex_notes_ui_v2',   // UI preference storage
+        COLLECTION: 'notes',                 // Firestore subcollection
+        Z_INDEX: 9950,                       // Debajo del Auth Overlay (9999) pero encima de todo lo demás
         DEFAULT_WIDTH: 520,
         DEFAULT_HEIGHT: 620
     };
@@ -34,10 +34,7 @@
     };
 
     // ===== SINGLETON =====
-    if (window.__bnotepadV2Initialized) {
-        console.log('📝 BNotepad V2 ya está inicializado');
-        return;
-    }
+    if (window.__bnotepadV2Initialized) return;
     window.__bnotepadV2Initialized = true;
 
     let elements = {};
@@ -59,17 +56,14 @@
 
     // ===== FIRESTORE (NUBE) =====
     async function getDb() {
-        if (!window.NCLEX_AUTH || !window.firebaseApp) {
-            // Si no está disponible, esperar a que auth cargue
-            return null;
+        // Intenta usar la instancia global si existe (optimización)
+        if (window.firebaseApp) {
+            try {
+                const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+                return getFirestore(window.firebaseApp);
+            } catch (e) { console.error("Firebase import error", e); }
         }
-        try {
-            const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
-            return getFirestore(window.firebaseApp);
-        } catch (e) {
-            console.error('Error al obtener Firestore:', e);
-            return null;
-        }
+        return null;
     }
 
     async function loadNotesFromCloud() {
@@ -89,11 +83,11 @@
                 updatedAt: doc.data().updatedAt?.toDate?.() || new Date(doc.data().updatedAt)
             }));
 
+            // Si no hay notas, crear bienvenida
             if (state.notes.length === 0) {
-                // Crear nota por defecto
-                await createNewNote('Bienvenido', 'Toma tus apuntes de estudio aquí...');
+                await createNewNote('Bienvenido', 'Toma tus apuntes de estudio aquí. Se guardan en tu cuenta automáticamente.');
             } else {
-                // Seleccionar la primera o la última activa
+                // Restaurar última nota activa o la más reciente
                 const savedUI = loadUIState();
                 const activeId = savedUI?.activeNoteId;
                 if (activeId && state.notes.some(n => n.id === activeId)) {
@@ -104,6 +98,7 @@
             }
             renderNotesList();
             renderActiveNote();
+            console.log(`📝 BNotepad: ${state.notes.length} notas cargadas.`);
         } catch (e) {
             console.error('Error cargando notas:', e);
         }
@@ -115,7 +110,7 @@
         if (!db) return;
 
         try {
-            const { doc, updateDoc, setDoc, Timestamp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
+            const { doc, setDoc, Timestamp } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js');
             const noteRef = doc(db, 'users', state.currentUser, CONFIG.COLLECTION, noteId);
             const data = {
                 ...updates,
@@ -123,7 +118,7 @@
             };
             await setDoc(noteRef, data, { merge: true });
             
-            // Actualizar en memoria
+            // Actualizar memoria local
             const note = state.notes.find(n => n.id === noteId);
             if (note) {
                 Object.assign(note, updates);
@@ -178,6 +173,7 @@
             await deleteDoc(noteRef);
             
             state.notes = state.notes.filter(n => n.id !== noteId);
+            // Seleccionar otra nota si la activa se borró
             if (state.activeNoteId === noteId) {
                 state.activeNoteId = state.notes[0]?.id || null;
             }
@@ -193,9 +189,7 @@
     function loadUIState() {
         try {
             return JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEY)) || {};
-        } catch {
-            return {};
-        }
+        } catch { return {}; }
     }
 
     function saveUIState() {
@@ -211,73 +205,75 @@
         } catch (e) {}
     }
 
-    // ===== RENDERIZADO DE LA VENTANA =====
+    // ===== RENDERIZADO =====
     function injectStyles() {
         if (document.getElementById('bnotepad-v2-style')) return;
         const style = document.createElement('style');
         style.id = 'bnotepad-v2-style';
         style.textContent = `
-            /* Botón en barra lateral (ya está en HTML) */
-            
-            /* Ventana principal */
             #bnotepad-window-v2 {
                 position: fixed;
-                background: var(--brand-card, rgba(255,255,255,0.98));
-                backdrop-filter: blur(30px) saturate(200%);
-                border: 1px solid var(--brand-border, rgba(0,0,0,0.1));
-                border-radius: 24px;
-                box-shadow: 0 30px 60px -15px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.02);
+                background: var(--brand-card, #ffffff);
+                backdrop-filter: blur(20px);
+                border: 1px solid var(--brand-border, #e2e8f0);
+                border-radius: 16px;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
                 z-index: ${CONFIG.Z_INDEX};
-                transition: opacity 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1), visibility 0.25s;
+                transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
                 opacity: 0;
-                transform: scale(0.95) translateY(10px);
+                transform: scale(0.95);
                 visibility: hidden;
-                min-width: 400px;
+                min-width: 350px;
                 min-height: 400px;
-                resize: both;
             }
             .dark #bnotepad-window-v2 {
-                background: var(--brand-card, rgba(28,28,30,0.98));
-                border-color: var(--brand-border, rgba(255,255,255,0.1));
-                box-shadow: 0 30px 60px -15px #000, 0 0 0 1px rgba(255,255,255,0.05);
+                background: var(--brand-card, #1c1c1e);
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
             }
             #bnotepad-window-v2.visible {
                 opacity: 1;
-                transform: scale(1) translateY(0);
+                transform: scale(1);
                 visibility: visible;
             }
 
-            /* Header arrastrable */
+            /* Header */
             #bnotepad-header-v2 {
-                height: 56px;
+                height: 48px;
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
-                padding: 0 20px;
+                padding: 0 16px;
                 cursor: grab;
-                user-select: none;
-                background: linear-gradient(180deg, rgba(var(--brand-blue-rgb),0.05) 0%, transparent 100%);
-                border-bottom: 1px solid var(--brand-border);
+                background: rgba(var(--brand-blue-rgb), 0.05);
+                border-bottom: 1px solid var(--brand-border, #e2e8f0);
+                gap: 12px;
             }
             #bnotepad-header-v2:active { cursor: grabbing; }
 
-            /* Pestañas de notas */
+            /* Traffic Lights */
+            .traffic-lights { display: flex; gap: 8px; }
+            .traffic-dot { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; transition: opacity 0.2s; }
+            .traffic-dot:hover { opacity: 0.8; }
+            .dot-red { background: #ff5f57; }
+            .dot-yellow { background: #febc2e; }
+            .dot-green { background: #28c840; }
+
+            /* Tabs */
             .bnotepad-tabs {
+                flex: 1;
                 display: flex;
                 gap: 4px;
                 overflow-x: auto;
-                max-width: 60%;
+                scrollbar-width: none;
                 padding: 4px 0;
-                scrollbar-width: thin;
             }
             .bnotepad-tab {
-                padding: 6px 12px;
-                background: rgba(var(--brand-blue-rgb),0.08);
-                border-radius: 30px;
-                font-size: 12px;
+                padding: 4px 10px;
+                background: rgba(var(--brand-blue-rgb), 0.05);
+                border-radius: 6px;
+                font-size: 11px;
                 font-weight: 600;
                 color: var(--brand-text-muted);
                 white-space: nowrap;
@@ -285,135 +281,72 @@
                 display: flex;
                 align-items: center;
                 gap: 6px;
-                border: 1px solid transparent;
-                transition: all 0.15s;
+                transition: all 0.2s;
             }
             .bnotepad-tab.active {
                 background: rgb(var(--brand-blue-rgb));
                 color: white;
-                border-color: rgb(var(--brand-blue-rgb));
             }
-            .bnotepad-tab .tab-close {
-                opacity: 0.5;
-                font-size: 10px;
-                padding: 2px;
-                border-radius: 50%;
-            }
-            .bnotepad-tab .tab-close:hover {
-                opacity: 1;
-                background: rgba(255,255,255,0.2);
-            }
+            .tab-close:hover { color: #ff5f57; }
 
-            /* Botones de tráfico (macOS) */
-            .traffic-lights {
-                display: flex;
-                gap: 10px;
-            }
-            .traffic-dot {
-                width: 14px;
-                height: 14px;
-                border-radius: 50%;
-                cursor: pointer;
-                box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.1);
-            }
-            .dot-red { background: #FF5F57; }
-            .dot-yellow { background: #FEBC2E; }
-            .dot-green { background: #28C840; }
-
-            /* Toolbar */
+            /* Toolbar & Tools */
             #bnotepad-toolbar-v2 {
-                padding: 10px 20px;
+                padding: 8px 16px;
                 border-bottom: 1px solid var(--brand-border);
-                background: rgba(var(--brand-blue-rgb),0.02);
-                display: flex;
-                gap: 4px;
-                flex-wrap: wrap;
+                display: flex; gap: 4px;
+                background: var(--brand-bg);
             }
             .tool-btn {
-                width: 32px;
-                height: 32px;
-                border-radius: 8px;
-                background: transparent;
+                width: 28px; height: 28px;
+                border-radius: 4px;
                 border: none;
+                background: transparent;
                 color: var(--brand-text-muted);
                 cursor: pointer;
-                transition: all 0.15s;
+                display: flex; align-items: center; justify-content: center;
+                transition: 0.2s;
             }
-            .tool-btn:hover {
-                background: rgba(var(--brand-blue-rgb),0.1);
-                color: rgb(var(--brand-blue-rgb));
-            }
+            .tool-btn:hover { background: rgba(var(--brand-blue-rgb), 0.1); color: rgb(var(--brand-blue-rgb)); }
 
-            /* Área de contenido (título y texto) */
-            .bnotepad-title-edit {
-                padding: 12px 20px 0 20px;
-            }
+            /* Editor */
+            .bnotepad-title-edit { padding: 12px 16px 0; }
             .bnotepad-title-edit input {
-                width: 100%;
-                background: transparent;
-                border: none;
-                font-size: 20px;
-                font-weight: 700;
-                color: var(--brand-text);
-                outline: none;
-                padding: 8px 0;
+                width: 100%; border: none; background: transparent;
+                font-size: 18px; font-weight: 700; color: var(--brand-text);
+                outline: none; padding-bottom: 8px;
                 border-bottom: 2px solid transparent;
-                transition: border-color 0.2s;
             }
-            .bnotepad-title-edit input:focus {
-                border-bottom-color: rgb(var(--brand-blue-rgb));
-            }
-
+            .bnotepad-title-edit input:focus { border-bottom-color: rgb(var(--brand-blue-rgb)); }
+            
             #bnotepad-textarea-v2 {
-                flex: 1;
-                width: 100%;
-                padding: 16px 20px;
-                background: transparent;
-                border: none;
-                resize: none;
-                font-size: 15px;
-                line-height: 1.7;
-                color: var(--brand-text);
-                outline: none;
-                font-family: inherit;
+                flex: 1; width: 100%; padding: 16px;
+                border: none; background: transparent; resize: none;
+                font-size: 14px; line-height: 1.6; color: var(--brand-text);
+                outline: none; font-family: inherit;
             }
 
             /* Footer */
             #bnotepad-footer-v2 {
-                height: 40px;
-                padding: 0 20px;
+                height: 32px; padding: 0 16px;
                 border-top: 1px solid var(--brand-border);
-                background: rgba(var(--brand-blue-rgb),0.02);
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                font-size: 11px;
-                color: var(--brand-text-muted);
+                display: flex; align-items: center; justify-content: space-between;
+                font-size: 10px; color: var(--brand-text-muted);
+                background: var(--brand-bg);
             }
-
-            /* Resize handle */
+            
             .resize-handle {
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                width: 24px;
-                height: 24px;
-                cursor: nwse-resize;
-                background: linear-gradient(135deg, transparent 45%, var(--brand-text-muted) 45%, var(--brand-text-muted) 55%, transparent 55%);
-                opacity: 0.3;
-                border-bottom-right-radius: 24px;
+                position: absolute; bottom: 0; right: 0;
+                width: 20px; height: 20px; cursor: nwse-resize;
+                opacity: 0.5;
             }
-            .resize-handle:hover { opacity: 0.8; }
         `;
         document.head.appendChild(style);
     }
 
     function createElements() {
         if (elements.window) return;
-
         injectStyles();
 
-        // Ventana
         elements.window = document.createElement('div');
         elements.window.id = 'bnotepad-window-v2';
         elements.window.innerHTML = `
@@ -428,34 +361,31 @@
             </div>
             
             <div id="bnotepad-toolbar-v2">
-                <button class="tool-btn" data-cmd="bold" title="Negrita"><i class="fa-solid fa-bold"></i></button>
-                <button class="tool-btn" data-cmd="italic" title="Cursiva"><i class="fa-solid fa-italic"></i></button>
-                <button class="tool-btn" data-cmd="underline" title="Subrayado"><i class="fa-solid fa-underline"></i></button>
-                <div style="width:1px; height:20px; background:var(--brand-border); margin:0 4px;"></div>
-                <button class="tool-btn" data-cmd="insertUnorderedList" title="Lista"><i class="fa-solid fa-list-ul"></i></button>
-                <button class="tool-btn" data-cmd="insertOrderedList" title="Lista numerada"><i class="fa-solid fa-list-ol"></i></button>
-                <div style="width:1px; height:20px; background:var(--brand-border); margin:0 4px;"></div>
-                <button class="tool-btn" data-action="download" title="Descargar nota"><i class="fa-solid fa-download"></i></button>
-                <button class="tool-btn" data-action="delete" title="Eliminar nota"><i class="fa-solid fa-trash-can"></i></button>
+                <button class="tool-btn" data-cmd="bold"><i class="fa-solid fa-bold"></i></button>
+                <button class="tool-btn" data-cmd="italic"><i class="fa-solid fa-italic"></i></button>
+                <button class="tool-btn" data-cmd="underline"><i class="fa-solid fa-underline"></i></button>
+                <div style="width:1px; height:16px; background:var(--brand-border); margin:0 4px;"></div>
+                <button class="tool-btn" data-cmd="insertUnorderedList"><i class="fa-solid fa-list-ul"></i></button>
+                <button class="tool-btn" data-action="download"><i class="fa-solid fa-download"></i></button>
+                <button class="tool-btn" data-action="delete"><i class="fa-solid fa-trash-can"></i></button>
             </div>
 
             <div class="bnotepad-title-edit">
-                <input type="text" id="bnotepad-title-input" placeholder="Título de la nota">
+                <input type="text" id="bnotepad-title-input" placeholder="Título">
             </div>
 
-            <textarea id="bnotepad-textarea-v2" placeholder="Escribe tus apuntes de estudio aquí..."></textarea>
+            <textarea id="bnotepad-textarea-v2" placeholder="Tus apuntes..."></textarea>
 
             <div id="bnotepad-footer-v2">
                 <span id="bnotepad-wordcount">0 palabras</span>
-                <span id="bnotepad-save-indicator">Guardado</span>
+                <span id="bnotepad-save-indicator">Sincronizado</span>
             </div>
-
             <div class="resize-handle" id="bnotepad-resize"></div>
         `;
 
         document.body.appendChild(elements.window);
 
-        // Cachear subelementos
+        // Referencias
         elements.header = elements.window.querySelector('#bnotepad-header-v2');
         elements.tabs = elements.window.querySelector('#bnotepad-tabs');
         elements.newBtn = elements.window.querySelector('#bnotepad-new-note');
@@ -483,8 +413,8 @@
             const isActive = note.id === state.activeNoteId;
             return `
                 <div class="bnotepad-tab ${isActive ? 'active' : ''}" data-note-id="${note.id}">
-                    <span>${note.title || 'Sin título'}</span>
-                    <span class="tab-close" data-delete-id="${note.id}" title="Eliminar">×</span>
+                    <span>${note.title || 'Nota'}</span>
+                    ${isActive ? '<span class="tab-close" data-delete-id="'+note.id+'">×</span>' : ''}
                 </div>
             `;
         }).join('');
@@ -510,50 +440,46 @@
 
     function showSaveIndicator() {
         if (!elements.saveIndicator) return;
-        elements.saveIndicator.textContent = '✓ Guardado';
+        elements.saveIndicator.textContent = 'Guardando...';
         setTimeout(() => {
-            elements.saveIndicator.textContent = 'Guardado';
-        }, 1500);
+            elements.saveIndicator.textContent = '✓ En Nube';
+        }, 800);
     }
 
-    // ===== EVENTOS =====
+    // ===== EVENTOS DE USUARIO =====
     function setupEvents() {
         cleanupEventListeners();
 
-        // Header: arrastre
+        // Dragging
         addEventListenerWithCleanup(elements.header, 'mousedown', startDrag);
 
-        // Botones de tráfico
-        addEventListenerWithCleanup(elements.header.querySelector('.traffic-lights'), 'click', (e) => {
-            const dot = e.target.closest('.traffic-dot');
-            if (!dot) return;
-            const action = dot.dataset.action;
-            if (action === 'close') closeNotepad();
-            else if (action === 'minimize') closeNotepad(); // minimizar = cerrar por ahora
-            else if (action === 'maximize') toggleMaximize();
+        // Header actions
+        addEventListenerWithCleanup(elements.header, 'click', (e) => {
+            const action = e.target.closest('[data-action]')?.dataset.action;
+            if (action === 'close' || action === 'minimize') closeNotepad();
+            if (action === 'maximize') toggleMaximize();
+            if (e.target.closest('#bnotepad-new-note')) createNewNote();
         });
 
-        // Nueva nota
-        addEventListenerWithCleanup(elements.newBtn, 'click', () => createNewNote());
-
-        // Tabs: cambio y eliminación
+        // Tabs
         addEventListenerWithCleanup(elements.tabs, 'click', (e) => {
             const tab = e.target.closest('.bnotepad-tab');
             if (!tab) return;
+            
+            const close = e.target.closest('.tab-close');
+            if (close) {
+                e.stopPropagation();
+                deleteNoteFromCloud(close.dataset.deleteId);
+                return;
+            }
+
             const noteId = tab.dataset.noteId;
             if (noteId && state.activeNoteId !== noteId) {
-                // Guardar cambios de la nota anterior antes de cambiar
-                saveCurrentNote();
+                saveCurrentNote(); // Guardar anterior
                 state.activeNoteId = noteId;
                 renderNotesList();
                 renderActiveNote();
                 saveUIState();
-            }
-            const closeBtn = e.target.closest('.tab-close');
-            if (closeBtn) {
-                e.stopPropagation();
-                const deleteId = closeBtn.dataset.deleteId;
-                if (deleteId) deleteNoteFromCloud(deleteId);
             }
         });
 
@@ -573,53 +499,29 @@
             }
         });
 
-        // Título
-        addEventListenerWithCleanup(elements.titleInput, 'input', () => {
+        // Inputs
+        const onInput = () => {
             const note = state.notes.find(n => n.id === state.activeNoteId);
-            if (!note) return;
-            note.title = elements.titleInput.value;
-            scheduleSave();
-            renderNotesList(); // actualizar título en pestaña
-        });
-
-        // Textarea
-        let saveTimeout;
-        addEventListenerWithCleanup(elements.textarea, 'input', () => {
-            const note = state.notes.find(n => n.id === state.activeNoteId);
-            if (!note) return;
-            note.content = elements.textarea.value;
-            updateWordCount();
-            scheduleSave();
-        });
-
-        // Resize handle
-        addEventListenerWithCleanup(elements.resizeHandle, 'mousedown', startResize);
-
-        // Guardar al perder foco
-        addEventListenerWithCleanup(elements.textarea, 'blur', () => saveCurrentNote());
-        addEventListenerWithCleanup(elements.titleInput, 'blur', () => saveCurrentNote());
-
-        // Teclas globales
-        addEventListenerWithCleanup(document, 'keydown', (e) => {
-            if (e.key === 'Escape' && state.isOpen) closeNotepad();
-            if ((e.ctrlKey || e.metaKey) && e.key === 's' && state.isOpen) {
-                e.preventDefault();
-                saveCurrentNote();
-                showSaveIndicator();
+            if (note) {
+                note.title = elements.titleInput.value;
+                note.content = elements.textarea.value;
+                updateWordCount();
+                renderNotesList(); // Actualizar tab título
+                scheduleSave();
             }
-        });
+        };
 
-        // Cerrar sesión: guardar antes de salir
-        window.addEventListener('beforeunload', () => {
-            saveCurrentNote();
-        });
+        addEventListenerWithCleanup(elements.titleInput, 'input', onInput);
+        addEventListenerWithCleanup(elements.textarea, 'input', onInput);
+        
+        // Resize
+        addEventListenerWithCleanup(elements.resizeHandle, 'mousedown', startResize);
     }
 
     function scheduleSave() {
+        showSaveIndicator();
         if (state.saveTimeout) clearTimeout(state.saveTimeout);
-        state.saveTimeout = setTimeout(() => {
-            saveCurrentNote();
-        }, 800);
+        state.saveTimeout = setTimeout(saveCurrentNote, 1500);
     }
 
     async function saveCurrentNote() {
@@ -630,15 +532,13 @@
             title: note.title,
             content: note.content
         });
-        showSaveIndicator();
         saveUIState();
     }
 
     function downloadCurrentNote() {
         const note = state.notes.find(n => n.id === state.activeNoteId);
         if (!note) return;
-        const content = `# ${note.title}\n\n${note.content}`;
-        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const blob = new Blob([`# ${note.title}\n\n${note.content}`], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -647,35 +547,23 @@
         URL.revokeObjectURL(url);
     }
 
-    // ===== ARRASTRE Y REDIMENSIONADO =====
+    // ===== WINDOW CONTROLS =====
     function startDrag(e) {
-        if (e.button !== 0) return;
-        if (e.target.closest('.tool-btn, .traffic-dot, .bnotepad-tab, #bnotepad-new-note')) return;
+        if (e.target.closest('button, .traffic-dot, .bnotepad-tab')) return;
         e.preventDefault();
-
         state.isDragging = true;
         state.dragStartX = e.clientX;
         state.dragStartY = e.clientY;
         state.dragStartLeft = elements.window.offsetLeft;
         state.dragStartTop = elements.window.offsetTop;
-
         document.addEventListener('mousemove', onDragMove);
         document.addEventListener('mouseup', onDragEnd);
     }
 
     function onDragMove(e) {
         if (!state.isDragging) return;
-        e.preventDefault();
-
-        let newLeft = state.dragStartLeft + (e.clientX - state.dragStartX);
-        let newTop = state.dragStartTop + (e.clientY - state.dragStartY);
-
-        const margin = 10;
-        newLeft = Math.max(margin, Math.min(newLeft, window.innerWidth - elements.window.offsetWidth - margin));
-        newTop = Math.max(margin, Math.min(newTop, window.innerHeight - elements.window.offsetHeight - margin));
-
-        elements.window.style.left = newLeft + 'px';
-        elements.window.style.top = newTop + 'px';
+        elements.window.style.left = (state.dragStartLeft + (e.clientX - state.dragStartX)) + 'px';
+        elements.window.style.top = (state.dragStartTop + (e.clientY - state.dragStartY)) + 'px';
     }
 
     function onDragEnd() {
@@ -693,27 +581,19 @@
         state.isResizing = true;
         state.dragStartX = e.clientX;
         state.dragStartY = e.clientY;
-        state.dragStartLeft = elements.window.offsetLeft;
-        state.dragStartTop = elements.window.offsetTop;
         state.dragStartWidth = elements.window.offsetWidth;
         state.dragStartHeight = elements.window.offsetHeight;
-
         document.addEventListener('mousemove', onResizeMove);
         document.addEventListener('mouseup', onResizeEnd);
     }
 
     function onResizeMove(e) {
         if (!state.isResizing) return;
-        const dx = e.clientX - state.dragStartX;
-        const dy = e.clientY - state.dragStartY;
-        const newWidth = Math.max(400, state.dragStartWidth + dx);
-        const newHeight = Math.max(400, state.dragStartHeight + dy);
-        elements.window.style.width = newWidth + 'px';
-        elements.window.style.height = newHeight + 'px';
+        elements.window.style.width = Math.max(300, state.dragStartWidth + (e.clientX - state.dragStartX)) + 'px';
+        elements.window.style.height = Math.max(300, state.dragStartHeight + (e.clientY - state.dragStartY)) + 'px';
     }
 
     function onResizeEnd() {
-        if (!state.isResizing) return;
         state.isResizing = false;
         state.w = elements.window.offsetWidth;
         state.h = elements.window.offsetHeight;
@@ -723,23 +603,16 @@
     }
 
     function toggleMaximize() {
-        // Alternar entre maximizado y tamaño guardado
-        if (elements.window.style.width === '100vw') {
-            // Restaurar
-            elements.window.style.left = state.x + 'px';
-            elements.window.style.top = state.y + 'px';
-            elements.window.style.width = state.w + 'px';
-            elements.window.style.height = state.h + 'px';
+        if (elements.window.style.width === '90vw') {
+            applyPosition();
         } else {
-            // Maximizar
-            elements.window.style.left = '10px';
-            elements.window.style.top = '10px';
-            elements.window.style.width = 'calc(100vw - 20px)';
-            elements.window.style.height = 'calc(100vh - 20px)';
+            elements.window.style.left = '5vw';
+            elements.window.style.top = '5vh';
+            elements.window.style.width = '90vw';
+            elements.window.style.height = '90vh';
         }
     }
 
-    // ===== CONTROL DE VISIBILIDAD =====
     function openNotepad() {
         if (!elements.window) createElements();
         elements.window.classList.add('visible');
@@ -760,64 +633,48 @@
         state.isOpen ? closeNotepad() : openNotepad();
     }
 
-    // ===== INICIALIZACIÓN =====
-    async function init() {
-        console.log('📝 BNotepad V2 iniciando...');
-
-        // Obtener usuario actual
-        const checkUser = () => {
-            try {
-                const session = JSON.parse(localStorage.getItem('nclex_user_session_v5') || 'null');
-                return session?.name || null;
-            } catch {
-                return null;
-            }
-        };
-        state.currentUser = checkUser();
-
-        if (!state.currentUser) {
-            console.log('Notas: usuario no autenticado, esperando login...');
-            // Escuchar cambios en auth (simplificado: se puede mejorar con evento personalizado)
-            const interval = setInterval(() => {
-                const newUser = checkUser();
-                if (newUser && newUser !== state.currentUser) {
-                    state.currentUser = newUser;
-                    clearInterval(interval);
-                    loadNotesFromCloud();
-                }
-            }, 1000);
-            return;
-        }
-
-        // Cargar posición guardada
-        const saved = loadUIState();
-        if (saved) {
+    // ===== INICIALIZACIÓN INTEGRADA =====
+    function init() {
+        // Verificar usuario actual de forma segura
+        const user = window.NCLEX_AUTH?.getUser?.() || JSON.parse(localStorage.getItem('nclex_user_session_v5') || 'null');
+        
+        if (user && user.name) {
+            state.currentUser = user.name;
+            // Cargar posición guardada
+            const saved = loadUIState();
             state.x = saved.x ?? 100;
             state.y = saved.y ?? 80;
             state.w = saved.w ?? CONFIG.DEFAULT_WIDTH;
             state.h = saved.h ?? CONFIG.DEFAULT_HEIGHT;
             state.isOpen = saved.isOpen ?? false;
+            
+            createElements();
+            if(state.isOpen) openNotepad();
+            loadNotesFromCloud();
+        } else {
+            console.log('📝 BNotepad: Esperando inicio de sesión...');
         }
-
-        createElements();
-
-        // Cargar notas desde la nube
-        await loadNotesFromCloud();
-
-        if (state.isOpen) openNotepad();
-
-        // Exponer API pública
-        window.BNotepad = {
-            open: openNotepad,
-            close: closeNotepad,
-            toggle: toggleNotepad,
-            isOpen: () => state.isOpen
-        };
     }
 
+    // 1. Carga inicial
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
+
+    // 2. ESCUCHA DE EVENTOS AUTH (INTEGRACIÓN CLAVE)
+    window.addEventListener('nclex:dataLoaded', () => {
+        console.log('📝 BNotepad: Detectado login, recargando...');
+        init();
+    });
+
+    // API Pública
+    window.BNotepad = {
+        open: openNotepad,
+        close: closeNotepad,
+        toggle: toggleNotepad,
+        isOpen: () => state.isOpen
+    };
+
 })();
