@@ -41,7 +41,7 @@
     </script>
     
     <style>
-        /* ===== VARIABLES CSS GLOBALES - BASE SYSTEM ===== */
+        /* ===== VARIABLES CSS GLOBALES ===== */
         :root {
             --brand-blue-rgb: 0, 122, 255;
             --brand-bg: #F5F5F7;
@@ -54,7 +54,7 @@
             --brand-text-muted: #64748B;
         }
 
-        /* Variables oscuras por defecto (Fallback) */
+        /* Variables oscuras por defecto */
         .dark {
             --brand-bg: #0F0F11;
             --brand-dark: #FFFFFF;
@@ -194,6 +194,7 @@
         </nav>
 
         <div class="p-5 lg:p-6 border-t border-[var(--brand-sidebar-border)] space-y-4" style="background-color: rgba(var(--brand-blue-rgb), 0.03);">
+            
             <button onclick="window.nclexApp.toggleLanguage()" 
                 class="w-full flex items-center justify-center gap-3 p-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform text-white"
                 style="background-color: rgb(var(--brand-blue-rgb));">
@@ -201,11 +202,16 @@
                 <span class="hidden lg:inline text-sm">EN / ES</span>
             </button>
             
-            <button onclick="toggleThemeSmart()" 
-                class="w-full flex items-center justify-center gap-3 p-3 rounded-xl border text-sm font-bold transition-colors bg-[var(--brand-card)] border-[var(--brand-border)] text-[var(--brand-text)] hover:bg-[var(--brand-bg)]">
-                <i class="fa-solid fa-circle-half-stroke text-lg" style="color: rgb(var(--brand-blue-rgb));"></i> 
-                <span class="hidden lg:inline lang-es">Tema</span>
-                <span class="hidden lg:inline lang-en hidden-lang">Theme</span>
+            <button onclick="toggleThemeSmart()" id="btn-theme-toggle"
+                class="w-full flex items-center justify-center gap-3 p-3 rounded-xl border text-sm font-bold transition-all bg-[var(--brand-card)] border-[var(--brand-border)] text-[var(--brand-text)] hover:bg-[var(--brand-bg)] active:scale-95">
+                <i class="fa-solid fa-moon text-lg dark:hidden block" style="color: rgb(var(--brand-blue-rgb));"></i> 
+                <i class="fa-solid fa-sun text-lg hidden dark:block" style="color: #fbbf24;"></i> 
+                
+                <span class="hidden lg:inline lang-es dark:hidden">Modo Oscuro</span>
+                <span class="hidden lg:inline lang-es hidden dark:block">Modo Claro</span>
+                
+                <span class="hidden lg:inline lang-en hidden-lang dark:hidden">Dark Mode</span>
+                <span class="hidden lg:inline lang-en hidden-lang hidden dark:block">Light Mode</span>
             </button>
 
             <button onclick="window.NCLEX_AUTH.logout()" 
@@ -233,13 +239,10 @@
     </button>
 
     <script src="js/utils.js?v=4.0"></script>
-    
     <script src="js/logic.js?v=4.0"></script>
     <script src="js/skins.js?v=4.0"></script>
-    
     <script src="js/31_search_service.js?v=4.0"></script>
     <script src="js/32_analytics_dashboard.js?v=4.0"></script>
-    
     <script src="js/17_bnotepad.js?v=4.0"></script>
     <script src="js/premium_books_library.js?v=3.1"></script>
     <script src="js/simulator.js?v=4.0"></script>
@@ -280,13 +283,14 @@
     <script>
         (function() {
             'use strict';
-            window.NCLEX_VERSION = '4.0.0'; // Updated to match cache version
+            window.NCLEX_VERSION = '4.0.0'; 
             window.__nclexReady = false;
             
-            // Función auxiliar para el botón de tema
+            // Función auxiliar para el botón de tema (compatible con tu botón nuevo)
             window.toggleThemeSmart = function() {
                 if (!window.NCLEX_SKINS) return;
                 const current = window.NCLEX_SKINS.current();
+                // Alterna entre Neural Vision y Obsidian
                 const next = (current === 'dark-obsidian') ? 'neural-vision' : 'dark-obsidian';
                 window.NCLEX_SKINS.apply(next);
             };
@@ -303,17 +307,14 @@
                 }
             };
             
-            // Register Service Worker
+            // Registrar SW
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('/sw.js')
                     .then(reg => console.log('SW Registered'))
                     .catch(err => console.log('SW Error:', err));
             }
 
-            // Fallback
             setTimeout(window.hideLoader, 5000);
-            
-            // Event listener principal
             document.addEventListener('nclex:ready', window.hideLoader);
         })();
     </script>
