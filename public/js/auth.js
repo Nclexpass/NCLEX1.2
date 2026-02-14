@@ -1,11 +1,9 @@
-// js/auth.js — VERSIÓN ADMINISTRADOR con SHA-256
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+// js/auth.js — VERSIÓN ADMINISTRADOR con SHA-256 (COMPAT MODE)
 
 (function() {
   'use strict';
 
-  // ===== 1. CONEXIÓN A FIREBASE =====
+  // ===== 1. CONEXIÓN A FIREBASE (COMPAT MODE) =====
   const firebaseConfig = {
     apiKey: "AIzaSyC07GVdRw3IkVp230DTT1GyYS_gFFtPeHU",
     authDomain: "nclex-masterclass.firebaseapp.com",
@@ -17,8 +15,13 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
 
   let app, db;
   try {
-      app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
+      // Initialize Firebase using compat mode (already loaded in index.html)
+      if (!firebase.apps.length) {
+          app = firebase.initializeApp(firebaseConfig);
+      } else {
+          app = firebase.app();
+      }
+      db = firebase.firestore();
       console.log("🔥 Sistema de Cuentas Activo");
   } catch (e) {
       console.error("Error Firebase:", e);
@@ -46,8 +49,9 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
   async function syncDown(userId) {
       if (!db || !userId) return;
       try {
-          const docSnap = await getDoc(doc(db, "users", userId));
-          if (docSnap.exists()) {
+          const docRef = db.collection("users").doc(userId);
+          const docSnap = await docRef.get();
+          if (docSnap.exists) {
               const data = docSnap.data();
               KEYS_TO_SYNC.forEach(key => {
                   if (data[key]) localStorage.setItem(key, JSON.stringify(data[key]));
@@ -69,7 +73,9 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
           if (item) { dataToSave[key] = JSON.parse(item); hasData = true; }
       });
 
-      if (hasData) await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
+      if (hasData) {
+          await db.collection("users").doc(user.name).set(dataToSave, { merge: true });
+      }
   }
 
   function startAutoSave() {
@@ -183,10 +189,10 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
         document.getElementById('btn-login').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
 
         try {
-            const docRef = doc(db, "users", user);
-            const docSnap = await getDoc(docRef);
+            const docRef = db.collection("users").doc(user);
+            const docSnap = await docRef.get();
 
-            if (docSnap.exists() && docSnap.data().password === pass) {
+            if (docSnap.exists && docSnap.data().password === pass) {
                 completeLogin(user);
             } else {
                 showMsg("Usuario o contraseña incorrectos", "text-red-500");
@@ -214,14 +220,14 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
         }
 
         try {
-            const docRef = doc(db, "users", user);
-            const docSnap = await getDoc(docRef);
+            const docRef = db.collection("users").doc(user);
+            const docSnap = await docRef.get();
 
-            if (docSnap.exists()) {
+            if (docSnap.exists) {
                 showMsg("Este usuario ya existe", "text-orange-500");
             } else {
                 // Crear el usuario en la base de datos
-                await setDoc(docRef, {
+                await docRef.set({
                     password: pass,
                     created: new Date().toISOString(),
                     role: 'student'
