@@ -1,4 +1,4 @@
-// js/auth.js — VERSIÓN 3.5.1 (Corrección de Visibilidad y Espacios)
+// js/auth.js — VERSIÓN 3.5.2 (Manejo de errores robusto, conexión verificada)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -19,15 +19,16 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   try {
       app = initializeApp(firebaseConfig);
       db = getFirestore(app);
-      console.log("🔥 Sistema NCLEX v3.5.1 Activo");
-  } catch (e) { console.error("Error Firebase:", e); }
+      console.log("🔥 Sistema NCLEX v3.5.2 Activo (Firestore conectado)");
+  } catch (e) { 
+      console.error("❌ Error al inicializar Firebase:", e); 
+      db = null; // Aseguramos que db sea null si falla
+  }
 
   // ===== 2. SEGURIDAD (HASHING) =====
-  // Tu clave actual es: Budaplatoazul#
   const MASTER_HASH = "612245dc8a2beb47bfe2011da7402ecee514ec795d47a665fa61d43863280ce0";
   
   async function verifyMasterKey(inputKey) {
-      // .trim() elimina espacios invisibles que causan errores
       const cleanInput = inputKey.trim(); 
       const msgBuffer = new TextEncoder().encode(cleanInput);
       const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
@@ -43,7 +44,10 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   // ===== 3. SISTEMA DE DATOS (NUBE) =====
   
   async function syncDown(userId) {
-      if (!db || !userId) return;
+      if (!db || !userId) {
+          console.warn("syncDown: Firestore no disponible o userId inválido");
+          return;
+      }
       try {
           const docSnap = await getDoc(doc(db, "users", userId));
           if (docSnap.exists()) {
@@ -53,19 +57,28 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
               });
               window.dispatchEvent(new Event('nclex:dataLoaded'));
           }
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+          console.error("Error en syncDown:", e); 
+      }
   }
 
   async function syncUp() {
       const user = checkAuth();
       if (!db || !user) return;
-      const dataToSave = { lastSync: new Date().toISOString() };
-      let hasData = false;
-      KEYS_TO_SYNC.forEach(key => {
-          const item = localStorage.getItem(key);
-          if (item) { dataToSave[key] = JSON.parse(item); hasData = true; }
-      });
-      if (hasData) await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
+      try {
+          const dataToSave = { lastSync: new Date().toISOString() };
+          let hasData = false;
+          KEYS_TO_SYNC.forEach(key => {
+              const item = localStorage.getItem(key);
+              if (item) { 
+                  dataToSave[key] = JSON.parse(item); 
+                  hasData = true; 
+              }
+          });
+          if (hasData) await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
+      } catch (e) {
+          console.error("Error en syncUp:", e);
+      }
   }
 
   function startAutoSave() {
@@ -74,7 +87,12 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
   }
 
   function checkAuth() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; }
+    try { 
+        const session = localStorage.getItem(STORAGE_KEY);
+        return session ? JSON.parse(session) : null; 
+    } catch { 
+        return null; 
+    }
   }
 
   // ===== 4. PANTALLA DE LOGIN / REGISTRO =====
@@ -86,7 +104,6 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
     overlay.id = 'auth-overlay';
     overlay.className = 'fixed inset-0 z-[100] bg-slate-900/90 flex items-center justify-center p-4 backdrop-blur-sm';
     
-    // NOTA: He forzado text-slate-900 en los inputs para que se vea negro al escribir
     overlay.innerHTML = `
       <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-200 animate-fade-in font-sans">
         <div class="p-8 pb-4 text-center">
@@ -94,7 +111,7 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
             <i class="fa-solid fa-user-nurse text-3xl text-white"></i>
           </div>
           <h1 class="text-2xl font-black text-slate-900">NCLEX ESSENTIALS</h1>
-          <p class="text-slate-400 text-[10px] uppercase tracking-[0.2em] font-bold">BY REYNIER DIAZ v3.5.1</p>
+          <p class="text-slate-400 text-[10px] uppercase tracking-[0.2em] font-bold">BY REYNIER DIAZ v3.5.2</p>
         </div>
 
         <div class="px-8 pb-8 space-y-4">
@@ -172,9 +189,19 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
         const user = document.getElementById('login-user').value.trim();
         const pass = document.getElementById('login-pass').value.trim();
         if (!user || !pass) return showMsg("⚠️ FALTAN DATOS", "text-amber-500");
+
+        // Verificar que Firebase esté inicializado
+        if (!db) {
+            console.error("Firebase no está disponible");
+            showMsg("❌ ERROR: Firebase no conectado", "text-red-500");
+            return;
+        }
+
         document.getElementById('btn-login').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        
         try {
-            const docSnap = await getDoc(doc(db, "users", user));
+            const docRef = doc(db, "users", user);
+            const docSnap = await getDoc(docRef);
             if (docSnap.exists() && docSnap.data().password === pass) {
                 completeLogin(user);
             } else {
@@ -182,7 +209,15 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
                 document.getElementById('btn-login').innerHTML = 'Entrar al Sistema';
             }
         } catch (e) {
-            showMsg("📡 ERROR DE CONEXIÓN", "text-red-500");
+            console.error("Error detallado en login:", e);
+            // Mostrar mensaje legible según el error
+            let errorMsg = "📡 ERROR DE CONEXIÓN";
+            if (e.code === 'permission-denied') errorMsg = "⛔ SIN PERMISOS (Firestore)";
+            else if (e.code === 'unavailable') errorMsg = "🌐 SERVIDOR NO DISPONIBLE";
+            else if (e.code === 'not-found') errorMsg = "📁 COLECCIÓN NO ENCONTRADA";
+            else if (e.message) errorMsg = e.message.substring(0, 50);
+            
+            showMsg(`❌ ${errorMsg}`, "text-red-500");
             document.getElementById('btn-login').innerHTML = 'Entrar al Sistema';
         }
     };
@@ -197,14 +232,23 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
         const isValid = await verifyMasterKey(masterInput);
         if (!isValid) return showMsg("⛔ CLAVE MAESTRA INCORRECTA", "text-red-600");
 
+        if (!db) {
+            showMsg("❌ ERROR: Firebase no conectado", "text-red-500");
+            return;
+        }
+
+        document.getElementById('btn-register').innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
         try {
             const docRef = doc(db, "users", user);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 showMsg("👥 EL USUARIO YA EXISTE", "text-orange-500");
+                document.getElementById('btn-register').innerHTML = 'Registrar Nuevo Estudiante';
             } else {
                 await setDoc(docRef, { password: pass, role: 'student', created: new Date().toISOString() });
                 showMsg("✅ ESTUDIANTE CREADO", "text-green-600");
+                document.getElementById('btn-register').innerHTML = 'Registrar Nuevo Estudiante';
                 setTimeout(() => {
                     viewRegister.classList.add('hidden');
                     viewLogin.classList.remove('hidden');
@@ -212,7 +256,11 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
                     msg.innerText = "ACCESO LISTO PARA " + user.toUpperCase();
                 }, 2000);
             }
-        } catch (e) { showMsg("❌ ERROR AL CREAR", "text-red-500"); }
+        } catch (e) { 
+            console.error("Error al crear usuario:", e);
+            showMsg("❌ ERROR AL CREAR", "text-red-500"); 
+            document.getElementById('btn-register').innerHTML = 'Registrar Nuevo Estudiante';
+        }
     };
 
     function showMsg(text, color) {
@@ -225,13 +273,22 @@ import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/fireb
         await syncDown(username);
         startAutoSave();
         document.getElementById('auth-overlay').remove();
+        window.dispatchEvent(new Event('nclex:authSuccess'));
     }
   }
 
   function init() {
     const user = checkAuth();
-    if (!user) { setTimeout(renderAuthScreen, 1000); } 
-    else { syncDown(user.name); startAutoSave(); }
+    if (!user) { 
+        setTimeout(renderAuthScreen, 1000); 
+    } else { 
+        if (db) {
+            syncDown(user.name); 
+            startAutoSave();
+        } else {
+            console.warn("Firebase no disponible, operando en modo offline");
+        }
+    }
   }
 
   window.NCLEX_AUTH = {
