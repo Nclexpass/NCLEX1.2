@@ -15,12 +15,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 🚀 Subir a Firebase
-        # ✅ SOLUCIÓN: Fijar a la versión estable v15.5.0 para evitar el bug de la v15.6.0
         uses: w9jds/firebase-action@v15.5.0
         with:
           args: deploy --only hosting
         env:
-          # Aquí usamos la llave NUEVA que guardaste en Secrets
           GCP_SA_KEY: ${{ secrets.NUEVO_FIREBASE_KEY }}
-          # Y aquí el nombre de tu proyecto NUEVO
           PROJECT_ID: nclexbyrey
+          # 📍 CAMBIO CLAVE: Le decimos que entre a la carpeta NCLEX1.2
+          PROJECT_PATH: "./NCLEX1.2"
