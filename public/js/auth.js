@@ -1,9 +1,11 @@
-// js/auth.js — VERSIÓN ADMINISTRADOR con SHA-256 (COMPAT MODE)
+// js/auth.js — VERSIÓN ADMINISTRADOR con SHA-256 (v3.6 FIXED)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 (function() {
   'use strict';
 
-  // ===== 1. CONEXIÓN A FIREBASE (COMPAT MODE) =====
+  // ===== 1. CONEXIÓN A FIREBASE =====
   const firebaseConfig = {
     apiKey: "AIzaSyC07GVdRw3IkVp230DTT1GyYS_gFFtPeHU",
     authDomain: "nclex-masterclass.firebaseapp.com",
@@ -15,13 +17,8 @@
 
   let app, db;
   try {
-      // Initialize Firebase using compat mode (already loaded in index.html)
-      if (!firebase.apps.length) {
-          app = firebase.initializeApp(firebaseConfig);
-      } else {
-          app = firebase.app();
-      }
-      db = firebase.firestore();
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
       console.log("🔥 Sistema de Cuentas Activo");
   } catch (e) {
       console.error("Error Firebase:", e);
@@ -41,7 +38,19 @@
   }
   
   const STORAGE_KEY = 'nclex_user_session_v5';
-  const KEYS_TO_SYNC = ['nclex_progress', 'nclex_quiz_history', 'nclex_time_spent', 'nclex_last_visit', 'sim_selected_cats'];
+  
+  // FIX #2: Añadidos 'nclex_streak', 'nclex_theme', 'nclex_lang' para sincronización
+  const KEYS_TO_SYNC = [
+    'nclex_progress', 
+    'nclex_quiz_history', 
+    'nclex_time_spent', 
+    'nclex_last_visit', 
+    'sim_selected_cats',
+    'nclex_streak',
+    'nclex_theme',
+    'nclex_lang'
+  ];
+  
   let autoSaveInterval = null;
 
   // ===== 3. SISTEMA DE DATOS (NUBE) =====
@@ -49,9 +58,8 @@
   async function syncDown(userId) {
       if (!db || !userId) return;
       try {
-          const docRef = db.collection("users").doc(userId);
-          const docSnap = await docRef.get();
-          if (docSnap.exists) {
+          const docSnap = await getDoc(doc(db, "users", userId));
+          if (docSnap.exists()) {
               const data = docSnap.data();
               KEYS_TO_SYNC.forEach(key => {
                   if (data[key]) localStorage.setItem(key, JSON.stringify(data[key]));
@@ -73,9 +81,7 @@
           if (item) { dataToSave[key] = JSON.parse(item); hasData = true; }
       });
 
-      if (hasData) {
-          await db.collection("users").doc(user.name).set(dataToSave, { merge: true });
-      }
+      if (hasData) await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
   }
 
   function startAutoSave() {
@@ -180,54 +186,77 @@
     };
 
     // --- ACCIÓN: LOGIN ---
-    document.getElementById('btn-login').onclick = async () => {
+    async function performLogin() {
         const user = document.getElementById('login-user').value.trim();
         const pass = document.getElementById('login-pass').value.trim();
         
         if (!user || !pass) return showMsg("Faltan datos", "text-red-500");
         
-        document.getElementById('btn-login').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        const btnLogin = document.getElementById('btn-login');
+        btnLogin.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        btnLogin.disabled = true;
 
         try {
-            const docRef = db.collection("users").doc(user);
-            const docSnap = await docRef.get();
+            const docRef = doc(db, "users", user);
+            const docSnap = await getDoc(docRef);
 
-            if (docSnap.exists && docSnap.data().password === pass) {
-                completeLogin(user);
+            if (docSnap.exists() && docSnap.data().password === pass) {
+                await completeLogin(user);
             } else {
                 showMsg("Usuario o contraseña incorrectos", "text-red-500");
-                document.getElementById('btn-login').innerHTML = 'Entrar';
+                btnLogin.innerHTML = 'Entrar';
+                btnLogin.disabled = false;
             }
         } catch (e) {
             console.error(e);
             showMsg("Error de conexión", "text-red-500");
-            document.getElementById('btn-login').innerHTML = 'Entrar';
+            btnLogin.innerHTML = 'Entrar';
+            btnLogin.disabled = false;
         }
-    };
+    }
+
+    document.getElementById('btn-login').onclick = performLogin;
+
+    // FIX #3: Enter key support for login
+    document.getElementById('login-user').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performLogin();
+    });
+    document.getElementById('login-pass').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performLogin();
+    });
 
     // --- ACCIÓN: CREAR ESTUDIANTE (ADMIN) ---
-    document.getElementById('btn-register').onclick = async () => {
+    async function performRegister() {
         const user = document.getElementById('reg-user').value.trim();
         const pass = document.getElementById('reg-pass').value.trim();
         const master = document.getElementById('reg-master').value.trim();
 
         if (!user || !pass) return showMsg("Faltan datos del estudiante", "text-red-500");
         
+        const btnRegister = document.getElementById('btn-register');
+        btnRegister.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        btnRegister.disabled = true;
+        
         // AQUÍ SE COMPRUEBA TU CLAVE MAESTRA con SHA-256
         const isValid = await verifyMasterKey(master);
         if (!isValid) {
-            return showMsg("⛔ Clave Maestra Incorrecta", "text-red-600");
+            showMsg("⛔ Clave Maestra Incorrecta", "text-red-600");
+            btnRegister.innerHTML = 'Crear Estudiante';
+            btnRegister.disabled = false;
+            return;
         }
 
         try {
-            const docRef = db.collection("users").doc(user);
-            const docSnap = await docRef.get();
+            const docRef = doc(db, "users", user);
+            const docSnap = await getDoc(docRef);
 
-            if (docSnap.exists) {
+            if (docSnap.exists()) {
                 showMsg("Este usuario ya existe", "text-orange-500");
+                btnRegister.innerHTML = 'Crear Estudiante';
+                btnRegister.disabled = false;
             } else {
                 // Crear el usuario en la base de datos
-                await docRef.set({
+                await setDoc(docRef, {
                     password: pass,
                     created: new Date().toISOString(),
                     role: 'student'
@@ -240,13 +269,30 @@
                     viewLogin.classList.remove('hidden');
                     document.getElementById('login-user').value = user;
                     msg.innerText = "Ya puedes entrar con la cuenta nueva";
+                    btnRegister.innerHTML = 'Crear Estudiante';
+                    btnRegister.disabled = false;
                 }, 1500);
             }
         } catch (e) {
             console.error(e);
             showMsg("Error al crear usuario", "text-red-500");
+            btnRegister.innerHTML = 'Crear Estudiante';
+            btnRegister.disabled = false;
         }
-    };
+    }
+
+    document.getElementById('btn-register').onclick = performRegister;
+
+    // FIX #3: Enter key support for registration
+    document.getElementById('reg-user').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performRegister();
+    });
+    document.getElementById('reg-pass').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performRegister();
+    });
+    document.getElementById('reg-master').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performRegister();
+    });
 
     function showMsg(text, color) {
         msg.className = `text-center text-sm font-bold min-h-[20px] ${color}`;
@@ -267,7 +313,13 @@
   function init() {
     const user = checkAuth();
     if (!user) {
-      setTimeout(renderAuthScreen, 1500);
+      // FIX #1: Render auth screen immediately (removed 1500ms delay)
+      // Check if DOM is ready first
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderAuthScreen);
+      } else {
+        renderAuthScreen();
+      }
     } else {
       console.log("👤 Sesión activa:", user.name);
       syncDown(user.name); 
@@ -287,6 +339,7 @@
       forceSave: syncUp
   };
 
+  // FIX #1: Initialize immediately (no delay)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
