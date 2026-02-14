@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "nclexbyrey"
+  },
+  "targets": {
+    "nclexbyrey": {
+      "hosting": {
+        "prod": [
+          "nclexbyrey"
+        ]
+      }
+    }
   }
 }

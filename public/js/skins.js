@@ -6,8 +6,9 @@
 (function() {
     'use strict';
 
-    const STORAGE_KEY = 'nclex_theme_prefs'; 
-    const ANTI_FLASH_KEY = 'nclex-theme'; // Sincronizado con index.html
+    const STORAGE_KEY = 'nclex_theme_prefs';
+    const SKIN_V1_KEY = 'nclex_skin_v1'; // index.html (anti-flash) lee este valor
+    const ANTI_FLASH_KEY = 'nclex-theme'; // Legacy: solo dark/light
 
     // ===== THE SKINS MUSEUM =====
     const SKINS = [
@@ -50,26 +51,53 @@
         { id: "cyber-neural", name: "Cyber Neural", nameEs: "Cyber Neural", icon: "cpu", colors: ["#0A0E27", "#1A1F3A", "#00FFFF"], animation: "glow-breathe", isDark: true }
     ];
 
-    const MASTERPIECE_CSS = `
-        /* Estilos base inyectados */
-        .skin-neural-vision { --brand-primary: #8B7EFF; --brand-bg: #E8E5FF; --brand-card: rgba(255, 255, 255, 0.85); --brand-text: #2D2A3E; background: linear-gradient(135deg, #E8E5FF 0%, #FFFFFF 100%); }
-        .skin-dark-obsidian { --brand-bg: #000000; --brand-card: #1C1C1E; --brand-text: #FFFFFF; background: #000000; }
-        .skin-neon-hollow { --brand-bg: #121212; --brand-card: #1E1E1E; --brand-text: #FFFFFF; background: #121212; }
-        .skin-cyber-neural { --brand-bg: #0A0E27; --brand-card: #1A1F3A; --brand-text: #FFFFFF; background: #0A0E27; }
-        /* Animaciones */
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        .shimmer { background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%); background-size: 200% 100%; animation: shimmer 3s infinite; }
-    `;
+    function buildSkinsCss() {
+        let css = `        /* Estilos base inyectados */
+`;
+
+        // Generar reglas para TODAS las skins usando sus colores (fix: skins que "no cambiaban")
+        SKINS.forEach(skin => {
+            const bg = (skin.colors && skin.colors[0]) ? skin.colors[0] : '#F5F5F7';
+            const card = (skin.colors && skin.colors[1]) ? skin.colors[1] : '#FFFFFF';
+            const accent = (skin.colors && skin.colors[2]) ? skin.colors[2] : bg;
+
+            const border = skin.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+            const text = skin.isDark ? 'rgba(255,255,255,0.90)' : '#1d1d1f';
+            const muted = skin.isDark ? 'rgba(255,255,255,0.65)' : 'rgba(29,29,31,0.65)';
+
+            css += `        .skin-${skin.id} { --brand-primary: ${accent}; --brand-bg: ${bg}; --brand-card: ${card}; --brand-border: ${border}; --brand-text: ${text}; --brand-muted: ${muted}; --brand-accent: ${accent}; --brand-accent-hover: ${accent}; }
+`;
+        });
+
+        css += `        /* Animaciones */
+`;
+        css += `        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+`;
+        css += `        .shimmer { background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%); background-size: 200% 100%; animation: shimmer 3s infinite; }
+`;
+
+        return css;
+    }
+
+    const MASTERPIECE_CSS = buildSkinsCss();
 
     function applySkin(skinId) {
         if (!skinId) return;
         const skin = SKINS.find(s => s.id === skinId);
         if (!skin) return;
 
+        // Limpiar skins previas en <html> y <body> (evita mezclas)
+        document.documentElement.className = document.documentElement.className
+            .split(' ')
+            .filter(c => !c.startsWith('skin-'))
+            .join(' ');
         document.body.className = document.body.className
             .split(' ')
             .filter(c => !c.startsWith('skin-'))
             .join(' ');
+
+        // Aplicar skin en ambos para compatibilidad (index.html aplica en <html>)
+        document.documentElement.classList.add(`skin-${skinId}`);
         document.body.classList.add(`skin-${skinId}`);
 
         if (skin.isDark) {
@@ -79,6 +107,9 @@
             document.documentElement.classList.remove('dark');
             localStorage.setItem(ANTI_FLASH_KEY, 'light');
         }
+
+        // Anti-flash para index.html
+        try { localStorage.setItem(SKIN_V1_KEY, skinId); } catch (_) {}
 
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(skinId));
@@ -112,6 +143,9 @@
             const stored = localStorage.getItem(STORAGE_KEY);
             if (stored) {
                 savedSkin = stored.startsWith('"') ? JSON.parse(stored) : stored;
+            } else {
+                const v1 = localStorage.getItem(SKIN_V1_KEY);
+                if (v1) savedSkin = v1;
             }
         } catch (e) { console.warn("Skin parse error, using default"); }
         
@@ -123,7 +157,8 @@
         masterpiece: SKINS.find(s => s.isMasterpiece),
         apply: applySkin,
         current: () => {
-            const currentClass = Array.from(document.body.classList).find(c => c.startsWith('skin-'));
+            const htmlClass = Array.from(document.documentElement.classList).find(c => c.startsWith('skin-'));
+            const currentClass = htmlClass || Array.from(document.body.classList).find(c => c.startsWith('skin-'));
             return currentClass ? currentClass.replace('skin-', '') : 'neural-vision';
         }
     };

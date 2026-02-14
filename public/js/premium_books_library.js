@@ -104,332 +104,218 @@
         transform: scale(0.96);
         transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
         box-shadow: 0 40px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(212, 175, 55, 0.15);
-        border: 1px solid rgba(255,255,255,0.05);
+        border: 1px solid rgba(212, 175, 55, 0.18);
       }
-      #nclex-library-modal.visible .nclex-lib-container {
-        transform: scale(1);
-      }
+      #nclex-library-modal.visible .nclex-lib-container { transform: scale(1); }
 
-      /* ------------------------------------------------
-         CABECERA
-      ------------------------------------------------ */
-      .nclex-lib-header {
-        padding: 24px 36px;
-        border-bottom: 1px solid var(--lib-border);
+      .nclex-lib-topbar {
+        padding: 18px 22px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: linear-gradient(to bottom, rgba(20, 25, 35, 0.95), var(--lib-bg));
-        backdrop-filter: blur(8px);
-      }
-      .nclex-lib-header h2 {
-        font-family: 'Cormorant Garamond', 'Times New Roman', serif;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        font-size: 1.8rem;
-        background: linear-gradient(135deg, #fff, #c0c8d0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      }
-      .nclex-lib-header .w-10.h-10 {
-        background: linear-gradient(145deg, #1e2a3a, #0f141c);
-        border: 1px solid rgba(212,175,55,0.3);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       }
 
-      /* ------------------------------------------------
-         ESTANTERÍA
-      ------------------------------------------------ */
+      .nclex-lib-title {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .nclex-lib-badge {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(212, 175, 55, 0.14);
+        border: 1px solid rgba(212, 175, 55, 0.25);
+        box-shadow: 0 10px 18px rgba(0,0,0,0.35);
+      }
+
+      .nclex-lib-badge i { color: rgba(212, 175, 55, 0.9); }
+
+      .nclex-lib-actions button {
+        width: 44px;
+        height: 44px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+        color: var(--lib-text);
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .nclex-lib-actions button:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
+
+      .nclex-lib-content { padding: 22px; }
+
+      .nclex-lib-loading {
+        height: 100%;
+        min-height: 420px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 10px;
+        color: var(--lib-text);
+      }
+
       .nclex-lib-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-        gap: 60px 35px;
-        padding: 50px 45px;
-        overflow-y: auto;
-        background: 
-          radial-gradient(circle at 20% 30%, rgba(80, 60, 40, 0.05) 0%, transparent 25%),
-          radial-gradient(circle at 80% 70%, rgba(40, 60, 80, 0.05) 0%, transparent 30%);
+        gap: 22px;
       }
 
       /* ------------------------------------------------
-         LIBRO 3D
+         BOOK CARD — Tapa dura premium
       ------------------------------------------------ */
       .book-item {
+        position: relative;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        perspective: 1800px;
+        gap: 12px;
       }
 
       .book-cover {
-        width: 100%;
-        aspect-ratio: 1/1.55;
-        border-radius: 4px 12px 12px 4px;
         position: relative;
-        box-shadow: 
-          inset -2px 0 8px rgba(0,0,0,0.6),
-          inset 6px 0 12px rgba(0,0,0,0.5),
-          0 15px 25px -8px rgba(0,0,0,0.5);
-        transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.4, 1), 
-                    box-shadow 0.35s ease;
+        width: 100%;
+        height: 260px;
+        border-radius: 20px;
         overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        padding: 22px 18px;
         cursor: pointer;
-        border: 1px solid rgba(255,255,255,0.08);
-        border-left-width: 2px;
-        border-left-color: rgba(255,215,0,0.2);
+        box-shadow: var(--lib-shadow);
+        border: 1px solid rgba(255,255,255,0.10);
+        transform: translateZ(0);
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
       }
-
-      .book-cover::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 14px;
-        height: 100%;
-        background: var(--lib-spine);
-        border-radius: 3px 0 0 3px;
-        box-shadow: inset -1px 0 3px rgba(0,0,0,0.4);
-        pointer-events: none;
-        z-index: 3;
-      }
-
-      .book-cover::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, rgba(255,255,255,0.2), rgba(212,175,55,0.2), rgba(255,255,255,0.2));
-        opacity: 0.6;
-        pointer-events: none;
-      }
-
-      .book-cover .page-edge {
-        position: absolute;
-        right: 0;
-        top: 4px;
-        bottom: 4px;
-        width: 4px;
-        background: linear-gradient(90deg, rgba(255,255,255,0.1), rgba(200,200,200,0.05));
-        border-radius: 2px;
-        pointer-events: none;
-        z-index: 2;
-      }
-
       .book-item:hover .book-cover {
-        transform: translateY(-18px) rotateY(-10deg) scale(1.04);
-        box-shadow: 25px 35px 60px -10px rgba(0,0,0,0.7);
+        transform: translateY(-6px) scale(1.015);
+        box-shadow: 0 30px 55px -15px rgba(0,0,0,0.7), 0 0 0 1px rgba(212,175,55,0.25);
       }
 
       .book-frame {
         position: absolute;
-        inset: 14px;
-        border: 1px solid var(--lib-gold);
-        border-radius: 2px;
-        opacity: 0.4;
-        transition: opacity 0.25s;
+        inset: 10px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.10);
         pointer-events: none;
-        z-index: 4;
-      }
-      .book-item:hover .book-frame {
-        opacity: 0.8;
-        border-color: rgba(212, 175, 55, 0.7);
       }
 
       .book-ribbon {
         position: absolute;
-        top: -8px;
-        right: 18px;
-        width: 24px;
-        height: 52px;
+        right: 16px;
+        top: -10px;
+        width: 18px;
+        height: 80px;
         background: var(--lib-ribbon);
-        box-shadow: 3px 5px 10px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.3);
-        border-radius: 2px 2px 0 0;
-        z-index: 15;
-        transform: rotate(2deg);
+        border-radius: 8px;
+        box-shadow: 0 10px 15px rgba(0,0,0,0.35);
+        opacity: 0.95;
       }
       .book-ribbon::after {
         content: '';
         position: absolute;
-        bottom: 0;
+        bottom: -10px;
         left: 0;
-        width: 100%;
-        height: 14px;
-        background: inherit;
-        clip-path: polygon(0 0, 50% 100%, 100% 0);
-        transform: translateY(10px);
-        filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+        right: 0;
+        margin: auto;
+        width: 0;
+        height: 0;
+        border-left: 9px solid transparent;
+        border-right: 9px solid transparent;
+        border-top: 10px solid #7a0e0e;
       }
-      .book-ribbon::before {
-        content: '';
+
+      .page-edge {
         position: absolute;
+        right: 0;
         top: 0;
-        left: 0;
-        width: 100%;
-        height: 6px;
-        background: linear-gradient(to bottom, rgba(255,255,255,0.3), transparent);
-        border-radius: 2px 2px 0 0;
+        bottom: 0;
+        width: 20px;
+        background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.18));
+        opacity: 0.9;
+        pointer-events: none;
       }
 
       .book-content {
-        z-index: 20;
-        height: 100%;
+        position: absolute;
+        inset: 0;
+        padding: 18px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        text-align: center;
-        margin-top: 15px;
-        position: relative;
+        justify-content: space-between;
       }
 
       .book-title {
-        font-family: 'Cormorant Garamond', 'Times New Roman', serif;
-        font-weight: 700;
-        color: #fefcf5;
-        font-size: 1.1rem;
-        line-height: 1.3;
-        text-shadow: 0 2px 6px rgba(0,0,0,0.9);
-        letter-spacing: 0.03em;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        color: rgba(255,255,255,0.92);
+        text-shadow: 0 10px 18px rgba(0,0,0,0.55);
+        font-size: 14px;
+        line-height: 1.15;
         display: -webkit-box;
-        -webkit-line-clamp: 4;
+        -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
-        padding: 12px 0;
-        border-top: 1px solid rgba(212, 175, 55, 0.25);
-        border-bottom: 1px solid rgba(212, 175, 55, 0.25);
-        background: linear-gradient(to bottom, rgba(0,0,0,0.1), transparent);
       }
 
       .book-logo {
-        margin-top: auto;
-        color: rgba(212, 175, 55, 0.45);
-        font-size: 26px;
-        margin-bottom: 8px;
-        filter: drop-shadow(0 2px 4px black);
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.25);
+        border: 1px solid rgba(255,255,255,0.14);
       }
+      .book-logo i { color: rgba(212,175,55,0.9); font-size: 18px; }
 
       .book-details {
-        margin-top: 18px;
-        text-align: center;
-        width: 100%;
+        padding: 12px 12px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
       }
 
       .book-meta-info {
-        font-size: 11px;
-        color: var(--lib-text-muted);
-        font-weight: 600;
-        letter-spacing: 1.2px;
-        margin-bottom: 10px;
-        text-transform: uppercase;
-        background: rgba(10, 15, 20, 0.6);
-        padding: 4px 8px;
-        border-radius: 20px;
-        display: inline-block;
-        backdrop-filter: blur(2px);
-        border: 1px solid rgba(255,255,255,0.05);
-      }
-
-      .book-actions {
         display: flex;
-        gap: 12px;
-        justify-content: center;
-      }
-
-      .action-btn {
-        height: 36px;
-        padding: 0 22px;
-        border-radius: 30px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--lib-text-muted);
         font-size: 12px;
-        font-weight: 700;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        letter-spacing: 0.5px;
-        border: none;
-        position: relative;
-        overflow: hidden;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
-      .btn-read {
-        background: linear-gradient(145deg, #2a4c7c, #1a2e4a);
-        color: white;
-        border: 1px solid rgba(212, 175, 55, 0.4);
-      }
-      .btn-read:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 18px rgba(30, 80, 150, 0.5);
-        background: linear-gradient(145deg, #326094, #1e3a5a);
-      }
-
-      .btn-down {
-        background: rgba(20, 28, 38, 0.9);
-        color: var(--lib-text);
-        border: 1px solid rgba(255,255,255,0.1);
-        backdrop-filter: blur(4px);
-      }
-      .btn-down:hover {
-        background: rgba(30, 40, 55, 0.95);
-        transform: translateY(-3px);
-        border-color: rgba(212, 175, 55, 0.4);
-        box-shadow: 0 8px 18px rgba(0,0,0,0.5);
-      }
-
-      .nclex-lib-loading {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        color: var(--lib-text-muted);
-        font-size: 1.2rem;
-        letter-spacing: 2px;
-      }
-      .nclex-lib-loading i {
-        font-size: 3rem;
-        color: rgba(212, 175, 55, 0.6);
-        animation: lib-rotate 1.2s linear infinite;
-        margin-bottom: 1rem;
-        filter: drop-shadow(0 0 8px rgba(212,175,55,0.3));
-      }
-      @keyframes lib-rotate {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      .nclex-lib-grid::-webkit-scrollbar {
-        width: 8px;
-      }
-      .nclex-lib-grid::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .nclex-lib-grid::-webkit-scrollbar-thumb {
-        background: rgba(212, 175, 55, 0.25);
-        border-radius: 20px;
-        border: 1px solid rgba(0,0,0,0.3);
-      }
-      .nclex-lib-grid::-webkit-scrollbar-thumb:hover {
-        background: rgba(212, 175, 55, 0.5);
-      }
-
-      @media (max-width: 640px) {
-        .nclex-lib-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); padding: 30px 20px; gap: 40px 20px; }
-        .book-title { font-size: 0.95rem; }
-        .nclex-lib-header { padding: 18px 24px; }
-      }
+      .custom-scrollbar::-webkit-scrollbar { width: 10px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 999px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
     `;
     document.head.appendChild(style);
   }
 
-  // ===== FETCH DATOS =====
+  // ===== LÓGICA DE APERTURA =====
+  function openLibrary() {
+    state.isOpen = true;
+    const modal = document.getElementById('nclex-library-modal');
+    if (!modal) return;
+    modal.classList.add('visible');
+    fetchBooks();
+  }
+
+  function closeLibrary() {
+    state.isOpen = false;
+    const modal = document.getElementById('nclex-library-modal');
+    if (!modal) return;
+    modal.classList.remove('visible');
+  }
+
+  // ===== OBTENER LIBROS =====
   async function fetchBooks() {
     const cached = storageGet(CONFIG.STORAGE_KEY, null);
     const cachedTime = storageGet(CONFIG.CACHE_TIME_KEY, 0);
@@ -446,24 +332,61 @@
   async function fetchFromAPI(silent) {
     if (!silent) { state.isLoading = true; render(); }
     try {
-      const res = await fetch(CONFIG.GITHUB_RELEASE_URL);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      state.books = (data.assets || [])
-        .filter(a => a.name.toLowerCase().endsWith('.pdf'))
-        .map(a => ({
-          id: a.id,
-          name: a.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          size: a.size,
-          url: a.browser_download_url,
-          date: a.updated_at
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      
-      storageSet(CONFIG.STORAGE_KEY, state.books);
-      storageSet(CONFIG.CACHE_TIME_KEY, Date.now());
+      state.error = null;
+
+      let lastError = null;
+
+      for (let attempt = 0; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+        try {
+          const res = await fetch(CONFIG.GITHUB_RELEASE_URL, { cache: 'no-store' });
+
+          if (!res.ok) {
+            // Intentar leer mensaje de error de GitHub
+            let detail = '';
+            try {
+              const ct = (res.headers.get('content-type') || '').toLowerCase();
+              if (ct.includes('application/json')) {
+                const j = await res.json();
+                detail = j && j.message ? ` — ${j.message}` : '';
+              }
+            } catch (_) {}
+
+            throw new Error(`HTTP ${res.status} ${res.statusText}${detail}`);
+          }
+
+          const data = await res.json();
+
+          state.books = (data.assets || [])
+            .filter(a => (a.name || '').toLowerCase().endsWith('.pdf'))
+            .map(a => ({
+              id: a.id,
+              name: (a.name || '').replace(/\.pdf$/i, '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              size: a.size,
+              url: a.browser_download_url,
+              date: a.updated_at
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+          
+          storageSet(CONFIG.STORAGE_KEY, state.books);
+          storageSet(CONFIG.CACHE_TIME_KEY, Date.now());
+
+          lastError = null;
+          break; // éxito
+        } catch (err) {
+          lastError = err;
+
+          // Retry con backoff simple
+          if (attempt < CONFIG.MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, CONFIG.RETRY_DELAY * (attempt + 1)));
+            continue;
+          }
+        }
+      }
+
+      if (lastError) throw lastError;
+
     } catch (e) {
-      if (!silent) state.error = "Error loading books";
+      if (!silent) state.error = (e && e.message) ? e.message : "Error loading books";
     } finally {
       state.isLoading = false;
       render();
@@ -482,7 +405,26 @@
     }
 
     if (!state.books.length) {
-      content.innerHTML = `<div class="nclex-lib-loading"><p>${t('No se encontraron libros', 'No books found')}</p></div>`;
+      if (state.error) {
+        content.innerHTML = `
+          <div class="nclex-lib-loading" style="gap:12px;">
+            <p class="font-bold">${t('No se pudo cargar la biblioteca', 'Unable to load library')}</p>
+            <p style="max-width:720px; text-align:center; opacity:0.85;">${escapeHtml(state.error)}</p>
+            <button id="nclex-lib-retry" class="px-6 py-3 rounded-full font-black tracking-wide"
+              style="background: rgba(212,175,55,0.18); border: 1px solid rgba(212,175,55,0.35); color: var(--lib-text);">
+              ${t('REINTENTAR', 'RETRY')}
+            </button>
+            <p style="opacity:0.7; font-size:12px; text-align:center; max-width:760px;">
+              ${t('Tip: GitHub puede limitar solicitudes (rate limit). Espera 1–2 minutos y reintenta.',
+                   'Tip: GitHub may rate-limit requests. Wait 1–2 minutes and retry.')}
+            </p>
+          </div>
+        `;
+        const retryBtn = content.querySelector('#nclex-lib-retry');
+        if (retryBtn) retryBtn.onclick = () => fetchFromAPI(false);
+      } else {
+        content.innerHTML = `<div class="nclex-lib-loading"><p>${t('No se encontraron libros', 'No books found')}</p></div>`;
+      }
       return;
     }
 
@@ -513,59 +455,31 @@
           
           <div class="book-details">
             <div class="book-meta-info">
-              <i class="fa-solid fa-file-pdf" style="color:#b31b1b;"></i> ${formatFileSize(book.size)}
-            </div>
-            
-            <div class="book-actions">
-                <a href="${googleViewerUrl}" target="_blank" class="action-btn btn-read">
-                    <i class="fa-solid fa-book-open"></i> ${t('LEER', 'READ')}
-                </a>
-                <a href="${book.url}" target="_blank" class="action-btn btn-down" title="${t('Descargar', 'Download')}">
-                    <i class="fa-solid fa-download"></i>
-                </a>
+              <i class="fa-solid fa-file-pdf"></i>
+              <span>${formatFileSize(book.size)}</span>
             </div>
           </div>
+
         </div>
         `;
       }).join('')}
     </div>`;
   }
 
-  // ===== FUNCIONES DE APERTURA/CIERRE =====
-  function openLibrary() {
-    state.isOpen = true;
-    const modal = document.getElementById('nclex-library-modal');
-    if (modal) {
-      modal.classList.add('visible');
-      if (!state.books.length) fetchBooks();
-    }
-  }
-
-  function closeLibrary() {
-    state.isOpen = false;
-    const modal = document.getElementById('nclex-library-modal');
-    if (modal) modal.classList.remove('visible');
-  }
-
-  // ===== INICIALIZACIÓN (sin botón flotante) =====
+  // ===== INIT DEL MODAL =====
   function init() {
-    if (document.getElementById('nclex-library-modal')) return;
-    
     injectStyles();
 
     const modal = document.createElement('div');
     modal.id = 'nclex-library-modal';
     modal.innerHTML = `
       <div class="nclex-lib-container">
-        <div class="nclex-lib-header">
-          <div>
-            <h2 class="font-black text-2xl text-[var(--brand-text)] flex items-center gap-3">
-              <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-700 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <i class="fa-solid fa-book-medical"></i>
-              </span>
-              NCLEX LIBRARY
-            </h2>
-            <p class="text-xs text-[var(--brand-text-muted)] mt-1 ml-1 font-bold tracking-widest uppercase opacity-70">
+        <div class="nclex-lib-topbar">
+          <div class="nclex-lib-title">
+            <div class="nclex-lib-badge"><i class="fa-solid fa-books"></i></div>
+            <div>
+              <p class="text-xl font-black text-[var(--brand-text)] tracking-tight">${t('PREMIUM LIBRARY', 'PREMIUM LIBRARY')}</p>
+              <p class="text-xs text-[var(--brand-text-muted)] mt-1 ml-1 font-bold tracking-widest uppercase opacity-70">
               ${t('COLECCIÓN OFICIAL', 'OFFICIAL COLLECTION')}
             </p>
           </div>
@@ -586,6 +500,13 @@
       close: closeLibrary,
       isOpen: () => state.isOpen
     };
+
+    // Bind seguro (si existe el botón del Home)
+    const premiumBtn = document.getElementById('premiumLibraryBtn');
+    if (premiumBtn && !premiumBtn.__nclexLibBound) {
+      premiumBtn.__nclexLibBound = true;
+      premiumBtn.addEventListener('click', openLibrary);
+    }
 
     // Carga inicial en segundo plano (opcional)
     setTimeout(fetchBooks, 2500);
