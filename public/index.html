@@ -9,13 +9,21 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NCLEX ESSENTIALS | Concise Study Suite</title>
     
-    <link rel="manifest" href="manifest.json">
+    <!-- 🔒 Anti-Flash Theme Fix (CRÍTICO) -->
+    <script>
+        // Aplica el tema guardado antes de renderizar el DOM
+        document.documentElement.classList.add(localStorage.getItem('nclex-theme') || 'light');
+    </script>
+
+    <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3063/3063176.png">
     
+    <!-- Tailwind CSS CDN optimizado para producción -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght700&display=swap" rel="stylesheet">
+    
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -24,13 +32,13 @@
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
                         brand: {
-                            blue: 'rgb(var(--brand-blue-rgb, 0 122 255))',
-                            bg: 'var(--brand-bg, #F5F5F7)',
-                            dark: 'var(--brand-dark, #000000)',
-                            card: 'var(--brand-card, #FFFFFF)',
-                            border: 'var(--brand-border, #E2E8F0)',
-                            sidebar: 'var(--brand-sidebar, #FFFFFF)',
-                            sidebarBorder: 'var(--brand-sidebar-border, #E2E8F0)'
+                            blue: 'rgb(var(--brand-blue-rgb) / <alpha-value>)',
+                            bg: 'var(--brand-bg)',
+                            dark: 'var(--brand-dark)',
+                            card: 'var(--brand-card)',
+                            border: 'var(--brand-border)',
+                            sidebar: 'var(--brand-sidebar)',
+                            sidebarBorder: 'var(--brand-sidebar-border)'
                         }
                     },
                     animation: { 'fade-in': 'fadeIn 0.4s ease-out forwards' },
@@ -94,7 +102,7 @@
         #sidebar-search-results {
             max-height: 500px; overflow-y: auto; z-index: 40; position: absolute;
             top: 100%; left: 0; width: 100%; background-color: var(--brand-card);
-            border-radius: 0 0 0.75rem 0.75rem; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            border-radius: 0 0 0.75rem 0.75rem; box-shadow: 0 20 60px rgba(0,0,0,0.15);
             display: none; border: 1px solid var(--brand-border); border-top: none;
         }
         #sidebar-search-results.active { display: block; }
@@ -102,7 +110,7 @@
         #home-search-results {
             max-height: 400px; overflow-y: auto; margin-top: 0.75rem;
             border-radius: 0.75rem; background-color: var(--brand-card);
-            border: 1px solid var(--brand-border); box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            border: 1px solid var(--brand-border); box-shadow: 0 10 25px rgba(0,0,0,0.08);
             display: none;
         }
         #home-search-results.active { display: block; }
@@ -115,7 +123,7 @@
             outline: 2px solid rgb(var(--brand-blue-rgb)); outline-offset: 2px;
         }
 
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideIn { from { opacity: 0, transform: translateX(-10px); } to { opacity: 1, transform: translateX(0); } }
         .animate-slide-in { animation: slideIn 0.3s ease-out forwards; }
     </style>
 </head>
@@ -306,11 +314,17 @@
                 }
             };
             
-            // Register Service Worker
+            // ✅ Registro seguro de Service Worker
+            // Se ejecuta solo DESPUES de que la app este completamente cargada
+            // Nunca ralentiza el arranque, falla silenciosamente si no existe
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('SW Registered'))
-                    .catch(err => console.log('SW Error:', err));
+                window.addEventListener('nclex:ready', () => {
+                    setTimeout(() => {
+                        navigator.serviceWorker.register('/sw.js')
+                            .then(reg => console.log('✅ Service Worker v4 registrado'))
+                            .catch(() => {});
+                    }, 1000);
+                });
             }
 
             // Fallback loader
