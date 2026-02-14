@@ -1,25 +1,15 @@
-# .github/workflows/firebase-deploy.yml
-
 name: Deploy a NCLEX by Rey
-
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:
-
 jobs:
-  deploy_hosting:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 📥 Descargar Código
-        uses: actions/checkout@v4
-
-      - name: 🚀 Subir a Firebase
-        uses: w9jds/firebase-action@v15.5.0
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          args: deploy --only hosting
-        env:
-          GCP_SA_KEY: ${{ secrets.NUEVO_FIREBASE_KEY }}
-          PROJECT_ID: nclexbyrey
-          # 📍 CAMBIO CLAVE: Le decimos que entre a la carpeta NCLEX1.2
-          PROJECT_PATH: "./NCLEX1.2"
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.NUEVO_FIREBASE_KEY }}'
+          channelId: live
+          projectId: nclexbyrey
