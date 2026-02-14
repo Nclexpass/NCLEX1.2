@@ -58,7 +58,6 @@
     </script>
     
     <style>
-        /* Variables CSS Globales */
         :root {
             --brand-blue-rgb: 0, 122, 255;
             --brand-bg: #F5F5F7;
@@ -82,7 +81,6 @@
             --brand-text-muted: #94A3B8;
         }
 
-        /* Utilidades */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hidden-lang { display: none !important; }
@@ -116,8 +114,8 @@
                 <div class="absolute inset-0 border-4 rounded-full border-t-transparent animate-spin" style="border-color: rgb(var(--brand-blue-rgb)); border-top-color: transparent;"></div>
             </div>
             <p class="text-[var(--brand-text-muted)] font-bold text-base tracking-wider animate-pulse uppercase">
-                <span class="lang-es">Cargando...</span>
-                <span class="lang-en hidden-lang">Loading...</span>
+                <span class="lang-es">Cargando Sistema...</span>
+                <span class="lang-en hidden-lang">Loading System...</span>
             </p>
         </div>
     </div>
@@ -184,7 +182,7 @@
 
     <script src="js/utils.js?v=4.0"></script>
     <script src="js/logic.js?v=4.0"></script>
-    <script src="js/skins.js?v=4.0"></script>
+    <script src="js/premium_books_library.js?v=4.0"></script> <script src="js/skins.js?v=4.0"></script>
     <script src="js/31_search_service.js?v=4.0"></script>
     <script src="js/17_bnotepad.js?v=4.0"></script>
     <script src="js/simulator.js?v=4.0"></script>
@@ -206,6 +204,7 @@
     <script defer src="js/14_gastrointestinal.js?v=3.0"></script>
     <script defer src="js/15_integumentary_burns.js?v=3.0"></script>
     <script defer src="js/16_labs_values.js?v=3.0"></script>
+    <script defer src="js/17_bnotepad.js"></script>
     <script defer src="js/18_leadership_management.js?v=3.0"></script>
     <script defer src="js/19_prioritization_delegation.js?v=3.0"></script>
     <script defer src="js/20_renal_genitourinary.js?v=3.0"></script>
@@ -249,6 +248,7 @@
             }
 
             document.addEventListener('nclex:ready', window.hideLoader);
+            // Fallback de seguridad: 4s máximo de loader si falla algún recurso clínico
             setTimeout(window.hideLoader, 4000); 
         })();
     </script>
