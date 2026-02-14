@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.6) */
+/* logic.js — Core navigation + Search + Progress + NGN INTEGRATION + SKINS (VERSIÓN CORREGIDA 3.5) */
 
 (function () {
     'use strict';
@@ -141,11 +141,6 @@
         if(title.includes('priority') || title.includes('emergency')) badges += `<span title="High Priority" class="mr-1">🚨</span>`;
             
         return badges;
-    }
-
-    // Helper para traducción - MOVED HERE (FIX #1)
-    function t(es, en) {
-        return state.currentLang === 'es' ? es : en;
     }
 
     // ===== SISTEMA DE REGISTRO DE TOPICS =====
@@ -346,80 +341,66 @@
                     <div class="flex-1 w-full">
                         <div class="flex justify-between items-center mb-2">
                             <div>
-                                <h3 class="text-xl font-black text-[var(--brand-text)]">
-                                    <span class="lang-es">Tu Progreso</span>
-                                    <span class="lang-en hidden-lang">Your Progress</span>
-                                </h3>
-                                <p class="text-sm text-[var(--brand-text-muted)] font-medium">${motivationalMessage}</p>
+                                <h2 class="text-xl font-bold text-[var(--brand-text)]">
+                                    <span class="lang-es">Progreso Global</span>
+                                    <span class="lang-en hidden-lang">Overall Progress</span>
+                                </h2>
+                                <p class="text-sm text-[var(--brand-text-muted)]">${completed} / ${total} módulos</p>
                             </div>
-                            <div class="text-right">
-                                <p class="text-3xl font-black text-[var(--brand-text)]">${completed}<span class="text-lg text-[var(--brand-text-muted)]">/${total}</span></p>
-                                <p class="text-xs text-[var(--brand-text-muted)] uppercase tracking-wider font-bold">
-                                    <span class="lang-es">Completados</span>
-                                    <span class="lang-en hidden-lang">Completed</span>
-                                </p>
-                            </div>
+                            <span class="text-sm font-bold px-3 py-1 rounded-full bg-[rgb(var(--brand-blue-rgb))] text-white">
+                                <i class="fa-regular fa-calendar-check mr-1"></i> ${state.streak} día${state.streak !== 1 ? 's' : ''}
+                            </span>
                         </div>
-                        
-                        <div class="w-full h-3 bg-[var(--brand-bg)] rounded-full overflow-hidden shadow-inner">
-                            <div class="h-full rounded-full transition-all duration-700 ease-out" 
-                                style="width: ${percent}%; background: linear-gradient(90deg, rgb(var(--brand-blue-rgb)), rgba(var(--brand-blue-rgb), 0.7));"></div>
+                        <div class="w-full h-4 bg-[var(--brand-bg)] rounded-full overflow-hidden border border-[var(--brand-border)] mb-3">
+                            <div class="h-full transition-all duration-1000 ease-out" 
+                                 style="width: ${percent}%; background: linear-gradient(90deg, ${primaryColor}, rgba(var(--brand-blue-rgb), 0.7));"></div>
                         </div>
+                        <p class="text-sm text-[var(--brand-text-muted)] italic">
+                            <i class="fa-regular fa-star mr-1" style="color: ${primaryColor};"></i> ${motivationalMessage}
+                        </p>
                     </div>
                 </div>
-                
-                <!-- Racha de estudio (nueva feature) -->
-                ${state.streak > 0 ? `
-                <div class="mt-4 pt-4 border-t border-[var(--brand-border)] flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: linear-gradient(135deg, rgb(var(--brand-blue-rgb)), rgba(var(--brand-blue-rgb), 0.6));">
-                        <span class="text-xl">🔥</span>
-                    </div>
-                    <div>
-                        <p class="text-sm font-bold text-[var(--brand-text)]">
-                            <span class="lang-es">${state.streak} día${state.streak !== 1 ? 's' : ''} de racha</span>
-                            <span class="lang-en hidden-lang">${state.streak} day${state.streak !== 1 ? 's' : ''} streak</span>
-                        </p>
-                        <p class="text-xs text-[var(--brand-text-muted)]">
-                            <span class="lang-es">¡Sigue así!</span>
-                            <span class="lang-en hidden-lang">Keep it up!</span>
-                        </p>
+
+                <!-- Recomendaciones de estudio -->
+                ${nextTopics.length > 0 ? `
+                <div class="mt-6 pt-4 border-t border-[var(--brand-border)]">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-[var(--brand-text-muted)] mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-stethoscope"></i>
+                        <span class="lang-es">Continúa con:</span>
+                        <span class="lang-en hidden-lang">Continue with:</span>
+                    </h3>
+                    <div class="flex flex-wrap gap-2">
+                        ${nextTopics.map(t => {
+                            const colors = getColor(t.color);
+                            return `
+                                <button onclick="window.nclexApp.navigate('topic/${t.id}')" 
+                                    class="px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 transition-all hover:scale-105 bg-gradient-to-r ${colors.grad} text-white shadow-md">
+                                    <i class="fa-solid fa-${normalizeFaIcon(t.icon)}"></i>
+                                    <span>${t.title[state.currentLang] || t.title}</span>
+                                </button>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
                 ` : ''}
             </div>
 
-            <!-- Próximos temas recomendados -->
-            ${nextTopics.length > 0 ? `
-            <div class="mb-8">
-                <h2 class="text-xl font-black text-[var(--brand-text)] mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-compass" style="color: rgb(var(--brand-blue-rgb));"></i>
-                    <span class="lang-es">Próximos Temas</span>
-                    <span class="lang-en hidden-lang">Next Topics</span>
+            <div class="bg-[var(--brand-card)] p-6 rounded-3xl border border-[var(--brand-border)] shadow-lg mb-10 transition-colors">
+                <h2 class="text-xl font-bold mb-4 text-[var(--brand-text)]">
+                    <i class="fa-solid fa-search mr-2" style="color: ${primaryColor};"></i> Smart Search
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    ${nextTopics.map(t => {
-                        const colors = getColor(t.color);
-                        return `
-                            <div onclick="window.nclexApp.navigate('topic/${t.id}')" 
-                                class="bg-[var(--brand-card)] p-4 rounded-2xl border border-[var(--brand-border)] hover:border-[rgb(var(--brand-blue-rgb))] transition-all cursor-pointer group">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <div class="w-10 h-10 bg-gradient-to-br ${colors.grad} rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0">
-                                        <i class="fa-solid fa-${normalizeFaIcon(t.icon)} text-lg"></i>
-                                    </div>
-                                    <h3 class="text-sm font-bold text-[var(--brand-text)] truncate">${getBilingualTitle(t)}</h3>
-                                </div>
-                                <div class="w-full h-1 bg-[var(--brand-bg)] rounded-full overflow-hidden">
-                                    <div class="h-full ${colors.bg} w-0 group-hover:w-full transition-all duration-500"></div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-[var(--brand-text-muted)]"></i>
+                    <input type="text" id="home-search" 
+                        class="w-full bg-[var(--brand-bg)] border-2 border-[var(--brand-border)] focus:border-[rgb(var(--brand-blue-rgb))] rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-[rgba(var(--brand-blue-rgb),0.2)] transition-all placeholder-[var(--brand-text-muted)] text-[var(--brand-text)]"
+                        placeholder="Search medical terms, diagnoses, drugs...">
                 </div>
+                <div id="home-search-results" class="mt-3 w-full bg-[var(--brand-card)] border border-[var(--brand-border)] rounded-lg shadow-lg max-h-96 overflow-y-auto no-scrollbar hidden"></div>
             </div>
-            ` : ''}
 
-            <!-- Cards de acceso rápido -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- SECCIÓN DE TARJETAS MEJORADAS (con gradientes dinámicos según el skin) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                
                 <!-- Simulator Card -->
                 <div onclick="window.nclexApp.navigate('simulator')" 
                     class="group relative p-6 rounded-3xl text-white shadow-xl cursor-pointer overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
@@ -531,8 +512,6 @@
         
         setTimeout(() => {
             try {
-                // FIX #2: Define primaryColor at render scope
-                const primaryColor = 'rgb(var(--brand-blue-rgb))';
                 let content = '';
                 
                 if (route === 'home') {
@@ -700,35 +679,8 @@
         }
     }
 
-    // FIX #3: Service Worker Registration
-    function registerServiceWorker() {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(registration => {
-                    console.log('✅ Service Worker registered successfully:', registration.scope);
-                    
-                    // Check for updates
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        console.log('🔄 Service Worker update found');
-                        
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                console.log('✨ New version available - refresh to update');
-                            }
-                        });
-                    });
-                })
-                .catch(error => {
-                    console.warn('⚠️ Service Worker registration failed:', error);
-                });
-        } else {
-            console.warn('⚠️ Service Workers not supported in this browser');
-        }
-    }
-
     function init() {
-        console.log('🚀 NCLEX App v3.6 initializing...');
+        console.log('🚀 NCLEX App v3.5 initializing...');
         
         loadPersistedState();
         updateStreak(); // Actualizar racha al iniciar
@@ -760,9 +712,6 @@
             });
         }
         
-        // FIX #3: Register Service Worker after app initialization
-        registerServiceWorker();
-        
         document.dispatchEvent(new CustomEvent('nclex:ready'));
         
         if (typeof window.hideLoader === 'function') {
@@ -777,7 +726,7 @@
     window.safeStorageGet = safeStorageGet;
     window.safeStorageSet = safeStorageSet;
     // Helper para traducción en otros módulos
-    window.t = t; // Now properly exposed
+    window.t = (es, en) => state.currentLang === 'es' ? es : en;
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

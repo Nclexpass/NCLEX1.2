@@ -760,65 +760,6 @@
         applySkin(savedSkin);
     }
 
-    // ===== SKIN SELECTOR UI =====
-    function renderSkinSelector() {
-        const currentSkin = window.NCLEX_SKINS.current();
-        const isEs = localStorage.getItem('nclex_lang') === 'es';
-        
-        return `
-            <div class="animate-fade-in">
-                <div class="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 class="text-3xl font-black text-[var(--brand-text)] mb-2">
-                            ${isEs ? 'Temas Visuales' : 'Visual Themes'}
-                        </h1>
-                        <p class="text-[var(--brand-text-muted)]">
-                            ${isEs ? 'Personaliza la apariencia de tu app' : 'Customize your app appearance'}
-                        </p>
-                    </div>
-                    <button onclick="window.nclexApp.navigate('home')" 
-                        class="px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105 active:scale-95"
-                        style="background-color: rgb(var(--brand-blue-rgb));">
-                        <i class="fa-solid fa-arrow-left mr-2"></i>
-                        ${isEs ? 'Volver' : 'Back'}
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${SKINS.map(skin => {
-                        const isActive = currentSkin === skin.id;
-                        return `
-                            <div onclick="window.NCLEX_SKINS.apply('${skin.id}')" 
-                                class="group relative p-6 rounded-2xl border-2 cursor-pointer transition-all ${isActive ? 'border-[rgb(var(--brand-blue-rgb))] bg-[rgba(var(--brand-blue-rgb),0.05)]' : 'border-[var(--brand-border)] hover:border-[rgba(var(--brand-blue-rgb),0.5)]'}">
-                                
-                                ${isActive ? '<div class="absolute top-4 right-4"><i class="fa-solid fa-check-circle text-2xl" style="color: rgb(var(--brand-blue-rgb));"></i></div>' : ''}
-                                
-                                ${skin.isMasterpiece ? '<div class="absolute top-4 left-4"><span class="px-3 py-1 bg-gradient-to-r from-purple-500 to-blue-500 text-white text-xs font-bold rounded-full">✨ PREMIUM</span></div>' : ''}
-                                
-                                <div class="mb-4">
-                                    <div class="w-full h-32 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-105"
-                                        style="background: linear-gradient(135deg, ${skin.colors[0]} 0%, ${skin.colors[1]} 50%, ${skin.colors[2]} 100%);">
-                                        <i class="fa-solid fa-${skin.icon} text-4xl text-white drop-shadow-lg"></i>
-                                    </div>
-                                </div>
-                                
-                                <h3 class="text-lg font-bold text-[var(--brand-text)] mb-1">
-                                    ${isEs ? skin.nameEs : skin.name}
-                                </h3>
-                                
-                                <div class="flex gap-2 mt-3">
-                                    ${skin.colors.map(color => `
-                                        <div class="w-6 h-6 rounded-full border-2 border-white shadow-md" style="background-color: ${color};"></div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
-        `;
-    }
-
     // ===== PUBLIC API =====
     window.NCLEX_SKINS = {
         all: SKINS,
@@ -831,16 +772,10 @@
         }
     };
 
-    window.SkinSystem = {
-        renderSkinSelector: renderSkinSelector
-    };
-
     // Auto-initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initSkins);
     } else {
         initSkins();
     }
-
-    console.log('🎨 Skin System loaded - 20 skins available');
 })();

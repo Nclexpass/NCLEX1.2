@@ -1,4 +1,4 @@
-// js/auth.js — VERSIÓN ADMINISTRADOR con SHA-256 (v3.7 FIXED - Safe JSON Parse)
+// js/auth.js — VERSIÓN ADMINISTRADOR (Tu control total)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -24,45 +24,14 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
       console.error("Error Firebase:", e);
   }
 
-  // ===== 2. SEGURIDAD CON SHA-256 =====
-  const MASTER_HASH = "612245dc8a2beb47bfe2011da7402ecee514ec795d47a665fa61d43863280ce0";
-  
-  async function verifyMasterKey(inputKey) {
-      const cleanInput = inputKey.trim();
-      const msgBuffer = new TextEncoder().encode(cleanInput);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      return hashHex === MASTER_HASH;
-  }
+  // ===== 2. TU LLAVE MAESTRA (¡CÁMBIALA AQUÍ!) =====
+  const MASTER_KEY = "Guitarra89#"; // <--- Esta es la contraseña que solo TÚ debes saber
   
   const STORAGE_KEY = 'nclex_user_session_v5';
-  
-  const KEYS_TO_SYNC = [
-    'nclex_progress', 
-    'nclex_quiz_history', 
-    'nclex_time_spent', 
-    'nclex_last_visit', 
-    'sim_selected_cats',
-    'nclex_streak',
-    'nclex_theme',
-    'nclex_lang'
-  ];
-  
+  const KEYS_TO_SYNC = ['nclex_progress', 'nclex_quiz_history', 'nclex_time_spent', 'nclex_last_visit', 'sim_selected_cats'];
   let autoSaveInterval = null;
 
   // ===== 3. SISTEMA DE DATOS (NUBE) =====
-  
-  // FIX: Safe JSON parse - handles both JSON strings and plain strings
-  function safeJSONParse(value) {
-      if (!value) return null;
-      try {
-          return JSON.parse(value);
-      } catch {
-          // If it's not valid JSON, return the raw value
-          return value;
-      }
-  }
   
   async function syncDown(userId) {
       if (!db || !userId) return;
@@ -87,25 +56,15 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
       
       KEYS_TO_SYNC.forEach(key => {
           const item = localStorage.getItem(key);
-          if (item) { 
-              // FIX: Use safe parser that handles both JSON and plain strings
-              dataToSave[key] = safeJSONParse(item); 
-              hasData = true; 
-          }
+          if (item) { dataToSave[key] = JSON.parse(item); hasData = true; }
       });
 
-      if (hasData) {
-          try {
-              await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
-          } catch (e) {
-              console.error("Error syncing data:", e);
-          }
-      }
+      if (hasData) await setDoc(doc(db, "users", user.name), dataToSave, { merge: true });
   }
 
   function startAutoSave() {
       if (autoSaveInterval) clearInterval(autoSaveInterval);
-      autoSaveInterval = setInterval(syncUp, 60000);
+      autoSaveInterval = setInterval(syncUp, 60000); // Guardar cada minuto
   }
 
   // ===== 4. PANTALLA DE LOGIN / REGISTRO =====
@@ -187,10 +146,12 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
     `;
     document.body.appendChild(overlay);
 
+    // LÓGICA DE INTERFAZ
     const viewLogin = document.getElementById('view-login');
     const viewRegister = document.getElementById('view-register');
     const msg = document.getElementById('auth-msg');
 
+    // Cambiar entre pantallas
     document.getElementById('toggle-register').onclick = () => {
         viewLogin.classList.add('hidden');
         viewRegister.classList.remove('hidden');
@@ -202,61 +163,43 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
         msg.innerText = "";
     };
 
-    async function performLogin() {
+    // --- ACCIÓN: LOGIN ---
+    document.getElementById('btn-login').onclick = async () => {
         const user = document.getElementById('login-user').value.trim();
         const pass = document.getElementById('login-pass').value.trim();
         
         if (!user || !pass) return showMsg("Faltan datos", "text-red-500");
         
-        const btnLogin = document.getElementById('btn-login');
-        btnLogin.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-        btnLogin.disabled = true;
+        document.getElementById('btn-login').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
 
         try {
             const docRef = doc(db, "users", user);
             const docSnap = await getDoc(docRef);
 
             if (docSnap.exists() && docSnap.data().password === pass) {
-                await completeLogin(user);
+                completeLogin(user);
             } else {
                 showMsg("Usuario o contraseña incorrectos", "text-red-500");
-                btnLogin.innerHTML = 'Entrar';
-                btnLogin.disabled = false;
+                document.getElementById('btn-login').innerHTML = 'Entrar';
             }
         } catch (e) {
             console.error(e);
             showMsg("Error de conexión", "text-red-500");
-            btnLogin.innerHTML = 'Entrar';
-            btnLogin.disabled = false;
+            document.getElementById('btn-login').innerHTML = 'Entrar';
         }
-    }
+    };
 
-    document.getElementById('btn-login').onclick = performLogin;
-
-    document.getElementById('login-user').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performLogin();
-    });
-    document.getElementById('login-pass').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performLogin();
-    });
-
-    async function performRegister() {
+    // --- ACCIÓN: CREAR ESTUDIANTE (ADMIN) ---
+    document.getElementById('btn-register').onclick = async () => {
         const user = document.getElementById('reg-user').value.trim();
         const pass = document.getElementById('reg-pass').value.trim();
         const master = document.getElementById('reg-master').value.trim();
 
         if (!user || !pass) return showMsg("Faltan datos del estudiante", "text-red-500");
         
-        const btnRegister = document.getElementById('btn-register');
-        btnRegister.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-        btnRegister.disabled = true;
-        
-        const isValid = await verifyMasterKey(master);
-        if (!isValid) {
-            showMsg("⛔ Clave Maestra Incorrecta", "text-red-600");
-            btnRegister.innerHTML = 'Crear Estudiante';
-            btnRegister.disabled = false;
-            return;
+        // AQUÍ SE COMPRUEBA TU CLAVE MAESTRA
+        if (master !== MASTER_KEY) {
+            return showMsg("⛔ Clave Maestra Incorrecta", "text-red-600");
         }
 
         try {
@@ -265,9 +208,8 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
 
             if (docSnap.exists()) {
                 showMsg("Este usuario ya existe", "text-orange-500");
-                btnRegister.innerHTML = 'Crear Estudiante';
-                btnRegister.disabled = false;
             } else {
+                // Crear el usuario en la base de datos
                 await setDoc(docRef, {
                     password: pass,
                     created: new Date().toISOString(),
@@ -276,33 +218,18 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
                 
                 showMsg("✅ Estudiante creado con éxito", "text-green-600");
                 setTimeout(() => {
+                    // Volver al login automáticamente
                     viewRegister.classList.add('hidden');
                     viewLogin.classList.remove('hidden');
                     document.getElementById('login-user').value = user;
                     msg.innerText = "Ya puedes entrar con la cuenta nueva";
-                    btnRegister.innerHTML = 'Crear Estudiante';
-                    btnRegister.disabled = false;
                 }, 1500);
             }
         } catch (e) {
             console.error(e);
             showMsg("Error al crear usuario", "text-red-500");
-            btnRegister.innerHTML = 'Crear Estudiante';
-            btnRegister.disabled = false;
         }
-    }
-
-    document.getElementById('btn-register').onclick = performRegister;
-
-    document.getElementById('reg-user').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performRegister();
-    });
-    document.getElementById('reg-pass').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performRegister();
-    });
-    document.getElementById('reg-master').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') performRegister();
-    });
+    };
 
     function showMsg(text, color) {
         msg.className = `text-center text-sm font-bold min-h-[20px] ${color}`;
@@ -319,14 +246,11 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
     }
   }
 
+  // ===== INICIALIZACIÓN =====
   function init() {
     const user = checkAuth();
     if (!user) {
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', renderAuthScreen);
-      } else {
-        renderAuthScreen();
-      }
+      setTimeout(renderAuthScreen, 1500);
     } else {
       console.log("👤 Sesión activa:", user.name);
       syncDown(user.name); 
