@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting (nclexpass)
+name: Deploy Firebase Hosting
 
 on:
   push:
@@ -9,14 +9,11 @@ on:
 jobs:
   deploy_hosting:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Deploy to Firebase Hosting (site: nclexpass)
-        uses: w9jds/firebase-action@v15.5.1
+      - uses: w9jds/firebase-action@v15.5.1
         with:
-          args: deploy --only hosting --project nclex-masterclass-b009c --site nclexpass
+          args: "deploy --only hosting --project nclex-masterclass-b009c --site nclexpass"
         env:
           GCP_SA_KEY: ${{ secrets.NUEVO_FIREBASE_KEY }}
