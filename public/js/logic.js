@@ -1,4 +1,4 @@
-/* logic.js — Core navigation + Search + Progress + NGN + LIBRARY (VERSIÓN 4.1) */
+/* logic.js — Core navigation + Search + Progress + NGN + LIBRARY (FINAL REPAIRED) */
 
 (function () {
     'use strict';
@@ -7,7 +7,6 @@
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   
-    // Mapa de colores semánticos
     const colorMap = {
         blue:   { bg: 'bg-blue-500',   grad: 'from-blue-500 to-blue-600',   rgb: '59, 130, 246' },
         purple: { bg: 'bg-purple-500', grad: 'from-purple-500 to-purple-600', rgb: '168, 85, 247' },
@@ -22,7 +21,7 @@
 
     const getColor = (colorName) => colorMap[colorName] || colorMap['blue'];
   
-    // ===== ESTADO GLOBAL =====
+    // ===== ESTADO =====
     const state = {
         topics: [],
         currentRoute: 'home',
@@ -32,9 +31,7 @@
         isRendering: false,
         scrollPositions: {},
         updateQueue: [],
-        lastUpdate: 0,
-        streak: 0,
-        lastVisit: null
+        streak: 0
     };
   
     // ===== PERSISTENCIA =====
@@ -44,33 +41,10 @@
             state.completedTopics = stored ? JSON.parse(stored) : [];
         } catch (e) { state.completedTopics = []; }
         state.currentLang = localStorage.getItem('nclex_lang') || 'es';
-        
         try {
             const streakData = JSON.parse(localStorage.getItem('nclex_streak') || '{}');
             state.streak = streakData.streak || 0;
-            state.lastVisit = streakData.lastVisit ? new Date(streakData.lastVisit) : null;
         } catch (e) { state.streak = 0; }
-    }
-
-    function updateStreak() {
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        if (!state.lastVisit) { state.streak = 1; } 
-        else {
-            const last = new Date(state.lastVisit);
-            last.setHours(0,0,0,0);
-            const diff = Math.floor((today - last) / (1000 * 60 * 60 * 24));
-            if (diff === 1) state.streak += 1;
-            else if (diff > 1) state.streak = 1;
-        }
-        state.lastVisit = new Date();
-        localStorage.setItem('nclex_streak', JSON.stringify({ streak: state.streak, lastVisit: state.lastVisit }));
-    }
-
-    // ===== HELPERS UI =====
-    function normalizeFaIcon(icon) {
-        if (!icon || typeof icon !== 'string') return 'book';
-        return icon.replace('fa-solid ', '').replace('fa-', '').trim();
     }
 
     function getBilingualTitle(t) {
@@ -81,18 +55,11 @@
         return t.title;
     }
 
-    function getClinicalBadges(t) {
-        let titleStr = typeof t.title === 'object' ? ((t.title.es || "") + (t.title.en || "")) : String(t.title);
-        const title = titleStr.toLowerCase();
-        let badges = '';
-        if(title.includes('pharm') || title.includes('drug')) badges += `<span title="Pharm" class="mr-1">💊</span>`;
-        if(title.includes('pediatric') || title.includes('child')) badges += `<span title="Peds" class="mr-1">👶</span>`;
-        if(title.includes('maternity') || title.includes('labor')) badges += `<span title="OB" class="mr-1">🤰</span>`;
-        if(title.includes('priority') || title.includes('emergency')) badges += `<span title="Priority" class="mr-1">🚨</span>`;
-        return badges;
+    function normalizeFaIcon(icon) {
+        if (!icon || typeof icon !== 'string') return 'book';
+        return icon.replace('fa-solid ', '').replace('fa-', '').trim();
     }
 
-    // ===== REGISTRO DE TOPICS =====
     function registerTopic(topic) {
         if (!topic || !topic.id) return;
         const existingIndex = state.topics.findIndex(t => t.id === topic.id);
@@ -141,14 +108,12 @@
             if (index > -1) state.completedTopics.splice(index, 1);
             else state.completedTopics.push(topicId);
             localStorage.setItem('nclex_progress', JSON.stringify(state.completedTopics));
-            if(window.NCLEX_AUTH?.forceSave) window.NCLEX_AUTH.forceSave();
             render(state.currentRoute);
             updateNav();
         },
         getTopics: () => [...state.topics],
         getCurrentRoute: () => state.currentRoute,
-        getCurrentLang: () => state.currentLang,
-        refreshUI: () => { render(state.currentRoute); updateNav(); }
+        getCurrentLang: () => state.currentLang
     };
 
     function clearSearchResults() {
@@ -159,13 +124,11 @@
         $$('input[type="search"], #home-search, #global-search').forEach(el => el.value = '');
     }
   
-    // ===== RENDERIZADO HOME (Con Buscador y Librería) =====
+    // ===== RENDERIZADO HOME (RECUPERADO) =====
     function renderHome() {
         const total = state.topics.length;
         const completed = state.completedTopics.length;
         const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-        let msg = percent < 50 ? t('¡Vamos!', 'Let\'s go!') : t('¡Excelente!', 'Great job!');
-        const incompleteTopics = state.topics.filter(t => !state.completedTopics.includes(t.id)).slice(0, 3);
         const skinCount = window.NCLEX_SKINS?.all?.length || 20;
         const brandColor = `rgb(var(--brand-blue-rgb))`;
 
@@ -180,7 +143,7 @@
 
             <div class="relative group mb-10 z-30">
                 <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                    <i class="fa-solid fa-search text-[var(--brand-text-muted)] text-xl group-focus-within:text-[var(--brand-blue)]"></i>
+                    <i class="fa-solid fa-search text-[var(--brand-text-muted)] text-xl"></i>
                 </div>
                 <input type="text" id="home-search" autocomplete="off"
                     class="w-full p-5 pl-14 rounded-2xl bg-[var(--brand-card)] border-2 border-[var(--brand-border)] text-[var(--brand-text)] placeholder-[var(--brand-text-muted)] focus:border-[rgb(var(--brand-blue-rgb))] focus:ring-4 focus:ring-[rgba(var(--brand-blue-rgb),0.1)] transition-all text-lg shadow-sm font-medium"
@@ -205,7 +168,6 @@
                         <div class="w-full h-4 bg-[var(--brand-bg)] rounded-full overflow-hidden border border-[var(--brand-border)] mb-3">
                             <div class="h-full transition-all duration-1000 ease-out" style="width: ${percent}%; background: linear-gradient(90deg, ${brandColor}, rgba(var(--brand-blue-rgb), 0.7));"></div>
                         </div>
-                        <p class="text-sm text-[var(--brand-text-muted)] italic">${msg}</p>
                     </div>
                 </div>
             </div>
@@ -217,22 +179,20 @@
                 ${renderMainCard('skins', 'Skins', `${skinCount} Themes`, 'palette', brandColor)}
             </div>
 
-            <h3 class="text-lg font-bold text-[var(--brand-text)] mb-4 pl-1">Study Modules</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 ${state.topics.map(t => {
                     const isComplete = state.completedTopics.includes(t.id);
                     const c = getColor(t.color);
                     return `
                         <div onclick="window.nclexApp.navigate('topic/${t.id}')" 
-                            class="bg-[var(--brand-card)] p-6 rounded-2xl shadow-sm border ${isComplete ? 'border-green-500' : 'border-[var(--brand-border)]'} hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden">
-                            <div class="flex items-start justify-between mb-4 relative z-10">
+                            class="bg-[var(--brand-card)] p-6 rounded-2xl shadow-sm border ${isComplete ? 'border-green-500' : 'border-[var(--brand-border)]'} hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group">
+                            <div class="flex items-start justify-between mb-4">
                                 <div class="w-12 h-12 bg-gradient-to-br ${c.grad} rounded-xl flex items-center justify-center text-white shadow-md">
                                     <i class="fa-solid fa-${normalizeFaIcon(t.icon)} text-xl"></i>
                                 </div>
-                                <div class="flex gap-1">${getClinicalBadges(t)}</div>
                             </div>
-                            <h3 class="text-lg font-bold mb-2 text-[var(--brand-text)] truncate relative z-10">${getBilingualTitle(t)}</h3>
-                            <div class="w-full h-1 bg-[var(--brand-bg)] rounded-full overflow-hidden relative z-10">
+                            <h3 class="text-lg font-bold mb-2 text-[var(--brand-text)] truncate">${getBilingualTitle(t)}</h3>
+                            <div class="w-full h-1 bg-[var(--brand-bg)] rounded-full overflow-hidden">
                                 <div class="h-full ${c.bg} w-0 group-hover:w-full transition-all duration-500"></div>
                             </div>
                         </div>
@@ -258,7 +218,7 @@
         `;
     }
 
-    // RENDERIZADOR DE PÁGINAS (SKINS, LIBRARY, ETC)
+    // RENDERIZADOR GENERAL
     function render(route) {
         if (state.isRendering) return;
         const view = $('#app-view');
@@ -273,16 +233,19 @@
                 let content = '';
                 
                 if (route === 'home') content = renderHome();
-                else if (route === 'skins') content = renderSkinSelector();
-                // RUTA DE LIBRERÍA (RECUPERADA)
-                else if (route === 'library' && window.renderLibraryPage) content = window.renderLibraryPage();
-                else if (route === 'simulator' && window.renderSimulatorPage) content = window.renderSimulatorPage();
-                else if (route === 'ngn-sepsis' && window.renderNGNCase) content = window.renderNGNCase('sepsis');
+                else if (route === 'skins') content = window.SkinSystem?.renderSkinSelector() || 'Cargando...';
+                // LIBRERÍA CONECTADA AQUÍ
+                else if (route === 'library') {
+                    if (window.renderLibraryPage) content = window.renderLibraryPage();
+                    else content = '<div class="p-10 text-center">Cargando librería... Si no aparece, recarga la página.</div>';
+                }
+                else if (route === 'simulator') content = window.renderSimulatorPage ? window.renderSimulatorPage() : 'Cargando simulador...';
+                else if (route === 'ngn-sepsis') content = window.renderNGNCase ? window.renderNGNCase('sepsis') : 'Cargando caso...';
                 else if (route.startsWith('topic/')) {
                     const topicId = route.split('/')[1];
                     const topic = state.topics.find(t => t.id === topicId);
                     if (topic) {
-                        const topicContent = (typeof topic.render === 'function') ? topic.render() : (topic.content || 'Content unavailable');
+                        const topicContent = (typeof topic.render === 'function') ? topic.render() : (topic.content || 'Contenido no disponible');
                         const isCompleted = state.completedTopics.includes(topicId);
                         content = `
                             <button onclick="window.nclexApp.navigate('home')" class="mb-4 text-sm font-bold text-[var(--brand-blue)] hover:underline">← Home</button>
@@ -312,42 +275,6 @@
                 });
             }
         }, 50);
-    }
-
-    // RENDERIZADOR DE SKINS
-    function renderSkinSelector() {
-        if (!window.NCLEX_SKINS) return '<div class="p-8 text-center">Loading skins...</div>';
-        const skins = window.NCLEX_SKINS.all;
-        const currentId = window.NCLEX_SKINS.current();
-        return `
-            <header class="mb-8">
-                <button onclick="window.nclexApp.navigate('home')" class="mb-4 text-sm font-bold text-[var(--brand-blue)] hover:underline">← Volver</button>
-                <h1 class="text-3xl font-black text-[var(--brand-text)]">Galería de Temas</h1>
-            </header>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-                ${skins.map(skin => {
-                    const isActive = skin.id === currentId;
-                    const grad = `linear-gradient(135deg, ${skin.colors[0]}, ${skin.colors[2]})`;
-                    return `
-                        <div onclick="window.NCLEX_SKINS.apply('${skin.id}')" 
-                             class="cursor-pointer rounded-2xl border-2 ${isActive ? 'border-[var(--brand-blue)] ring-2 ring-[var(--brand-blue)] ring-opacity-50' : 'border-[var(--brand-border)]'} overflow-hidden transition-all hover:scale-[1.02] bg-[var(--brand-card)]">
-                            <div class="h-24 w-full relative" style="background: ${grad}">
-                                <div class="absolute inset-0 flex items-center justify-center">
-                                    <i class="fa-solid fa-${skin.icon} text-3xl text-white drop-shadow-md"></i>
-                                </div>
-                                ${skin.isMasterpiece ? '<span class="absolute top-2 right-2 bg-yellow-400 text-black text-xs font-black px-2 py-0.5 rounded-full shadow">PRO</span>' : ''}
-                            </div>
-                            <div class="p-4">
-                                <h3 class="font-bold text-[var(--brand-text)] flex justify-between items-center">
-                                    <span>${skin.name}</span>
-                                    ${isActive ? '<i class="fa-solid fa-circle-check text-[var(--brand-blue)]"></i>' : ''}
-                                </h3>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
     }
   
     function updateNav() {
@@ -388,7 +315,6 @@
     // ===== INIT =====
     function init() {
         loadPersistedState();
-        updateStreak();
         applyLanguageGlobal();
         state.isAppLoaded = true;
         updateNav();

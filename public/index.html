@@ -286,11 +286,10 @@
             window.NCLEX_VERSION = '4.0.0'; 
             window.__nclexReady = false;
             
-            // Función auxiliar para el botón de tema (compatible con tu botón nuevo)
+            // Función auxiliar para el botón de tema
             window.toggleThemeSmart = function() {
                 if (!window.NCLEX_SKINS) return;
                 const current = window.NCLEX_SKINS.current();
-                // Alterna entre Neural Vision y Obsidian
                 const next = (current === 'dark-obsidian') ? 'neural-vision' : 'dark-obsidian';
                 window.NCLEX_SKINS.apply(next);
             };
@@ -307,13 +306,14 @@
                 }
             };
             
-            // Registrar SW
+            // Register Service Worker
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('/sw.js')
                     .then(reg => console.log('SW Registered'))
                     .catch(err => console.log('SW Error:', err));
             }
 
+            // Fallback loader
             setTimeout(window.hideLoader, 5000);
             document.addEventListener('nclex:ready', window.hideLoader);
         })();
