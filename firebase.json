@@ -19,7 +19,7 @@
     ],
     "rewrites": [
       {
-        "source": "**",
+        "source": "!**/*.{js,json,css,html,png,jpg,jpeg,svg,webp,manifest}",
         "destination": "/index.html"
       }
     ]
