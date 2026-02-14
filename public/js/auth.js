@@ -26,7 +26,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstati
 
   // ===== 2. SEGURIDAD CON SHA-256 =====
   // Hash de tu clave maestra (generado con SHA-256)
-  const MASTER_HASH = "TU_HASH_AQUI"; // <--- Reemplaza con el hash de tu clave
+  const MASTER_HASH = "612245dc8a2beb47bfe2011da7402ecee514ec795d47a665fa61d43863280ce0";
   
   async function verifyMasterKey(inputKey) {
       const cleanInput = inputKey.trim();
